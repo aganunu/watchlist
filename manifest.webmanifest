@@ -1,24 +1,9 @@
 {
-  "name": "Мой ватчлист — фильмы и сериалы",
-  "short_name": "Мой ватчлист",
+  "name": "Мой ватчлист",
+  "short_name": "Ватчлист",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#17120e",
-  "theme_color": "#17120e",
-  "lang": "ru",
-  "description": "Личный офлайн-ватчлист фильмов и сериалов.",
-  "icons": [
-    {
-      "src": "icon-180.png",
-      "sizes": "180x180",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ]
+  "background_color": "#14100d",
+  "theme_color": "#14100d",
+  "lang": "ru"
 }

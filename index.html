@@ -2,12 +2,6 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#17120e">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Мой ватчлист">
-<link rel="apple-touch-icon" href="icon-180.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Список к просмотру — фильмы и сериалы</title>
 <style>
@@ -143,8 +137,14 @@ textarea.note-input{width:100%;min-height:72px;background:var(--bg2);border:1px 
 .kbd{font-size:10px;color:var(--gray);margin-top:8px;text-align:center}
 @media(max-width:620px){.row{grid-template-columns:28px 24px 52px 1fr}.actions-cell{grid-column:1/-1;flex-direction:row;justify-content:flex-start;margin-top:4px}.poster-cell{width:52px;height:78px}.list.grid-view{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}}
 
-/* PWA enhancements */
-.extra-links{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}.extra-links a{font-size:10px;color:var(--gold);text-decoration:none;border:1px solid var(--rule);padding:3px 6px;border-radius:6px}.today-badge{display:inline-block;color:var(--gold);font-size:10px;border:1px solid var(--gold);border-radius:10px;padding:2px 6px;margin-left:5px}.theme-light{--bg:#f6f1e9;--panel:#fffaf3;--ink:#211b16;--muted:#71675d;--rule:#d9cdbd;--gold:#9b6d18}.theme-dark{--bg:#07090c;--panel:#11151a;--ink:#edf1f5;--muted:#929da8;--rule:#29313a;--gold:#e0ad55}.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.calendar-grid>div{min-height:48px;border:1px solid var(--rule);border-radius:7px;padding:5px;font-size:10px}.calendar-grid .has{border-color:var(--gold);color:var(--gold)}.compare-hit{border:1px solid var(--gold);background:rgba(212,162,76,.08);padding:8px;border-radius:8px;margin:5px 0}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.form-grid .full{grid-column:1/-1}.form-grid input,.form-grid select,.form-grid textarea{width:100%}@media(max-width:600px){.form-grid{grid-template-columns:1fr}.form-grid .full{grid-column:auto}}
+/* v2 additions */
+.enhanced-actions{max-width:960px;margin:10px auto 0;padding:0 16px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.enhanced-actions .qa-btn{font-size:13px}
+.slot-card{max-width:960px;margin:10px auto 0;padding:0 16px;display:none}.slot-card.visible{display:block}.slot-inner{background:var(--card);border:1px solid var(--gold-dim);border-radius:12px;padding:12px 14px;display:flex;gap:12px;align-items:center}.slot-inner .slot-main{flex:1}.slot-title{font-family:'Bebas Neue',sans-serif;color:var(--gold);letter-spacing:.08em}.slot-name{font-weight:700;margin-top:3px}.slot-meta{font-size:11px;color:var(--muted);margin-top:3px}
+.add-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.add-grid .full{grid-column:1/-1}.add-grid input,.add-grid textarea,.add-grid select{width:100%;padding:10px;border:1px solid var(--rule);border-radius:8px;background:var(--bg2);color:var(--cream);font:inherit}.add-grid textarea{min-height:90px;resize:vertical}.result-card{background:var(--bg2);border:1px solid var(--rule);border-radius:9px;padding:11px;margin:8px 0}.hint{font-size:11px;color:var(--muted);line-height:1.45}.search-links{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:8px}.search-links a{display:block;text-align:center;text-decoration:none}.compare-hit{border:1px solid var(--gold-dim)!important}.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.cal-cell{min-height:48px;background:var(--bg2);border:1px solid var(--rule);border-radius:6px;padding:5px;font-size:10px}.cal-cell.has{border-color:var(--gold-dim);color:var(--gold)}.cal-head{color:var(--muted);font-weight:700}.theme-row{display:flex;gap:8px;flex-wrap:wrap}.theme-row .btn{flex:1;min-width:100px}
+.poster-art.has-image{padding:0;overflow:hidden}.poster-art.has-image img{width:100%;height:100%;object-fit:cover;display:block}.poster-art.has-image .poster-overlay{position:absolute;inset:auto 0 0;padding:28px 7px 7px;background:linear-gradient(transparent,rgba(0,0,0,.88));color:#fff}.poster-art.has-image{position:relative}
+@media(max-width:560px){.add-grid{grid-template-columns:1fr}.add-grid .full{grid-column:auto}.search-links{grid-template-columns:1fr}.slot-inner{align-items:flex-start}}
+
 </style>
 </head>
 <body>
@@ -162,15 +162,18 @@ textarea.note-input{width:100%;min-height:72px;background:var(--bg2);border:1px 
 <div class="quick-actions">
   <button class="qa-btn primary" id="rouletteBtn">🎲 Что посмотреть?</button>
   <button class="qa-btn" id="moodRouletteBtn">🌙 По настроению</button>
-  <button class="qa-btn" id="todayBtn">🌆 Сегодня вечером</button>
-  <button class="qa-btn" id="doubleBtn">🎬+📺 Двойной сеанс</button>
-  <button class="qa-btn" id="addBtn">➕ Добавить</button>
-  <button class="qa-btn" id="calendarBtn">🗓 Календарь</button>
-  <button class="qa-btn" id="compareBtn">👥 С другом</button>
-  <button class="qa-btn" id="themeBtn">🎨 Тема</button>
   <button class="qa-btn" id="statsBtn">🏆 Статистика</button>
-  <button class="qa-btn" id="exportBtn">📤 Импорт / экспорт</button>
+  <button class="qa-btn" id="exportBtn">📤 Экспорт</button>
 </div>
+<div class="enhanced-actions">
+  <button class="qa-btn primary" id="addFoundBtn">➕ Добавить найденное</button>
+  <button class="qa-btn" id="tonightBtn">🌆 Сегодня вечером</button>
+  <button class="qa-btn" id="doubleBtn">🎬+📺 Двойной сеанс</button>
+  <button class="qa-btn" id="calendarBtn">🗓 Календарь</button>
+  <button class="qa-btn" id="compareBtn">👥 Сравнить с другом</button>
+  <button class="qa-btn" id="themeBtn">🎨 Тема</button>
+</div>
+<div class="slot-card" id="tonightSlot"></div>
 <div class="watch-next" id="watchNext"><h2>📌 На эти выходные</h2><div class="wn-list" id="wnList"></div></div>
 <div class="controls">
   <div class="tabs">
@@ -178,7 +181,7 @@ textarea.note-input{width:100%;min-height:72px;background:var(--bg2);border:1px 
     <button class="tab" data-tab="series">Сериалы</button>
   </div>
   <div class="right-controls">
-    <input class="search" id="search" placeholder="Поиск по названию, описанию и жанрам...">
+    <input class="search" id="search" placeholder="Поиск...">
     <select class="select-mini" id="sortSelect" title="Сортировка">
       <option value="default">По списку</option>
       <option value="rating-desc">★ рейтинг ↓</option>
@@ -211,7 +214,7 @@ textarea.note-input{width:100%;min-height:72px;background:var(--bg2);border:1px 
 </div>
 <div class="list" id="list"></div>
 <footer>
-  Офлайн-страница для личного пользования. Постеры — CSS-арт по жанру.<br>
+  Офлайн-страница для личного пользования. Постеры — CSS-арт по жанру; добавленные карточки могут иметь ссылку на внешний постер.<br>
   Горячие клавиши: <b>R</b> рулетка · <b>S</b> статистика · <b>G</b> сетка · <b>/</b> поиск
   <div class="footer-actions">
     <button id="copyUnwatchedBtn">Скопировать непросмотренные</button>
@@ -228,7 +231,7 @@ let currentTab = 'movies', query = '', hideWatched = false, gridView = false;
 let activeGenres = new Set(), activeMood = null;
 let sortBy = 'default', minRating = 0;
 let watched = new Set(), pins = new Set(), ratings = {}, notes = {};
-let customItems = [], watchedDates = {}, todayPick = null, themeMode = 'warm';
+let addedItems = [], watchedDates = {}, tonightId = null, appTheme = 'warm';
 
 const MOOD_GENRES = {
   thrill: ['триллер','криминал','боевик','детектив'],
@@ -250,19 +253,22 @@ function loadState(){
   try{ const s=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
     watched=new Set(s.watched||[]); pins=new Set(s.pins||[]);
     ratings=s.ratings||{}; notes=s.notes||{}; gridView=!!s.gridView;
-    customItems=s.customItems||[]; watchedDates=s.watchedDates||{}; todayPick=s.todayPick||null; themeMode=s.themeMode||'warm';
+    addedItems=Array.isArray(s.addedItems)?s.addedItems:[]; watchedDates=s.watchedDates||{}; tonightId=s.tonightId||null; appTheme=s.appTheme||'warm';
+    applyTheme();
   }catch(e){}
 }
 function saveState(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({watched:[...watched],pins:[...pins],ratings,notes,gridView,customItems,watchedDates,todayPick,themeMode}));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({watched:[...watched],pins:[...pins],ratings,notes,gridView,addedItems,watchedDates,tonightId,appTheme}));
 }
 function idFor(it){ return it.type+'::'+it.title+'::'+(it.year||''); }
 function ratingClass(r){ if(r==null) return 'none'; if(r>=7.5) return 'high'; if(r>=6) return 'mid'; return 'low'; }
-function allItems(){ return [...DATA.movies,...DATA.series,...customItems]; }
+function currentData(){ return [...DATA[currentTab], ...addedItems.filter(it=>it.type===(currentTab==='movies'?'M':'S'))]; }
+function allItems(){ return [...DATA.movies,...DATA.series,...addedItems]; }
 function getUnwatched(){ return allItems().filter(it=>!watched.has(idFor(it))); }
 function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function posterHTML(it, tall){
+  if(it.poster_url){ const h=tall?'height:100%;min-height:200px':''; return `<div class="poster-art has-image" style="${h}"><img src="${escapeHtml(it.poster_url)}" alt=""><div class="poster-overlay"><b>${escapeHtml(it.title)}</b><br><span>${it.year||''}</span></div></div>`; }
   const gs=it.genres||[];
   const g=gs[0]||'драма';
   const cols=GENRE_COLORS[g]||['#1c1611','#d4a24c'];
@@ -290,7 +296,7 @@ function updateProgress(){
 }
 
 function collectGenres(){
-  const g=new Set(); allItems().filter(it=>currentTab==='movies'?it.type==='M':it.type==='S').forEach(it=>(it.genres||[]).forEach(x=>g.add(x)));
+  const g=new Set(); currentData().forEach(it=>(it.genres||[]).forEach(x=>g.add(x)));
   return [...g].sort();
 }
 function renderGenreBar(){
@@ -317,9 +323,8 @@ function renderWatchNext(){
 }
 
 function filteredItems(){
-  let items=allItems().filter(it=>{
-    if((currentTab==='movies' && it.type!=='M') || (currentTab==='series' && it.type!=='S')) return false;
-    if(query){ const hay=[it.title,it.desc,(it.genres||[]).join(' ')].filter(Boolean).join(' ').toLowerCase(); if(!hay.includes(query.toLowerCase())) return false; }
+  let items=currentData().filter(it=>{
+    if(query){ const hay=[it.title,it.desc||'',...(it.genres||[])].join(' ').toLowerCase(); if(!hay.includes(query.toLowerCase())) return false; }
     if(hideWatched && watched.has(idFor(it))) return false;
     if(minRating>0 && (it.rating==null || it.rating<minRating)) return false;
     if(activeGenres.size){ const gs=it.genres||[]; if(![...activeGenres].every(g=>gs.includes(g))) return false; }
@@ -363,12 +368,6 @@ function render(){
         <p class="title"><a href="${it.kp_url}" target="_blank" rel="noopener">${escapeHtml(it.title)}</a>${yr}</p>
         <div class="meta-row">${genreHtml}</div>
         <p class="desc">${escapeHtml(it.desc||'')}</p>
-         <div class="extra-links">
-           <a target="_blank" rel="noopener" href="${it.kp_url||('#')}">Кинопоиск</a>
-           <a target="_blank" rel="noopener" href="${it.imdb_url||('https://www.imdb.com/find/?q='+encodeURIComponent(it.title))}">IMDb</a>
-           <a target="_blank" rel="noopener" href="${it.trailer_url||('https://www.youtube.com/results?search_query='+encodeURIComponent(it.title+' трейлер'))}">Трейлер</a>
-           ${todayPick===id?' <span class="today-badge">🌆 Сегодня</span>':''}
-         </div>
         ${starsHtml}${noteHtml}
       </div>
       <div class="actions-cell">
@@ -535,73 +534,37 @@ function openStats(){
 
 function openExport(){
   openModal(`<h3>📤 Импорт и экспорт</h3>
+    <p class="hint">Резервная копия содержит прогресс, оценки, заметки, добавленные карточки, календарь и слот «Сегодня вечером».</p>
     <div class="btn-row" style="flex-direction:column;align-items:stretch">
-      <button class="btn primary" id="dlJson">Скачать JSON</button>
+      <button class="btn primary" id="dlJson">Скачать полный JSON</button>
       <button class="btn" id="copyJson">Скопировать JSON</button>
       <button class="btn" id="copyMessenger">Список для мессенджера</button>
       <label class="btn" style="cursor:pointer">Импорт JSON<input type="file" id="importFile" accept=".json,application/json" style="display:none"></label>
     </div>`);
-  document.getElementById('dlJson').onclick=()=>{
-    const blob=new Blob([JSON.stringify({watched:[...watched],pins:[...pins],ratings,notes,customItems,watchedDates,todayPick,exported:new Date().toISOString()},null,2)],{type:'application/json'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='watchlist-backup.json'; a.click(); toast('Скачано');
-  };
-  document.getElementById('copyJson').onclick=()=>navigator.clipboard.writeText(JSON.stringify({watched:[...watched],pins:[...pins],ratings,notes},null,2)).then(()=>toast('Скопировано'));
-  document.getElementById('copyMessenger').onclick=()=>{
-    const text='🎬 Хочу посмотреть:\\n\\n'+getUnwatched().map(it=>`• ${it.title}${it.year?' ('+it.year+')':''} — ${it.type==='M'?'фильм':'сериал'}${it.rating!=null?' ★'+it.rating:''}`).join('\\n');
-    navigator.clipboard.writeText(text).then(()=>toast('Скопировано'));
-  };
-  document.getElementById('importFile').onchange=e=>{
-    const f=e.target.files[0]; if(!f) return;
-    const r=new FileReader(); r.onload=()=>{ try{
-      const s=JSON.parse(r.result);
-      if(s.watched) watched=new Set(s.watched); if(s.pins) pins=new Set(s.pins);
-      if(s.ratings) ratings=s.ratings; if(s.notes) notes=s.notes;
-      saveState(); updateProgress(); render(); closeModal(); toast('Импорт ок');
-    }catch(err){ toast('Ошибка файла'); }}; r.readAsText(f);
-  };
+  const payload=()=>({version:2,watched:[...watched],pins:[...pins],ratings,notes,addedItems,watchedDates,tonightId,appTheme,exported:new Date().toISOString()});
+  document.getElementById('dlJson').onclick=()=>{const blob=new Blob([JSON.stringify(payload(),null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='watchlist-backup-v2.json';a.click();toast('Скачано');};
+  document.getElementById('copyJson').onclick=()=>navigator.clipboard.writeText(JSON.stringify(payload(),null,2)).then(()=>toast('Скопировано'));
+  document.getElementById('copyMessenger').onclick=()=>{const text='🎬 Хочу посмотреть:\n\n'+getUnwatched().map(it=>`• ${it.title}${it.year?' ('+it.year+')':''} — ${it.type==='M'?'фильм':'сериал'}${it.rating!=null?' ★'+it.rating:''}`).join('\n');navigator.clipboard.writeText(text).then(()=>toast('Скопировано'));};
+  document.getElementById('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(x.watched)watched=new Set(x.watched);if(x.pins)pins=new Set(x.pins);if(x.ratings)ratings=x.ratings;if(x.notes)notes=x.notes;if(Array.isArray(x.addedItems))addedItems=x.addedItems;if(x.watchedDates)watchedDates=x.watchedDates;if('tonightId' in x)tonightId=x.tonightId||null;if(x.appTheme)appTheme=x.appTheme;saveState();applyTheme();updateProgress();render();closeModal();toast('Импорт готов');}catch(err){toast('Ошибка JSON');}};r.readAsText(f);};
 }
 
 
-function openAddModal(){
-  openModal(`<h3>➕ Добавить фильм или сериал</h3>
-  <div class="form-grid">
-   <input id="aTitle" class="full" placeholder="Название *">
-   <input id="aYear" type="number" placeholder="Год">
-   <select id="aType"><option value="M">Фильм</option><option value="S">Сериал</option></select>
-   <input id="aRating" type="number" min="0" max="10" step="0.1" placeholder="Рейтинг, например 7.8">
-   <input id="aGenres" placeholder="Жанры через запятую">
-   <input id="aKP" class="full" placeholder="Ссылка Кинопоиск">
-   <input id="aIMDb" class="full" placeholder="Ссылка IMDb">
-   <input id="aTrailer" class="full" placeholder="Ссылка на трейлер">
-   <textarea id="aDesc" class="full" placeholder="Описание"></textarea>
-  </div><div class="btn-row"><button class="btn primary" id="saveAdd">Добавить в список</button></div>`);
-  document.getElementById('saveAdd').onclick=()=>{
-   const title=document.getElementById('aTitle').value.trim(); if(!title){toast('Введите название');return;}
-   const item={title,year:+document.getElementById('aYear').value||null,type:document.getElementById('aType').value,rating:+document.getElementById('aRating').value||null,desc:document.getElementById('aDesc').value.trim(),kp_url:document.getElementById('aKP').value.trim()||('https://www.kinopoisk.ru/index.php?kp_query='+encodeURIComponent(title)),imdb_url:document.getElementById('aIMDb').value.trim()||('https://www.imdb.com/find/?q='+encodeURIComponent(title)),trailer_url:document.getElementById('aTrailer').value.trim()||('https://www.youtube.com/results?search_query='+encodeURIComponent(title+' трейлер')),genres:document.getElementById('aGenres').value.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean),poster:'🎬',runtime:110,custom:true};
-   const id=idFor(item); if(allItems().some(x=>idFor(x)===id)){toast('Такой фильм/сериал уже есть');return;} customItems.push(item); saveState(); renderGenreBar(); render(); closeModal(); toast('Добавлено');
-  };
+function makeLinks(title,year){const q=encodeURIComponent((title+(year?' '+year:'')).trim());return {kp:'https://www.kinopoisk.ru/index.php?kp_query='+encodeURIComponent(title).replace(/%20/g,'+'),imdb:'https://www.imdb.com/find/?q='+q,trailer:'https://www.youtube.com/results?search_query='+encodeURIComponent((title+(year?' '+year:'')+' трейлер').trim())};}
+function openAddFound(prefill=''){const p=prefill;openModal(`<h3>➕ Добавить найденное</h3><p class="hint">Введи название. Ссылки на Кинопоиск, IMDb и трейлер создадутся автоматически. Рейтинг/постер можно добавить вручную.</p><div class="add-grid"><input class="full" id="afTitle" placeholder="Название" value="${escapeHtml(p)}"><select id="afType"><option value="M">🎬 Фильм</option><option value="S">📺 Сериал</option></select><input id="afYear" type="number" placeholder="Год"><input id="afRating" type="number" min="0" max="10" step="0.1" placeholder="Рейтинг (0–10)"><input id="afRuntime" type="number" placeholder="Минут / длительность"><input id="afGenres" placeholder="Жанры через запятую"><input class="full" id="afPoster" placeholder="Ссылка на постер (https://...)" ><textarea class="full" id="afDesc" placeholder="Короткое описание"></textarea></div><div class="search-links"><button class="btn" id="afFind">🔎 Найти данные</button><a class="btn" id="afKP" target="_blank">Кинопоиск</a><a class="btn" id="afIMDB" target="_blank">IMDb</a><a class="btn" id="afYT" target="_blank">Трейлер</a></div><div class="btn-row"><button class="btn primary" id="afSave">Добавить в список</button></div>`);
+  const title=()=>document.getElementById('afTitle').value.trim(), year=()=>document.getElementById('afYear').value.trim();
+  function links(){const l=makeLinks(title(),year());document.getElementById('afKP').href=l.kp;document.getElementById('afIMDB').href=l.imdb;document.getElementById('afYT').href=l.trailer;}
+  document.getElementById('afTitle').oninput=links;document.getElementById('afYear').oninput=links;links();
+  document.getElementById('afFind').onclick=()=>{if(!title())return toast('Сначала название');links();toast('Открой Кинопоиск/IMDb и найди карточку');};
+  document.getElementById('afSave').onclick=()=>{const t=title();if(!t)return toast('Введите название');const y=year()?+year():null;const type=document.getElementById('afType').value;const links=makeLinks(t,y);const item={title:t,year:y,type,rating:document.getElementById('afRating').value?+document.getElementById('afRating').value:null,desc:document.getElementById('afDesc').value.trim()||'Добавлено вручную',kp_url:links.kp,imdb_url:links.imdb,trailer_url:links.trailer,genres:document.getElementById('afGenres').value.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean),poster:'🎬',poster_url:document.getElementById('afPoster').value.trim()||'',runtime:+document.getElementById('afRuntime').value||110,addedAt:new Date().toISOString()};const id=idFor(item);if(allItems().some(x=>idFor(x)===id))return toast('Такое уже есть');addedItems.push(item);saveState();closeModal();updateProgress();renderGenreBar();render();toast('Добавлено в список');};
 }
-function chooseToday(){
- const pool=getUnwatched(); if(!pool.length){toast('Нет непросмотренных');return;}
- const chosen=pool[Math.floor(Math.random()*pool.length)]; todayPick=idFor(chosen); saveState(); render();
- openModal(`<h3>🌆 Сегодня вечером</h3><div class="result-card"><div class="roulette-title">${escapeHtml(chosen.title)}</div><p>${escapeHtml(chosen.desc||'')}</p><div class="extra-links"><a target="_blank" href="${chosen.kp_url}">Кинопоиск</a><a target="_blank" href="${chosen.imdb_url||('https://www.imdb.com/find/?q='+encodeURIComponent(chosen.title))}">IMDb</a><a target="_blank" href="${chosen.trailer_url||('https://www.youtube.com/results?search_query='+encodeURIComponent(chosen.title+' трейлер'))}">Трейлер</a></div></div><div class="btn-row"><button class="btn primary" id="todayOpen">Открыть на КП</button><button class="btn" id="todayClear">Убрать слот</button></div>`);
- document.getElementById('todayOpen').onclick=()=>window.open(chosen.kp_url,'_blank');
- document.getElementById('todayClear').onclick=()=>{todayPick=null;saveState();render();closeModal()};
-}
-function openDouble(){
- const ms=allItems().filter(x=>x.type==='M'&&!watched.has(idFor(x))), ss=allItems().filter(x=>x.type==='S'&&!watched.has(idFor(x))); if(!ms.length||!ss.length){toast('Нужны непросмотренные фильм и сериал');return;}
- const m=ms[Math.floor(Math.random()*ms.length)],s=ss[Math.floor(Math.random()*ss.length)];
- openModal(`<h3>🎬+📺 Двойной сеанс</h3><div class="result-card"><b>🎬 ${escapeHtml(m.title)}</b><p>${escapeHtml(m.desc||'')}</p></div><div class="result-card"><b>📺 ${escapeHtml(s.title)}</b><p>${escapeHtml(s.desc||'')}</p></div><p class="kbd">Можно выбрать другой вариант повторным нажатием.</p>`);
-}
-function openCalendar(){
- const now=new Date(),y=now.getFullYear(),m=now.getMonth(),first=(new Date(y,m,1).getDay()+6)%7,days=new Date(y,m+1,0).getDate(); let h='<h3>🗓 Календарь просмотров</h3><div class="calendar-grid">'; ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].forEach(x=>h+='<div><b>'+x+'</b></div>'); for(let i=0;i<first;i++)h+='<div></div>'; for(let d=1;d<=days;d++){const k=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'),n=(watchedDates[k]||[]).length; h+='<div class="'+(n?'has':'')+'"><b>'+d+'</b>'+(n?'<br>🎬 '+n:'')+'</div>';} openModal(h+'</div><p class="kbd">Отметка просмотра автоматически записывает дату.</p>',true);
-}
-function openCompare(){
- openModal(`<h3>👥 Сравнение с другом</h3><p>Импортируй JSON, который друг экспортировал из этого ватчлиста.</p><label class="btn primary" style="display:inline-block">Выбрать JSON<input id="friendJson" type="file" accept=".json,application/json" style="display:none"></label><div id="compareResult" style="margin-top:12px"></div>`);
- document.getElementById('friendJson').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const s=JSON.parse(r.result),their=new Set([...(s.customItems||[])].map(x=>idFor(x)).concat(s.watched||[],s.pins||[]));const hits=allItems().filter(x=>their.has(idFor(x)));document.getElementById('compareResult').innerHTML='<p>Совпадений: <b>'+hits.length+'</b></p>'+hits.map(x=>'<div class="compare-hit">'+escapeHtml(x.title)+(x.year?' ('+x.year+')':'')+' · ★ '+(x.rating??'—')+'</div>').join('')||'<p>Совпадений нет.</p>';}catch(err){toast('Некорректный JSON')}};r.readAsText(f)};
-}
-function cycleTheme(){ themeMode=themeMode==='warm'?'dark':themeMode==='dark'?'light':'warm'; document.body.classList.remove('theme-dark','theme-light'); if(themeMode==='dark')document.body.classList.add('theme-dark'); if(themeMode==='light')document.body.classList.add('theme-light'); saveState(); toast('Тема: '+(themeMode==='warm'?'Тёплая':themeMode==='dark'?'Тёмная':'Светлая')); }
-function applyTheme(){document.body.classList.remove('theme-dark','theme-light');if(themeMode==='dark')document.body.classList.add('theme-dark');if(themeMode==='light')document.body.classList.add('theme-light');}
+function openFinder(){openModal(`<h3>🔎 Найти фильм/сериал</h3><p class="hint">Это офлайн-менеджер: без API-ключа он не может надёжно подтягивать чужие базы прямо внутрь страницы. Поэтому поиск открывает проверенные карточки в новой вкладке, а затем найденное можно добавить одной формой.</p><input id="finderQ" class="search" style="width:100%;padding:11px" placeholder="Например: Интерстеллар 2014"><div class="search-links"><button class="btn primary" id="finderGo">Искать</button><button class="btn" id="finderAdd">➕ Добавить вручную</button></div><div id="finderLinks"></div>`);document.getElementById('finderGo').onclick=()=>{const q=document.getElementById('finderQ').value.trim();if(!q)return toast('Введите название');const e=encodeURIComponent(q);document.getElementById('finderLinks').innerHTML='<div class="search-links"><a class="btn" target="_blank" href="https://www.kinopoisk.ru/index.php?kp_query='+encodeURIComponent(q).replace(/%20/g,'+')+'">Кинопоиск</a><a class="btn" target="_blank" href="https://www.imdb.com/find/?q='+e+'">IMDb</a><a class="btn" target="_blank" href="https://www.youtube.com/results?search_query='+encodeURIComponent(q+' трейлер')+'">YouTube</a></div>';};document.getElementById('finderAdd').onclick=()=>{const q=document.getElementById('finderQ').value.trim();openAddFound(q);};}
+function openTonight(){const it=tonightId?allItems().find(x=>idFor(x)===tonightId):null;if(!it){const pool=getUnwatched();if(!pool.length)return toast('Все просмотрены');const chosen=pool[Math.floor(Math.random()*pool.length)];tonightId=idFor(chosen);saveState();}renderTonightSlot();const x=allItems().find(a=>idFor(a)===tonightId);openModal(`<h3>🌆 Сегодня вечером</h3><div class="slot-inner"><div class="slot-main"><div class="slot-title">ТВОЙ ВЫБОР НА СЕГОДНЯ</div><div class="slot-name">${escapeHtml(x.title)}</div><div class="slot-meta">${x.type==='M'?'Фильм':'Сериал'} · ${x.year||'год не указан'}${x.rating!=null?' · ★ '+x.rating:''}</div></div></div><div class="btn-row"><button class="btn primary" id="watchTonight">Отметить просмотренным</button><button class="btn" id="changeTonight">Выбрать другой</button></div>`);document.getElementById('watchTonight').onclick=()=>{watched.add(tonightId);const d=new Date().toISOString().slice(0,10);watchedDates[d]=watchedDates[d]||[];if(!watchedDates[d].includes(tonightId))watchedDates[d].push(tonightId);saveState();updateProgress();render();closeModal();};document.getElementById('changeTonight').onclick=()=>{tonightId=null;saveState();closeModal();openTonight();};}
+function renderTonightSlot(){const el=document.getElementById('tonightSlot');const it=tonightId&&allItems().find(x=>idFor(x)===tonightId);if(!it){el.classList.remove('visible');el.innerHTML='';return;}el.classList.add('visible');el.innerHTML='<div class="slot-inner"><div class="slot-main"><div class="slot-title">🌆 СЕГОДНЯ ВЕЧЕРОМ</div><div class="slot-name">'+escapeHtml(it.title)+'</div><div class="slot-meta">'+(it.type==='M'?'Фильм':'Сериал')+' · '+(it.year||'')+(it.rating!=null?' · ★ '+it.rating:'')+'</div></div><button class="qa-btn" id="clearTonight">✕</button></div>';document.getElementById('clearTonight').onclick=()=>{tonightId=null;saveState();renderTonightSlot();};}
+function openDouble(){const m=getUnwatched().filter(x=>x.type==='M'),s=getUnwatched().filter(x=>x.type==='S');if(!m.length||!s.length)return toast('Нужны непросмотренные фильм и сериал');const a=m[Math.floor(Math.random()*m.length)],b=s[Math.floor(Math.random()*s.length)];openModal(`<h3>🎬+📺 Двойной сеанс</h3><div class="result-card"><b>🎬 ${escapeHtml(a.title)}</b><div class="hint">${a.year||''} · ★ ${a.rating??'—'}</div></div><div class="result-card"><b>📺 ${escapeHtml(b.title)}</b><div class="hint">${b.year||''} · ★ ${b.rating??'—'}</div></div><div class="btn-row"><button class="btn primary" id="againDouble">🔄 Другой вариант</button></div>`);document.getElementById('againDouble').onclick=()=>{closeModal();openDouble();};}
+function openCalendar(){const now=new Date(),y=now.getFullYear(),m=now.getMonth(),first=(new Date(y,m,1).getDay()+6)%7,days=new Date(y,m+1,0).getDate();let h='<h3>🗓 Календарь просмотров</h3><div class="calendar-grid">';['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].forEach(x=>h+='<div class="cal-cell cal-head">'+x+'</div>');for(let i=0;i<first;i++)h+='<div class="cal-cell"></div>';for(let d=1;d<=days;d++){const k=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'),n=(watchedDates[k]||[]).length;h+='<div class="cal-cell '+(n?'has':'')+'"><b>'+d+'</b>'+(n?'<br>🎬 '+n:'')+'</div>';}h+='</div><p class="hint">Подсветка показывает дни, когда ты отмечал просмотр.</p>';openModal(h);}
+function openCompare(){openModal(`<h3>👥 Сравнение с другом</h3><p class="hint">Попроси друга экспортировать JSON из этого же менеджера и выбери файл ниже. Совпадения будут подсвечены.</p><label class="btn" style="display:block;text-align:center;cursor:pointer">Выбрать JSON друга<input type="file" id="friendJson" accept=".json,application/json" style="display:none"></label><div id="compareResult"></div>`);document.getElementById('friendJson').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result),friend=[...(x.addedItems||[]),...(x.items||[])];const mine=allItems();const set=new Set(friend.map(a=>(a.type||'')+'::'+a.title+'::'+(a.year||'')));const hits=mine.filter(a=>set.has(idFor(a)));document.getElementById('compareResult').innerHTML='<h4>Пересечения: '+hits.length+'</h4>'+hits.map(a=>'<div class="result-card compare-hit">🤝 '+escapeHtml(a.title)+(a.year?' ('+a.year+')':'')+'</div>').join('')+(hits.length?'':'<p class="hint">Совпадений не найдено.</p>');}catch(err){toast('Некорректный JSON');}};r.readAsText(f);};}
+function applyTheme(){document.body.dataset.theme=appTheme;}
+function openTheme(){openModal(`<h3>🎨 Тема</h3><div class="theme-row"><button class="btn" data-theme="warm">🔥 Тёплая</button><button class="btn" data-theme="dark">🌑 Тёмная</button><button class="btn" data-theme="light">☀️ Светлая</button></div>`);modal.querySelectorAll('[data-theme]').forEach(b=>b.onclick=()=>{appTheme=b.dataset.theme;applyTheme();saveState();closeModal();});}
 
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
 
@@ -622,12 +585,6 @@ document.querySelectorAll('.mood-chip').forEach(chip=>chip.onclick=()=>{
 });
 document.getElementById('rouletteBtn').onclick=()=>openRoulette();
 document.getElementById('moodRouletteBtn').onclick=openMoodRoulette;
-document.getElementById('todayBtn').onclick=chooseToday;
-document.getElementById('doubleBtn').onclick=openDouble;
-document.getElementById('addBtn').onclick=openAddModal;
-document.getElementById('calendarBtn').onclick=openCalendar;
-document.getElementById('compareBtn').onclick=openCompare;
-document.getElementById('themeBtn').onclick=cycleTheme;
 document.getElementById('statsBtn').onclick=openStats;
 document.getElementById('exportBtn').onclick=openExport;
 document.getElementById('copyUnwatchedBtn').onclick=()=>{
@@ -637,6 +594,12 @@ document.getElementById('resetBtn').onclick=()=>{
   if(confirm('Сбросить все отметки, оценки, заметки и приоритеты?')){ watched.clear(); pins.clear(); ratings={}; notes={}; saveState(); updateProgress(); render(); }
 };
 
+document.getElementById('addFoundBtn').onclick=()=>openAddFound();
+document.getElementById('tonightBtn').onclick=openTonight;
+document.getElementById('doubleBtn').onclick=openDouble;
+document.getElementById('calendarBtn').onclick=openCalendar;
+document.getElementById('compareBtn').onclick=openCompare;
+document.getElementById('themeBtn').onclick=openTheme;
 // Keyboard
 document.addEventListener('keydown', e=>{
   if(e.target.matches('input,textarea,select')) return;
@@ -646,8 +609,7 @@ document.addEventListener('keydown', e=>{
   if(e.key==='/'){ e.preventDefault(); document.getElementById('search').focus(); }
 });
 
-loadState(); applyTheme(); updateProgress(); renderGenreBar(); render();
-if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }
+loadState(); updateProgress(); renderGenreBar(); renderTonightSlot(); render();
 </script>
 </body>
 </html>
