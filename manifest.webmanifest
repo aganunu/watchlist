@@ -1,9 +1,21 @@
 {
   "name": "Мой ватчлист",
   "short_name": "Ватчлист",
-  "start_url": "./",
+  "start_url": "./?appv=55",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#14100d",
-  "theme_color": "#14100d",
-  "lang": "ru"
+  "theme_color": "#d4a24c",
+  "icons": [
+    {
+      "src": "icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
 }

@@ -153,7 +153,7 @@ body[data-theme="light"] .qa-btn.primary,body[data-theme="light"] .tab.active,bo
 </head>
 <body>
 <div class="marquee">
-  <div class="eyebrow">ВАШ ВАТЧЛИСТ · v5.2 · ИЗ 462 СКРИНШОТОВ</div>
+  <div class="eyebrow">ВАШ ВАТЧЛИСТ · v5.5 · ИЗ 462 СКРИНШОТОВ</div>
   <h1>Хочу <em>посмотреть</em></h1>
   <p class="sub">Рейтинги, жанры, TMDB-поиск, постеры, рулетка и прогресс в localStorage.</p>
   <div class="progress-wrap">
@@ -175,7 +175,7 @@ body[data-theme="light"] .qa-btn.primary,body[data-theme="light"] .tab.active,bo
   <button class="qa-btn" id="doubleBtn">🎬+📺 Двойной сеанс</button>
   <button class="qa-btn" id="calendarBtn">🗓 Календарь</button>
   <button class="qa-btn" id="compareBtn">👥 Сравнить с другом</button>
-  <button class="qa-btn" id="themeBtn">🎨 Тема</button><button class="qa-btn" id="refreshTmdbBtn">✨ Обновить TMDB</button><button class="qa-btn" id="listModeBtn">👤 Мой режим</button><button class="qa-btn" id="backupBtn">💾 Резервная копия</button>
+  <button class="qa-btn" id="themeBtn">🎨 Тема</button><button class="qa-btn" id="refreshTmdbBtn">✨ Обновить TMDB</button><button class="qa-btn" id="listModeBtn">👤 Мой режим</button><button class="qa-btn" id="updateAppBtn">🔄 Обновить приложение</button><button class="qa-btn" id="backupBtn">💾 Резервная копия</button>
 </div>
 <div id="tmdbStatus" class="hint" style="max-width:1100px;margin:6px auto;padding:0 12px"></div><div class="slot-card" id="tonightSlot"></div>
 <div class="watch-next" id="watchNext"><h2>📌 На эти выходные</h2><div class="wn-list" id="wnList"></div></div>
@@ -258,7 +258,7 @@ function loadState(){
   try{ const s=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
     watched=new Set(s.watched||[]); pins=new Set(s.pins||[]);
     ratings=s.ratings||{}; notes=s.notes||{}; gridView=!!s.gridView;
-    addedItems=Array.isArray(s.addedItems)?s.addedItems:[]; watchedDates=s.watchedDates||{}; tonightId=s.tonightId||null; appTheme=s.appTheme||'warm'; tmdbMeta=s.tmdbMeta||{}; listMode=s.listMode||'shared'; if(s.tmdbToken && !localStorage.getItem('watchlist_tmdb_key')) localStorage.setItem('watchlist_tmdb_key',s.tmdbToken);
+    addedItems=Array.isArray(s.addedItems)?s.addedItems:[]; watchedDates=s.watchedDates||{}; tonightId=s.tonightId||null; appTheme=s.appTheme||'warm'; tmdbMeta=s.tmdbMeta||{}; listMode=s.listMode||'shared'; sortBy=s.sortBy||sortBy; if(s.tmdbToken && !localStorage.getItem('watchlist_tmdb_key')) localStorage.setItem('watchlist_tmdb_key',s.tmdbToken);
     applyTheme();
   }catch(e){}
 }
@@ -618,7 +618,20 @@ function mapTmdb(d,type){const isMovie=type==='movie',year=(isMovie?(d.release_d
 function resultType(x){return x.media_type==='tv'?'tv':x.media_type==='movie'?'movie':null;}
 function tmdbResultLabel(x){const t=resultType(x),title=x.title||x.name,year=(x.release_date||x.first_air_date||'').slice(0,4);return {type:t,title,year};}
 function openTmdb(){const key=tmdbGetKey();openModal(`<h3>🔎 Поиск через TMDB</h3><p class="hint">Поиск сразу ищет <b>фильмы и сериалы</b>. Тип определяется автоматически.</p><label class="hint">TMDB API Read Access Token</label><input id="tmdbKey" class="search" style="width:100%;padding:11px" type="password" placeholder="Вставь API Read Access Token" value="${escapeHtml(key)}"><div class="btn-row"><button class="btn" id="tmdbSaveKey">💾 Сохранить ключ</button></div><div style="margin-top:10px"><input id="tmdbQ" class="search" style="width:100%;padding:11px" placeholder="Например: Интерстеллар или Во все тяжкие"></div><div class="btn-row"><select id="tmdbKind"><option value="multi">🎬+📺 Всё</option><option value="movie">🎬 Только фильмы</option><option value="tv">📺 Только сериалы</option></select><button class="btn primary" id="tmdbSearch">🔎 Найти</button></div><div id="tmdbResults"></div><p class="hint">Ключ хранится только в этом браузере на твоём устройстве.</p>`);document.getElementById('tmdbSaveKey').onclick=()=>{tmdbSetKey(document.getElementById('tmdbKey').value);toast('Ключ сохранён');};document.getElementById('tmdbSearch').onclick=async()=>{const k=document.getElementById('tmdbKey').value.trim()||tmdbGetKey();if(!k)return toast('Сначала вставь TMDB API Read Access Token');tmdbSetKey(k);const q=document.getElementById('tmdbQ').value.trim();if(!q)return toast('Введите название');const type=document.getElementById('tmdbKind').value,box=document.getElementById('tmdbResults');box.innerHTML='<p class="hint">Ищу…</p>';try{let data=await tmdbSearch(q,type),results=(data.results||[]).filter(x=>type!=='multi'||resultType(x)).slice(0,10);if(!results.length){box.innerHTML='<p class="hint">Ничего не найдено.</p>';return;}box.innerHTML=results.map(x=>{const z=tmdbResultLabel(x),poster=tmdbImage(x.poster_path);return `<div class="result-card" style="display:flex;gap:10px;align-items:center"><div style="width:55px;height:80px;flex:none;border-radius:8px;overflow:hidden;background:#222">${poster?`<img src="${poster}" style="width:100%;height:100%;object-fit:cover">`:'🎬'}</div><div style="flex:1"><b>${escapeHtml(z.title)}</b><div class="hint">${z.year||'—'} · ★ ${x.vote_average!=null?Number(x.vote_average).toFixed(1):'—'} · ${z.type==='movie'?'🎬 Фильм':'📺 Сериал'}</div><button class="btn primary tmdbPick" data-id="${x.id}" data-type="${z.type}">Открыть карточку</button></div></div>`}).join('');box.querySelectorAll('.tmdbPick').forEach(b=>b.onclick=async()=>{try{b.disabled=true;b.textContent='Загружаю…';const d=await tmdbDetails(b.dataset.type,b.dataset.id),item=mapTmdb(d,b.dataset.type);showTmdbCard(item);}catch(e){toast('Ошибка TMDB: '+e.message);}});}catch(e){box.innerHTML='<p class="hint">Не удалось обратиться к TMDB. Проверь ключ и интернет.</p>';}};}
-function showTmdbCard(item){const dup=duplicateOf(item),cast=(item.cast||[]).join(', ');openModal(`<h3>${item.type==='M'?'🎬':'📺'} ${escapeHtml(item.title)}</h3><div class="result-card" style="display:flex;gap:14px;align-items:flex-start">${item.poster_url?`<img src="${item.poster_url}" style="width:110px;max-height:165px;object-fit:cover;border-radius:9px">`:''}<div><b>${item.year||'Год не указан'}</b><div>⭐ TMDB: <b>${item.tmdb_rating??item.rating??'—'}</b></div><div>${escapeHtml((item.genres||[]).join(' · '))}</div><div>${item.runtime?item.runtime+' мин.':''}${item.seasons?' · '+item.seasons+' сез.':''}${item.episodes?' · '+item.episodes+' эп.':''}</div></div></div><p>${escapeHtml(item.desc)}</p>${cast?'<p class="hint">Актёры: '+escapeHtml(cast)+'</p>':''}<div class="search-links"><a class="btn" target="_blank" href="${item.tmdb_url}">TMDB</a><a class="btn" target="_blank" href="${item.kp_url}">Кинопоиск</a><a class="btn" target="_blank" href="${item.imdb_url}">IMDb</a><a class="btn" target="_blank" href="${item.trailer_url}">▶ Трейлер</a></div>${dup?`<div class="result-card compare-hit">⚠️ <b>Уже есть в списке</b><br>${escapeHtml(dup.title)}${dup.year?' ('+dup.year+')':''}</div><div class="btn-row"><button class="btn primary" id="openDup">Открыть существующий</button></div>`:`<div class="btn-row"><button class="btn primary" id="addTmdb">＋ Добавить в мой список</button></div>`}`);if(dup){document.getElementById('openDup').onclick=()=>{closeModal();const el=items().find(e=>e.dataset.id===idFor(dup));if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),1800)}}}else document.getElementById('addTmdb').onclick=()=>{addedItems.push(item);saveState();closeModal();updateProgress();renderGenreBar();render();toast('Добавлено из TMDB')};}
+function showTmdbCard(item){const dup=duplicateOf(item),cast=(item.cast||[]).join(', ');openModal(`<h3>${item.type==='M'?'🎬':'📺'} ${escapeHtml(item.title)}</h3><div class="result-card" style="display:flex;gap:14px;align-items:flex-start">${item.poster_url?`<img src="${item.poster_url}" style="width:110px;max-height:165px;object-fit:cover;border-radius:9px">`:''}<div><b>${item.year||'Год не указан'}</b><div>⭐ TMDB: <b>${item.tmdb_rating??item.rating??'—'}</b></div><div>${escapeHtml((item.genres||[]).join(' · '))}</div><div>${item.runtime?item.runtime+' мин.':''}${item.seasons?' · '+item.seasons+' сез.':''}${item.episodes?' · '+item.episodes+' эп.':''}</div></div></div><p>${escapeHtml(item.desc)}</p>${cast?'<p class="hint">Актёры: '+escapeHtml(cast)+'</p>':''}<div class="search-links"><a class="btn" target="_blank" href="${item.tmdb_url}">TMDB</a><a class="btn" target="_blank" href="${item.kp_url}">Кинопоиск</a><a class="btn" target="_blank" href="${item.imdb_url}">IMDb</a><a class="btn" target="_blank" href="${item.trailer_url}">▶ Трейлер</a></div>${dup?`<div class="result-card compare-hit">⚠️ <b>Уже есть в списке</b><br>${escapeHtml(dup.title)}${dup.year?' ('+dup.year+')':''}</div><div class="btn-row"><button class="btn primary" id="openDup">Открыть существующий</button></div>`:`<div class="btn-row"><button class="btn primary" id="addTmdb">＋ Добавить в мой список</button></div>`}`);if(dup){document.getElementById('openDup').onclick=()=>{closeModal();const el=items().find(e=>e.dataset.id===idFor(dup));if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),1800)}}}else document.getElementById('addTmdb').onclick=()=>{
+  addedItems.push(item);
+  currentTab=item.type==='M'?'movies':'series';
+  sortBy='rating';
+  document.getElementById('sortSelect').value='rating';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===currentTab));
+  activeGenres.clear();
+  saveState();
+  closeModal();
+  updateProgress();
+  renderGenreBar();
+  render();
+  toast('Добавлено из TMDB — отсортировано по рейтингу');
+};}
 async function enrichOne(item){const type=item.type==='M'?'movie':'tv',data=await tmdbSearch(item.title,type);const targetYear=String(item.year||''),best=(data.results||[]).sort((a,b)=>{const score=x=>((normalizeSearch(x.title||x.name)===normalizeSearch(item.title)?100:0)+(targetYear&&String(x.release_date||x.first_air_date||'').slice(0,4)===targetYear?50:0)+(x.vote_count||0)/100000);return score(b)-score(a);})[0];if(!best)return false;let meta={tmdb_id:best.id,tmdb_type:type,tmdb_rating:best.vote_average!=null?+best.vote_average.toFixed(1):null,poster_url:tmdbImage(best.poster_path),desc:best.overview||item.desc,genres:item.genres||[],tmdb_url:'https://www.themoviedb.org/'+type+'/'+best.id};try{const d=await tmdbDetails(type,best.id),m=mapTmdb(d,type);Object.assign(meta,{tmdb_id:m.tmdb_id,tmdb_type:m.tmdb_type,tmdb_rating:m.tmdb_rating,poster_url:m.poster_url,desc:m.desc,genres:m.genres,runtime:m.runtime,seasons:m.seasons,episodes:m.episodes,cast:m.cast,tmdb_url:m.tmdb_url,imdb_url:m.imdb_url,trailer_url:m.trailer_url,kp_url:m.kp_url});}catch(e){}if(meta.tmdb_rating!=null&&(item.rating==null||item.rating===0))meta.rating=meta.tmdb_rating;tmdbMeta[idFor(item)]=meta;return true;}
 async function refreshExistingFromTmdb(){if(tmdbRefreshRunning)return;if(!tmdbGetKey())return toast('Сначала сохрани TMDB Token в 🔎 TMDB');if(listMode==='personal')return toast('Переключись в общий список для обновления исходных 271 позиций');tmdbRefreshRunning=true;const status=document.getElementById('tmdbStatus');if(status)status.textContent='✨ TMDB: идёт фоновое обновление данных…';const targets=[...DATA.movies,...DATA.series].filter(it=>!tmdbMeta[idFor(it)]?.poster_url||tmdbMeta[idFor(it)]?.tmdb_rating==null||!tmdbMeta[idFor(it)]?.desc);if(!targets.length){tmdbRefreshRunning=false;if(status)status.textContent='✨ TMDB: данные уже заполнены';return toast('Данные TMDB уже заполнены');}openModal(`<h3>✨ Обновление данных TMDB</h3><p id="tmdbProgress" class="hint">0 / ${targets.length}</p><div class="result-card"><div style="height:8px;background:var(--rule);border-radius:5px"><div id="tmdbBarFill" style="height:100%;width:0%;background:var(--gold);border-radius:5px"></div></div></div><p class="hint">Идёт постепенно, чтобы не перегружать TMDB. Можно закрыть окно — процесс продолжится.</p>`);let idx=0,done=0,good=0;const worker=async()=>{while(true){const item=targets[idx++];if(!item)break;try{if(await enrichOne(item))good++;}catch(e){}done++;localStorage.setItem(STORAGE_KEY,JSON.stringify({watched:[...watched],pins:[...pins],ratings,notes,gridView,addedItems,watchedDates,tonightId,appTheme,tmdbMeta,listMode,tmdbToken:tmdbGetKey()}));const p=Math.round(done/targets.length*100),el=document.getElementById('tmdbProgress'),fill=document.getElementById('tmdbBarFill');if(el)el.textContent=`${done} / ${targets.length} · найдено ${good}`;if(fill)fill.style.width=p+'%';renderGenreBar();render();}};await Promise.all([worker(),worker(),worker()]);tmdbRefreshRunning=false;if(status)status.textContent=`✨ TMDB: обновлено ${good} из ${targets.length}`;toast(`Готово: обновлено ${good} из ${targets.length}`);}
 function openAddFound(prefill=''){openTmdb();if(prefill)setTimeout(()=>{const q=document.getElementById('tmdbQ');if(q){q.value=prefill;document.getElementById('tmdbSearch').click();}},100);}
@@ -629,7 +642,7 @@ function openCalendar(){const now=new Date(),y=now.getFullYear(),m=now.getMonth(
 function openCompare(){openModal(`<h3>👥 Сравнение с другом</h3><p class="hint">Попроси друга экспортировать JSON из этого же менеджера и выбери файл ниже. Совпадения будут подсвечены.</p><label class="btn" style="display:block;text-align:center;cursor:pointer">Выбрать JSON друга<input type="file" id="friendJson" accept=".json,application/json" style="display:none"></label><div id="compareResult"></div>`);document.getElementById('friendJson').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result),friend=[...(x.addedItems||[]),...(x.items||[])];const mine=allItems();const set=new Set(friend.map(a=>(a.type||'')+'::'+a.title+'::'+(a.year||'')));const hits=mine.filter(a=>set.has(idFor(a)));document.getElementById('compareResult').innerHTML='<h4>Пересечения: '+hits.length+'</h4>'+hits.map(a=>'<div class="result-card compare-hit">🤝 '+escapeHtml(a.title)+(a.year?' ('+a.year+')':'')+'</div>').join('')+(hits.length?'':'<p class="hint">Совпадений не найдено.</p>');}catch(err){toast('Некорректный JSON');}};r.readAsText(f);};}
 function openListMode(){const personal=listMode==='personal';openModal(`<h3>👤 Режим списка</h3><p class="hint">«Общий» показывает исходные 271 позиции. «Личный» скрывает их и оставляет только твои добавления на этом устройстве.</p><div class="result-card ${!personal?'compare-hit':''}"><b>📚 Общий список</b><br><span class="hint">200 фильмов + 71 сериал</span></div><div class="result-card ${personal?'compare-hit':''}"><b>👤 Мой личный список</b><br><span class="hint">Пустой старт + добавления через TMDB</span></div><div class="btn-row"><button class="btn primary" id="sharedMode">📚 Общий</button><button class="btn" id="personalMode">👤 Личный</button></div>`);document.getElementById('sharedMode').onclick=()=>{listMode='shared';saveState();closeModal();updateProgress();renderGenreBar();render();toast('Общий список включён');};document.getElementById('personalMode').onclick=()=>{listMode='personal';saveState();closeModal();updateProgress();renderGenreBar();render();toast('Личный список включён');};}
 function applyTheme(){document.body.dataset.theme=appTheme; localStorage.setItem('watchlist_theme_v52',appTheme);}
-function appDiagnostics(){return {version:'5.2',origin:location.origin,hasTmdbKey:!!tmdbGetKey(),added:addedItems.length,meta:Object.keys(tmdbMeta).length};}
+function appDiagnostics(){return {version:'5.5',origin:location.origin,hasTmdbKey:!!tmdbGetKey(),added:addedItems.length,meta:Object.keys(tmdbMeta).length};}
 function openTheme(){openModal(`<h3>🎨 Тема</h3><div class="theme-row"><button class="btn" data-theme="warm">🔥 Тёплая</button><button class="btn" data-theme="dark">🌑 Тёмная</button><button class="btn" data-theme="light">☀️ Светлая</button></div>`);modal.querySelectorAll('[data-theme]').forEach(b=>b.onclick=()=>{appTheme=b.dataset.theme;applyTheme();saveState();closeModal();});}
 
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
@@ -638,7 +651,25 @@ document.querySelectorAll('.tab').forEach(tab=>tab.onclick=()=>{
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); tab.classList.add('active');
   currentTab=tab.dataset.tab; activeGenres.clear(); renderGenreBar(); render();
 });
-document.getElementById('search').oninput=e=>{ query=e.target.value; render(); };
+document.getElementById('search').oninput=e=>{
+  query=e.target.value;
+  const needle=normalizeSearch(query);
+  if(needle){
+    const currentMatches=currentData().some(it=>normalizeSearch([it.title,it.desc||'',...(it.genres||[])].join(' ')).includes(needle));
+    if(!currentMatches){
+      const other=currentTab==='movies'?'series':'movies';
+      const pool=listMode==='personal'?addedItems:DATA[other];
+      const otherMatches=pool.some(it=>normalizeSearch([it.title,it.desc||'',...(it.genres||[])].join(' ')).includes(needle));
+      if(otherMatches){
+        currentTab=other;
+        document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===currentTab));
+        activeGenres.clear();
+        renderGenreBar();
+      }
+    }
+  }
+  render();
+};
 document.getElementById('hideWatchedBtn').onclick=e=>{ hideWatched=!hideWatched; e.currentTarget.classList.toggle('active',hideWatched); render(); };
 document.getElementById('gridBtn').onclick=()=>{ gridView=!gridView; saveState(); render(); };
 document.getElementById('sortSelect').onchange=e=>{ sortBy=e.target.value; render(); };
@@ -669,8 +700,20 @@ document.getElementById('themeBtn').onclick=openTheme;
 document.getElementById('refreshTmdbBtn').onclick=refreshExistingFromTmdb;
 document.getElementById('listModeBtn').onclick=openListMode;
 document.getElementById('backupBtn').onclick=()=>{
-  const payload={version:'5.2',exportedAt:new Date().toISOString(),state:{watched:[...watched],pins:[...pins],ratings,notes,gridView,addedItems,watchedDates,tonightId,appTheme,tmdbMeta,listMode},tmdbToken:tmdbGetKey()};
+  const payload={version:'5.5',exportedAt:new Date().toISOString(),state:{watched:[...watched],pins:[...pins],ratings,notes,gridView,addedItems,watchedDates,tonightId,appTheme,tmdbMeta,listMode},tmdbToken:tmdbGetKey()};
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));a.download='мой-ватчлист-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast('Резервная копия сохранена');
+};
+
+document.getElementById('updateAppBtn').onclick=async()=>{
+  try{
+    if('serviceWorker' in navigator){
+      const regs=await navigator.serviceWorker.getRegistrations();
+      for(const r of regs){ await r.update(); }
+    }
+  }catch(e){}
+  const u=new URL(location.href);
+  u.searchParams.set('appv','55-'+Date.now());
+  location.href=u.toString();
 };
 
 // Keyboard
