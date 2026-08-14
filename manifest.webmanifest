@@ -1,7 +1,8 @@
 {
   "name": "Мой ватчлист",
   "short_name": "Ватчлист",
-  "start_url": "./?appv=561",
+  "description": "Личный кино-менеджер фильмов и сериалов",
+  "start_url": "./?appv=562",
   "scope": "./",
   "display": "standalone",
   "background_color": "#14100d",
