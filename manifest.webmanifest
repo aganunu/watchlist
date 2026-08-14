@@ -1,7 +1,7 @@
 {
   "name": "Мой ватчлист",
   "short_name": "Ватчлист",
-  "start_url": "./?appv=56",
+  "start_url": "./?appv=561",
   "scope": "./",
   "display": "standalone",
   "background_color": "#14100d",
