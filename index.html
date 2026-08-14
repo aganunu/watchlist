@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Список к просмотру — фильмы и сериалы</title>
+<title>Мой ватчлист · v5</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap');
 :root{--bg:#14100d;--bg2:#1c1611;--card:#221a14;--gold:#d4a24c;--gold-dim:#8a6b38;--cream:#f2e9db;--muted:#9c8f7e;--green:#7fae6a;--amber:#d4a24c;--gray:#5f574c;--rule:#362a20;--danger:#c07a6e;}
@@ -171,7 +171,7 @@ textarea.note-input{width:100%;min-height:72px;background:var(--bg2);border:1px 
   <button class="qa-btn" id="doubleBtn">🎬+📺 Двойной сеанс</button>
   <button class="qa-btn" id="calendarBtn">🗓 Календарь</button>
   <button class="qa-btn" id="compareBtn">👥 Сравнить с другом</button>
-  <button class="qa-btn" id="themeBtn">🎨 Тема</button><button class="qa-btn" id="refreshTmdbBtn">✨ Обновить TMDB</button><button class="qa-btn" id="listModeBtn">👤 Мой режим</button>
+  <button class="qa-btn" id="themeBtn">🎨 Тема</button><button class="qa-btn" id="refreshTmdbBtn">✨ Обновить TMDB</button><button class="qa-btn" id="listModeBtn">👤 Мой режим</button><button class="qa-btn" id="backupBtn">💾 Резервная копия</button>
 </div>
 <div id="tmdbStatus" class="hint" style="max-width:1100px;margin:6px auto;padding:0 12px"></div><div class="slot-card" id="tonightSlot"></div>
 <div class="watch-next" id="watchNext"><h2>📌 На эти выходные</h2><div class="wn-list" id="wnList"></div></div>
@@ -214,7 +214,7 @@ textarea.note-input{width:100%;min-height:72px;background:var(--bg2);border:1px 
 </div>
 <div class="list" id="list"></div>
 <footer>
-  Офлайн-страница для личного пользования. Постеры и метаданные могут загружаться из TMDB; данные кэшируются локально.<br>
+  Офлайн-страница для личного пользования. Постеры и метаданные могут загружаться из TMDB; данные кэшируются локально. Версия v5.<br>
   Горячие клавиши: <b>R</b> рулетка · <b>S</b> статистика · <b>G</b> сетка · <b>/</b> поиск
   <div class="footer-actions">
     <button id="copyUnwatchedBtn">Скопировать непросмотренные</button>
@@ -322,6 +322,46 @@ function renderWatchNext(){
       <div class="wn-title">${escapeHtml(it.title)}</div>
     </div>`;
   }).join('');
+}
+
+function normalizeSearch(value){
+  return String(value||'').toLocaleLowerCase('ru-RU').replace(/ё/g,'е').normalize('NFKC').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+}
+
+function mergeUniqueItems(a,b){
+  const out=[...(Array.isArray(a)?a:[])];
+  for(const item of (Array.isArray(b)?b:[])){
+    const same=out.some(x=>(item.tmdb_id&&x.tmdb_id&&String(item.tmdb_id)===String(x.tmdb_id))||(normTitle(x.title)===normTitle(item.title)&&String(x.year||'')===String(item.year||'')&&x.type===item.type));
+    if(!same) out.push(item);
+  }
+  return out;
+}
+
+function migrateV51State(){
+  const candidates=[];
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(!k || k==='watchlist_tmdb_key' || k==='watchlist_v51_backup') continue;
+    try{
+      const v=JSON.parse(localStorage.getItem(k)||'null');
+      if(v && typeof v==='object' && (Array.isArray(v.addedItems)||Array.isArray(v.watched)||v.tmdbMeta)) candidates.push({key:k,v});
+    }catch(e){}
+  }
+  if(!candidates.length) return;
+  const primary=candidates.find(x=>x.key===STORAGE_KEY)?.v||{};
+  const merged={...primary};
+  merged.addedItems=mergeUniqueItems([],candidates.flatMap(x=>x.v.addedItems||[]));
+  merged.watched=[...new Set(candidates.flatMap(x=>x.v.watched||[]))];
+  merged.pins=[...new Set(candidates.flatMap(x=>x.v.pins||[]))];
+  merged.ratings=Object.assign({},...candidates.map(x=>x.v.ratings||{}));
+  merged.notes=Object.assign({},...candidates.map(x=>x.v.notes||{}));
+  merged.watchedDates=Object.assign({},...candidates.map(x=>x.v.watchedDates||{}));
+  merged.tmdbMeta=Object.assign({},...candidates.map(x=>x.v.tmdbMeta||{}));
+  if(primary.tonightId!=null) merged.tonightId=primary.tonightId; else merged.tonightId=candidates.find(x=>x.v.tonightId!=null)?.v.tonightId||null;
+  merged.appTheme=primary.appTheme||candidates.find(x=>x.v.appTheme)?.v.appTheme||'warm';
+  merged.listMode=primary.listMode||'shared';
+  try{ localStorage.setItem('watchlist_v51_backup',JSON.stringify({createdAt:new Date().toISOString(),sourceKeys:candidates.map(x=>x.key),states:candidates.map(x=>x.v)})); }catch(e){}
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(merged));
 }
 
 function filteredItems(){
@@ -615,6 +655,11 @@ document.getElementById('compareBtn').onclick=openCompare;
 document.getElementById('themeBtn').onclick=openTheme;
 document.getElementById('refreshTmdbBtn').onclick=refreshExistingFromTmdb;
 document.getElementById('listModeBtn').onclick=openListMode;
+document.getElementById('backupBtn').onclick=()=>{
+  const payload={version:'5.1',exportedAt:new Date().toISOString(),state:{watched:[...watched],pins:[...pins],ratings,notes,gridView,addedItems,watchedDates,tonightId,appTheme,tmdbMeta,listMode},tmdbToken:tmdbGetKey()};
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));a.download='мой-ватчлист-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast('Резервная копия сохранена');
+};
+
 // Keyboard
 document.addEventListener('keydown', e=>{
   if(e.target.matches('input,textarea,select')) return;
