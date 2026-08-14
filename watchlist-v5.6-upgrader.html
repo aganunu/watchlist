@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Обновление ватчлиста до v5.6</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:720px;margin:40px auto;padding:0 18px;line-height:1.5}
+.box{border:1px solid #bbb;border-radius:12px;padding:18px;margin:16px 0}
+button,label{display:inline-block;padding:10px 14px;border:1px solid #999;border-radius:10px;cursor:pointer}
+.ok{color:green}.bad{color:#a00}
+</style>
+<h1>Обновление ватчлиста до v5.6</h1>
+<p>Этот файл не отправляет данные в интернет. Он берёт твой текущий <b>index.html</b>, добавляет подключение патча v5.6 и скачивает новый <b>index.html</b>.</p>
+<div class="box">
+<label>1. Выбрать текущий index.html
+<input id="file" type="file" accept=".html,text/html" hidden>
+</label>
+<p id="status">Файл не выбран.</p>
+<button id="go" disabled>2. Скачать обновлённый index.html</button>
+</div>
+<p>После этого в GitHub замени index.html и добавь рядом файлы <b>watchlist-v5.6-patch.js</b>, <b>sw.js</b> и <b>manifest.webmanifest</b> из комплекта.</p>
+<script>
+let source='',name='';
+const f=document.getElementById('file'),st=document.getElementById('status'),go=document.getElementById('go');
+f.onchange=()=>{
+  const file=f.files[0]; if(!file)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    source=String(r.result||'');name=file.name;
+    if(!/<\/body>/i.test(source)){st.innerHTML='<span class="bad">Не найден &lt;/body&gt;. Это не тот index.html.</span>';go.disabled=true;return}
+    st.innerHTML='<span class="ok">Файл готов: '+file.name+'</span>';go.disabled=false;
+  };
+  r.readAsText(file);
+};
+go.onclick=()=>{
+  let html=source;
+  html=html.replace(/<title>[\s\S]*?<\/title>/i,'<title>Мой ватчлист · v5.6</title>');
+  html=html.replace(/ВАШ ВАТЧЛИСТ\s*·\s*v\d+(?:\.\d+)?/i,'ВАШ ВАТЧЛИСТ · v5.6');
+  html=html.replace(/Версия\s+v\d+(?:\.\d+)?/i,'Версия v5.6');
+  html=html.replace(/\s*<script\s+src=["']\.\/watchlist-v5\.6-patch\.js[^>]*><\/script>\s*/ig,'\n');
+  html=html.replace(/<\/body>/i,'<script src="./watchlist-v5.6-patch.js?v=56"></script>\n</body>');
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='index.html';a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+</script>
