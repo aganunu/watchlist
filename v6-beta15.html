@@ -454,7 +454,7 @@ function runtimeText(value){
 function extendedDetailsHTML(it){
   if(it.type==='M')return it.runtime?`<div class="detail-extra"><b>Хронометраж:</b> ${esc(runtimeText(it.runtime))}</div>`:'';
   const total=it.number_of_seasons!=null||it.number_of_episodes!=null?`<div class="detail-extra"><b>Сезонов:</b> ${esc(it.number_of_seasons??'—')} · <b>Серий:</b> ${esc(it.number_of_episodes??'—')}</div>`:'';
-  const seasons=Array.isArray(it.seasons)?it.seasons:[];
+  const seasons=Array.isArray(it.seasons)?it.seasons.filter(x=>Number(x.season_number)>0):[];
   const list=seasons.length?`<details class="season-list"><summary>Сезоны и серии</summary><div class="season-list-body">${seasons.map(x=>`<div>${x.season_number===0?'Спецвыпуски':`Сезон ${esc(x.season_number)}`} — ${esc(x.episode_count)} серий</div>`).join('')}</div></details>`:'';
   return total+list;
 }
