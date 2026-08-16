@@ -22,7 +22,8 @@
 ## Development rules
 - Prefer small changes over broad refactors.
 - Reuse existing functions instead of duplicating logic.
-- Preserve mobile and desktop behavior.
+- Preserve mobile, desktop, and TV/large-screen behavior; all three are required target platforms.
+- UI navigation must be mouse-, touch-, keyboard-, and TV/remote-friendly, with visible focus and no hover-only actions.
 - Do not change unrelated features.
 - Do not remove user data or existing functionality without explicit approval.
 
@@ -33,7 +34,8 @@ For code changes:
 - Check browser console for errors.
 
 For UI changes:
-- Test desktop and mobile layouts.
+- Test desktop, mobile, and TV/large-screen layouts.
+- Test keyboard/remote navigation, visible focus, and verify that no action is available only on hover.
 - Check for horizontal overflow.
 - Test the changed user scenario.
 
