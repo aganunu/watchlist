@@ -92,7 +92,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
 .action-sheet button,.action-sheet a{width:100%;text-align:left;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:14px;padding:13px 14px;text-decoration:none}
 .action-sheet button.primary{background:var(--gold);border-color:var(--gold);color:#111;font-weight:800}
 .action-sheet button.danger{color:var(--danger)}
-.detail-layout{display:grid;grid-template-columns:110px minmax(0,1fr);gap:15px}.detail-meta{margin:10px 0 0}.detail-genres{margin:7px 0 0;color:var(--muted);line-height:1.4}.watch-query{color:var(--muted);margin:0 0 12px}.watch-options{display:grid;gap:8px}
+.detail-layout{display:grid;grid-template-columns:110px minmax(0,1fr);gap:15px}.detail-meta{margin:10px 0 0}.detail-genres{margin:7px 0 0;color:var(--muted);line-height:1.4}.detail-extra{margin:8px 0 0;color:var(--muted);font-size:13px;line-height:1.45}.season-list{margin-top:8px;border:1px solid var(--line);border-radius:11px;background:var(--panel);overflow:hidden}.season-list summary{cursor:pointer;padding:9px 11px;color:var(--gold2);font-weight:700}.season-list-body{display:grid;gap:7px;padding:6px 11px 12px;color:var(--muted);font-size:12px}.watch-query{color:var(--muted);margin:0 0 12px}.watch-options{display:grid;gap:8px}
 .search-hit{background:rgba(243,188,76,.28);color:#fff3cf;border-bottom:1px solid var(--gold2);border-radius:3px;padding:0 .08em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
 @media(max-width:420px){.detail-layout{grid-template-columns:88px minmax(0,1fr);gap:12px}.detail-layout .row-poster{width:88px!important}}
 .match-list{display:grid;gap:10px;margin-top:12px}.manual-search-box{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0}.manual-search-box input{margin:0}.search-hint{color:var(--muted);font-size:12px;line-height:1.4;margin-top:6px}.match-badge{display:inline-block;margin-top:4px;padding:3px 7px;border-radius:999px;background:rgba(223,165,47,.10);color:var(--gold2);font-size:11px}.match-original{color:var(--muted);font-size:12px;margin-top:3px}.match-overview{color:var(--muted);font-size:11px;line-height:1.35;margin-top:5px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.update-history{display:grid;gap:8px;margin-top:12px}.update-history-item{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--panel)}.warning-box{border:1px solid rgba(220,113,104,.45);background:rgba(220,113,104,.08);border-radius:14px;padding:12px;color:var(--text);margin:10px 0}
@@ -216,6 +216,7 @@ let BASE={movies:[],series:[]},state={},items=[],filtered=[],renderLimit=30,type
 let pendingImportBackup=null;
 let addSearchState={query:'',results:[],scrollTop:0,searchRequest:0};
 let addPreviewRequest=0;
+let detailLoadRequest=0;
 const addDetailsCache=new Map();
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -428,11 +429,52 @@ function openRowActions(id){
   $('#actTmdb').onclick=()=>openManualTmdbMatch(id,openRowActions);
 }
 
+function extendedTmdbFields(details){
+  if(details.media_type==='tv')return {
+    tmdb_details_loaded:true,
+    number_of_seasons:details.number_of_seasons!=null&&Number.isFinite(Number(details.number_of_seasons))?Number(details.number_of_seasons):null,
+    number_of_episodes:details.number_of_episodes!=null&&Number.isFinite(Number(details.number_of_episodes))?Number(details.number_of_episodes):null,
+    seasons:(details.seasons||[]).map(x=>({season_number:Number(x.season_number),episode_count:x.episode_count!=null&&Number.isFinite(Number(x.episode_count))?Number(x.episode_count):0})).filter(x=>Number.isFinite(x.season_number))
+  };
+  return {tmdb_details_loaded:true,runtime:Number.isFinite(Number(details.runtime))&&Number(details.runtime)>0?Number(details.runtime):null};
+}
+function hasExtendedTmdbDetails(it){
+  if(it.tmdb_details_loaded)return true;
+  return it.type==='M'?it.runtime!=null:it.number_of_seasons!=null&&it.number_of_episodes!=null&&Array.isArray(it.seasons);
+}
+function tmdbReferenceFor(it){
+  const ident=(state.identities||{})[idFor(it)]||{},tmdbId=ident.tmdb_id??it.tmdb_id;
+  return tmdbId==null?null:{id:tmdbId,type:ident.tmdb_type||it.tmdb_type||(it.type==='S'?'tv':'movie')};
+}
+function runtimeText(value){
+  const minutes=Number(value);if(!Number.isFinite(minutes)||minutes<=0)return '';
+  const hours=Math.floor(minutes/60),rest=minutes%60,long=hours?`${hours} ч${rest?` ${rest} мин.`:''}`:`${minutes} мин.`;
+  return `${minutes} мин.${hours?' · '+long:''}`;
+}
+function extendedDetailsHTML(it){
+  if(it.type==='M')return it.runtime?`<div class="detail-extra"><b>Хронометраж:</b> ${esc(runtimeText(it.runtime))}</div>`:'';
+  const total=it.number_of_seasons!=null||it.number_of_episodes!=null?`<div class="detail-extra"><b>Сезонов:</b> ${esc(it.number_of_seasons??'—')} · <b>Серий:</b> ${esc(it.number_of_episodes??'—')}</div>`:'';
+  const seasons=Array.isArray(it.seasons)?it.seasons:[];
+  const list=seasons.length?`<details class="season-list"><summary>Сезоны и серии</summary><div class="season-list-body">${seasons.map(x=>`<div>${x.season_number===0?'Спецвыпуски':`Сезон ${esc(x.season_number)}`} — ${esc(x.episode_count)} серий</div>`).join('')}</div></details>`:'';
+  return total+list;
+}
+async function loadExtendedTmdbDetails(it,id,ref,request){
+  try{
+    const details=await getTmdbDetailsCached(ref.type,ref.id),fields=extendedTmdbFields(details),[key,meta]=metaEntryFor(it);
+    state.tmdbMeta[key]=Object.assign({},meta,fields);saveState();Object.assign(it,fields);
+    const marker=$('#detailExtendedLoading');
+    if(request===detailLoadRequest&&marker&&marker.dataset.id===id&&!$('#modalBg').classList.contains('hidden'))openDetails(id);
+  }catch(err){
+    const marker=$('#detailExtendedLoading');
+    if(request===detailLoadRequest&&marker&&marker.dataset.id===id)marker.textContent='Дополнительные данные TMDB пока недоступны.';
+  }
+}
 function openDetails(id){
   const it=byId(id);if(!it)return;
-  const p=posterOf(it),r=ratingOf(it),ident=identityFor(it),genres=(it.genres||[]).filter(Boolean);
-  openModal(`<h2>${esc(it.title)}${ident.original_title&&norm(ident.original_title)!==norm(it.title)?`<div class="original-line">${esc(ident.original_title)}${ident.status==='confirmed'?' <span class="identity-status">TMDB подтверждено</span>':''}</div>`:''}</h2><div class="detail-layout"><div class="row-poster" style="width:110px;${p?`background-image:url('${esc(p)}')`:''}"></div><div><div class="rating">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</div><p class="detail-meta">${esc(it.year||'Год не указан')} · ${it.type==='M'?'Фильм':'Сериал'}</p>${genres.length?`<p class="detail-genres">${genres.map(esc).join(', ')}</p>`:''}<p style="color:var(--muted);line-height:1.5">${esc(it.desc||'')}</p></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:15px"><button class="small-btn ${isFav(it)?'on':''}" onclick="modalFav('${esc(id)}')">${isFav(it)?'★ В избранном':'☆ В избранное'}</button><button class="small-btn ${isWatched(it)?'on':''}" onclick="modalWatched('${esc(id)}')">${isWatched(it)?'✓ Просмотрено':'○ Отметить просмотренным'}</button><button class="small-btn" onclick="modalTonight('${esc(id)}')">🌆 На вечер</button><button class="small-btn gold" id="watchOpen">▶ Смотреть</button><a class="small-btn" style="text-decoration:none" target="_blank" rel="noopener noreferrer" href="${esc(it.kp_url||'#')}">Кинопоиск ↗</a></div>`);
+  const request=++detailLoadRequest,p=posterOf(it),r=ratingOf(it),ident=identityFor(it),genres=(it.genres||[]).filter(Boolean),ref=tmdbReferenceFor(it),needsLoad=!!ref&&!hasExtendedTmdbDetails(it);
+  openModal(`<h2>${esc(it.title)}${ident.original_title&&norm(ident.original_title)!==norm(it.title)?`<div class="original-line">${esc(ident.original_title)}${ident.status==='confirmed'?' <span class="identity-status">TMDB подтверждено</span>':''}</div>`:''}</h2><div class="detail-layout"><div class="row-poster" style="width:110px;${p?`background-image:url('${esc(p)}')`:''}"></div><div><div class="rating">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</div><p class="detail-meta">${esc(it.year||'Год не указан')} · ${it.type==='M'?'Фильм':'Сериал'}</p>${genres.length?`<p class="detail-genres">${genres.map(esc).join(', ')}</p>`:''}${extendedDetailsHTML(it)}${needsLoad?`<div class="detail-extra" id="detailExtendedLoading" data-id="${esc(id)}">Загружаю данные о хронометраже и сезонах…</div>`:''}<p style="color:var(--muted);line-height:1.5">${esc(it.desc||'')}</p></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:15px"><button class="small-btn ${isFav(it)?'on':''}" onclick="modalFav('${esc(id)}')">${isFav(it)?'★ В избранном':'☆ В избранное'}</button><button class="small-btn ${isWatched(it)?'on':''}" onclick="modalWatched('${esc(id)}')">${isWatched(it)?'✓ Просмотрено':'○ Отметить просмотренным'}</button><button class="small-btn" onclick="modalTonight('${esc(id)}')">🌆 На вечер</button><button class="small-btn gold" id="watchOpen">▶ Смотреть</button><a class="small-btn" style="text-decoration:none" target="_blank" rel="noopener noreferrer" href="${esc(it.kp_url||'#')}">Кинопоиск ↗</a></div>`);
   $('#watchOpen').onclick=()=>openWatchPicker(id);
+  if(needsLoad)loadExtendedTmdbDetails(it,id,ref,request);
 }
 function watchQueryFor(it){return [it.title,it.year||''].filter(Boolean).join(' ').trim()}
 function openWatchPicker(id){
@@ -1019,7 +1061,7 @@ function addedItemFromTmdb(x){
   const type=x.media_type==='tv'?'S':'M',title=x.title||x.name||'Без названия',original=x.original_title||x.original_name||'';
   const year=(x.release_date||x.first_air_date||'').slice(0,4),poster=x.poster_path?'https://image.tmdb.org/t/p/w500'+x.poster_path:'';
   const rating=x.vote_average?+Number(x.vote_average).toFixed(1):null;
-  return {title,original_title:original,year:year?+year:null,type,rating,tmdb_rating:rating,desc:x.overview||'',genres:(x.genres||[]).map(g=>typeof g==='string'?g:g&&g.name).filter(Boolean),poster_url:poster,tmdb_id:x.id,tmdb_type:x.media_type,kp_url:'https://www.kinopoisk.ru/index.php?kp_query='+encodeURIComponent(title)};
+  return Object.assign({title,original_title:original,year:year?+year:null,type,rating,tmdb_rating:rating,desc:x.overview||'',genres:(x.genres||[]).map(g=>typeof g==='string'?g:g&&g.name).filter(Boolean),poster_url:poster,tmdb_id:x.id,tmdb_type:x.media_type,kp_url:'https://www.kinopoisk.ru/index.php?kp_query='+encodeURIComponent(title)},extendedTmdbFields(x));
 }
 function isTmdbInLibrary(mediaType,tmdbId){
   const wantedType=mediaType==='tv'?'tv':'movie',wantedId=String(tmdbId);
