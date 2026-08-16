@@ -32,19 +32,22 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
 .chip{white-space:nowrap;border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:9px 13px;border-radius:999px}
 .chip.active{background:var(--gold);border-color:var(--gold);color:#141414;font-weight:800}
 .stats{display:grid;grid-template-columns:repeat(3,minmax(132px,1fr));gap:10px;overflow:auto;padding-bottom:6px;scrollbar-width:none;margin:16px 0 20px}.stats::-webkit-scrollbar{display:none}
-.stat{border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),#0c1014);border-radius:16px;padding:12px;min-height:88px}
+.stat{width:100%;border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),#0c1014);color:var(--text);border-radius:16px;padding:12px;min-height:88px;text-align:left;font:inherit;cursor:pointer;transition:border-color .16s ease,background .16s ease,transform .16s ease,box-shadow .16s ease}
+.stat:focus-visible{outline:3px solid var(--gold2);outline-offset:3px;border-color:var(--gold2);box-shadow:0 0 0 5px rgba(223,165,47,.16)}.stat:active{transform:translateY(1px)}
+@media(hover:hover) and (pointer:fine){.stat:hover{border-color:rgba(223,165,47,.55);background:linear-gradient(180deg,#1b2025,#11161b)}}
 .stat b{display:block;font-size:12px}.stat strong{display:block;color:var(--gold2);font-size:25px;margin:6px 0 1px}.stat span{color:var(--muted);font-size:10px}
 .section{margin-top:20px}.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}.section h2{margin:0;font-size:22px}.ghost{border:0;background:none;color:var(--gold2)}
 .carousel{display:grid;grid-auto-flow:column;grid-auto-columns:156px;gap:11px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 1px 7px;scrollbar-width:none}.carousel::-webkit-scrollbar{display:none}.carousel.favorites-empty{display:block}.carousel.favorites-empty .empty{max-width:420px}
 .media-card{scroll-snap-align:start;background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;min-width:0;position:relative}
 .poster{aspect-ratio:2/3;background:linear-gradient(145deg,#2e3339,#101317) center/cover;position:relative}
 .poster::after{content:"";position:absolute;inset:45% 0 0;background:linear-gradient(180deg,transparent,rgba(0,0,0,.78))}
+.poster-watched-badge{position:absolute;top:8px;right:8px;z-index:2;display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:var(--gold);color:#111;font-size:15px;font-weight:900;box-shadow:0 4px 12px rgba(0,0,0,.42)}
 .poster-title{display:none}.card-info{padding:10px 11px 12px}.card-info b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-info span{display:block;color:var(--muted);font-size:12px;margin-top:3px}.card-info .r{color:var(--gold2)}
 .detail-trigger{appearance:none;border:0;padding:0;margin:0;color:inherit;font:inherit;background-color:transparent}.detail-poster{display:block}.poster.detail-poster{width:100%}.detail-title{display:inline-block;max-width:100%;border-radius:6px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}.detail-trigger:focus-visible{outline:3px solid var(--gold2);outline-offset:3px}.detail-poster:focus-visible{outline-offset:-3px}
 @media(hover:hover) and (pointer:fine){.detail-poster,.detail-title{cursor:pointer;transition:transform .16s ease,filter .16s ease,box-shadow .16s ease,color .16s ease}.detail-poster:hover{transform:translateY(-2px);filter:brightness(1.08);box-shadow:0 10px 24px rgba(0,0,0,.28)}.detail-title:hover{color:var(--gold2);text-decoration:underline;text-underline-offset:3px}}
 .list-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:8px 0 14px}.count{color:var(--muted)}
 .list-grid{display:grid;gap:9px}.row{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),#0c1014);border-radius:17px;padding:9px}
-.row-poster{width:72px;aspect-ratio:2/3;border-radius:10px;background:#1b2025 center/cover}.row h3{margin:0 0 4px;font-size:18px}.row-meta{color:var(--muted);font-size:12px}.row-rating-mobile{display:none;color:var(--gold2);font-weight:800;font-size:13px;margin-top:4px}.row-desc{color:var(--muted);font-size:12px;line-height:1.38;margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.row-poster{width:72px;aspect-ratio:2/3;border-radius:10px;background:#1b2025 center/cover}.row h3{margin:0 0 4px;font-size:18px}.row-meta{color:var(--muted);font-size:12px}.row-watched-badge{display:inline-flex;align-items:center;gap:4px;margin-top:7px;padding:4px 8px;border:1px solid rgba(223,165,47,.5);border-radius:999px;background:rgba(223,165,47,.13);color:var(--gold2);font-size:11px;font-weight:800}.row-rating-mobile{display:none;color:var(--gold2);font-weight:800;font-size:13px;margin-top:4px}.row-desc{color:var(--muted);font-size:12px;line-height:1.38;margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .row-actions{display:flex;align-items:center;gap:6px;min-width:max-content}.small-btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:11px;padding:9px 10px}.small-btn.gold{background:var(--gold);border-color:var(--gold);color:#111;font-weight:800}.small-btn.on{color:var(--gold2);border-color:#76591e}.rating{color:var(--gold2);font-weight:800;white-space:nowrap}
 .more-menu{position:relative}.more-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:5;min-width:160px;background:#131920;border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 14px 40px rgba(0,0,0,.45)}.more-pop button{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--text);padding:10px;border-radius:9px}.more-pop button:hover{background:#1b222a}
 .empty{text-align:center;color:var(--muted);padding:14px 14px;border:1px dashed var(--line);border-radius:14px;background:rgba(255,255,255,.015);font-size:13px}.sentinel{text-align:center;color:var(--muted);padding:14px}.status{display:none}
@@ -145,10 +148,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
     <button class="random" id="randomBtn">🎲 Что посмотреть?　›</button>
   </section>
   <div class="search-wrap"><input id="homeSearch" placeholder="Быстрый поиск по списку…"><button class="filter-open" data-view="search">⌕ Поиск</button></div>
-  <section class="stats">
-    <article class="stat"><b>⭐ Избранное</b><strong id="favNum">0</strong><span>позиций</span></article>
-    <article class="stat"><b>🏆 Средний рейтинг</b><strong id="avgNum">—</strong><span>TMDB / список</span></article>
-    <article class="stat"><b>✓ Просмотрено</b><strong id="watchedNum">0</strong><span id="watchedSub">из 0</span></article>
+  <section class="stats" id="homeStats" aria-label="Статистика списка">
+    <button type="button" class="stat" data-stat-go="favorite" aria-label="Открыть избранное в моём списке"><b>⭐ Избранное</b><strong id="favNum">0</strong><span>позиций</span></button>
+    <button type="button" class="stat" data-stat-go="rating" aria-label="Открыть весь список с сортировкой по рейтингу"><b>🏆 Средний рейтинг</b><strong id="avgNum">—</strong><span>TMDB / список</span></button>
+    <button type="button" class="stat" data-stat-go="watched" aria-label="Открыть просмотренное в моём списке"><b>✓ Просмотрено</b><strong id="watchedNum">0</strong><span id="watchedSub">из 0</span></button>
   </section>
 
   <div class="quick-actions">
@@ -345,6 +348,13 @@ function ratingCompare(a,b){
   const av=ar==null?-Infinity:Number(ar),bv=br==null?-Infinity:Number(br);
   return bv!==av?bv-av:titleCompare(a,b);
 }
+function openListFromStat(mode){
+  typeFilter='all';stateFilter=mode==='favorite'?'favorite':mode==='watched'?'watched':'all';sortMode='rating';
+  $('#sort').value=sortMode;
+  $$('[data-type]').forEach(x=>x.classList.toggle('active',x.dataset.type===typeFilter));
+  $$('[data-state]').forEach(x=>x.classList.toggle('active',x.dataset.state===stateFilter));
+  showView('list');
+}
 
 function showView(name){
   currentView=name;
@@ -373,7 +383,7 @@ function rowHTML(it){
   const p=posterOf(it),r=ratingOf(it),id=esc(idFor(it)),genres=(it.genres||[]).slice(0,3).filter(Boolean);
   return `<article class="row" data-id="${id}">
     <button type="button" class="row-poster detail-trigger detail-poster" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}"></button>
-    <div><h3><button type="button" class="detail-trigger detail-title" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></h3>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<div class="original-line">${esc(identityFor(it).original_title)}</div>`:''}<div class="row-meta">${it.year||'Год не указан'} · ${it.type==='M'?'Фильм':'Сериал'}${genres.length?` · <span class="row-genres">${genres.map(esc).join(', ')}</span>`:''}</div><div class="row-rating-mobile">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</div><div class="row-desc">${esc(it.desc||'Описание пока отсутствует')}</div></div>
+    <div><h3><button type="button" class="detail-trigger detail-title" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></h3>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<div class="original-line">${esc(identityFor(it).original_title)}</div>`:''}<div class="row-meta">${it.year||'Год не указан'} · ${it.type==='M'?'Фильм':'Сериал'}${genres.length?` · <span class="row-genres">${genres.map(esc).join(', ')}</span>`:''}</div>${isWatched(it)?'<div class="row-watched-badge">✓ Просмотрено</div>':''}<div class="row-rating-mobile">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</div><div class="row-desc">${esc(it.desc||'Описание пока отсутствует')}</div></div>
     <div class="row-actions"><span class="rating">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</span>
       <button class="small-btn more-toggle" aria-label="Действия">•••</button>
     </div>
@@ -396,7 +406,7 @@ function bindDetailTriggers(root=document){
 }
 
 function applyFilters(){filtered=items.filter(it=>{if(typeFilter!=='all'&&it.type!==typeFilter)return false;if(stateFilter==='watched'&&!isWatched(it))return false;if(stateFilter==='unwatched'&&isWatched(it))return false;if(stateFilter==='favorite'&&!isFav(it))return false;return true});filtered.sort((a,b)=>sortMode==='title'?titleCompare(a,b):sortMode==='year'?(b.year||0)-(a.year||0):ratingCompare(a,b));renderLimit=30;renderList()}
-function cardHTML(it){const p=posterOf(it),r=ratingOf(it),id=esc(idFor(it));return `<article class="media-card" data-id="${id}"><button type="button" class="poster detail-trigger detail-poster" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}"><span class="poster-title">${esc(it.title)}</span></button><div class="card-info"><b><button type="button" class="detail-trigger detail-title" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></b>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<span class="original-line">${esc(identityFor(it).original_title)}</span>`:''}<span>${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}</span><span class="r">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</span></div></article>`}
+function cardHTML(it){const p=posterOf(it),r=ratingOf(it),id=esc(idFor(it));return `<article class="media-card" data-id="${id}"><button type="button" class="poster detail-trigger detail-poster" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}">${isWatched(it)?'<span class="poster-watched-badge" aria-hidden="true">✓</span>':''}<span class="poster-title">${esc(it.title)}</span></button><div class="card-info"><b><button type="button" class="detail-trigger detail-title" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></b>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<span class="original-line">${esc(identityFor(it).original_title)}</span>`:''}<span>${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}</span><span class="r">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</span></div></article>`}
 function renderCarousels(){const fav=items.filter(isFav).slice(0,12),top=[...items].filter(x=>ratingOf(x)!=null).sort(ratingCompare).slice(0,12);$('#favoritesCarousel').innerHTML=fav.length?fav.map(cardHTML).join(''):'<div class="empty">Пока пусто — добавляйте понравившееся через ⋯ → «В избранное» ⭐</div>';
   $('#favoritesCarousel').classList.toggle('favorites-empty',!fav.length);$('#topCarousel').innerHTML=top.map(cardHTML).join('');bindDetailTriggers($('#favoritesCarousel'));bindDetailTriggers($('#topCarousel'))}
 function renderList(){const show=filtered.slice(0,renderLimit);$('#resultCount').textContent=`Найдено: ${filtered.length}`;$('#list').innerHTML=show.length?show.map(rowHTML).join(''):'<div class="empty">Ничего не найдено</div>';$('#sentinel').textContent=renderLimit<filtered.length?'Показать ещё':'';bindRowsIn($('#list'))}
@@ -1525,6 +1535,12 @@ $('#sort').onchange=e=>{sortMode=e.target.value;applyFilters()};
 $('#randomBtn').onclick=randomPick;$('#tonightAction').onclick=openTonightPicker;$('#doubleAction').onclick=openDoubleSession;
 $('#addBtn').onclick=openAdd;$('#deskAdd').onclick=openAdd;$('#profileAdd').onclick=openAdd;$('#profileData').onclick=openDataPanel;$('#profileTech').onclick=openTechPanel;$('#profileSafeRepair').onclick=openSafeRepairPanel;$('#profileAbout').onclick=openAboutPanel;
 $('#sentinel').onclick=()=>{renderLimit+=30;renderList()};
+$$('#homeStats .stat').forEach(b=>b.addEventListener('click',()=>openListFromStat(b.dataset.statGo)));
+$('#homeStats').addEventListener('keydown',e=>{
+  if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
+  const cards=$$('#homeStats .stat'),index=cards.indexOf(document.activeElement);if(index<0)return;
+  e.preventDefault();const direction=e.key==='ArrowRight'||e.key==='ArrowDown'?1:-1;cards[(index+direction+cards.length)%cards.length].focus();
+});
 $$('[data-view]').forEach(b=>b.addEventListener('click',()=>{const view=b.dataset.view;if(view)showView(view)}));
 $$('[data-type]').forEach(b=>b.onclick=()=>{$$('[data-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active');typeFilter=b.dataset.type;applyFilters()});
 $$('[data-state]').forEach(b=>b.onclick=()=>{const was=b.classList.contains('active');$$('[data-state]').forEach(x=>x.classList.remove('active'));stateFilter=was?'all':b.dataset.state;if(!was)b.classList.add('active');applyFilters()});
