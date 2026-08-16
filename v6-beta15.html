@@ -63,6 +63,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
 @media(max-width:520px){.quick-actions{grid-template-columns:1fr}.double-result{grid-template-columns:1fr 1fr}}
 
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(7px);z-index:50;display:flex;align-items:flex-end;justify-content:center;padding:12px}.modal{width:min(650px,100%);max-height:88vh;overflow:auto;background:#10151a;border:1px solid var(--line);border-radius:24px;padding:20px}.modal h2{margin:0 0 14px}.modal input,.modal select{width:100%;background:#0b0f13;color:var(--text);border:1px solid var(--line);border-radius:13px;padding:13px;margin-bottom:9px}.result{display:grid;grid-template-columns:60px 1fr auto;gap:10px;align-items:center;padding:9px;border:1px solid var(--line);border-radius:13px;margin-top:8px}.result-poster{width:60px;aspect-ratio:2/3;background:#222 center/cover;border-radius:8px}.result small{color:var(--muted)}.close{float:right}
+.tmdb-search-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-bottom:12px}.tmdb-search-form input{margin:0}.tmdb-search-results{display:grid;gap:10px}.tmdb-result{display:grid;grid-template-columns:82px minmax(0,1fr) auto;gap:12px;align-items:start;padding:10px;border:1px solid var(--line);border-radius:15px;background:var(--panel);min-width:0}.tmdb-result-poster{width:82px;aspect-ratio:2/3;border:0;border-radius:10px;background:#20262c center/cover;color:var(--muted)}.tmdb-result-body{min-width:0}.tmdb-result-title{display:block;max-width:100%;border:0;background:transparent;color:var(--text);font:inherit;font-weight:800;text-align:left;padding:1px 0;border-radius:5px}.tmdb-result-original{color:var(--muted);font-size:12px;line-height:1.35;margin-top:3px}.tmdb-result-meta{color:var(--gold2);font-size:12px;margin-top:5px}.tmdb-result-overview{color:var(--muted);font-size:12px;line-height:1.4;margin-top:7px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.tmdb-result-actions{display:grid;gap:7px;min-width:112px}.tmdb-result-actions button{width:100%}.tmdb-result-poster:focus-visible,.tmdb-result-title:focus-visible{outline:3px solid var(--gold2);outline-offset:3px}.tmdb-preview{display:grid;grid-template-columns:180px minmax(0,1fr);gap:18px;align-items:start}.tmdb-preview-poster{width:180px;aspect-ratio:2/3;border-radius:14px;background:#20262c center/cover}.tmdb-preview-main{min-width:0}.tmdb-preview-main h2{margin-bottom:5px}.tmdb-preview-original{color:var(--muted);font-size:13px;line-height:1.4}.tmdb-preview-meta{color:var(--gold2);margin-top:10px}.tmdb-preview-genres{color:var(--muted);margin-top:8px;line-height:1.45}.tmdb-preview-overview{grid-column:1/-1;line-height:1.55;margin:0;white-space:pre-wrap}.tmdb-preview-actions{grid-column:1/-1;display:flex;gap:9px;justify-content:flex-end}.tmdb-preview-actions button{min-height:42px}.tmdb-preview-loading{color:var(--muted);padding:24px 0;text-align:center}
+@media(hover:hover) and (pointer:fine){.tmdb-result-poster,.tmdb-result-title{cursor:pointer;transition:filter .16s ease,transform .16s ease,color .16s ease}.tmdb-result-poster:hover{filter:brightness(1.09);transform:translateY(-2px)}.tmdb-result-title:hover{color:var(--gold2);text-decoration:underline;text-underline-offset:3px}}
 .desktop-side{display:none}
 @media(max-width:720px){
   .app{padding:16px 14px calc(var(--navh) + env(safe-area-inset-bottom) + 92px)}
@@ -73,6 +75,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
   .row{grid-template-columns:62px minmax(0,1fr) auto}.row-poster{width:62px}.row-desc{display:none}.row-meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.row-rating-mobile{display:block}.row-actions .rating{display:none}
   .row-actions .watched,.row-actions .details{display:none}.row-actions .fav{display:none}.row-actions .more-toggle{display:inline-block}
   .filter-open{padding:0 13px}.page-title{font-size:28px}
+  .tmdb-search-form{grid-template-columns:1fr}.tmdb-search-form button{min-height:44px}.tmdb-result{grid-template-columns:64px minmax(0,1fr);gap:10px;padding:9px}.tmdb-result-poster{width:64px}.tmdb-result-actions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;min-width:0}.tmdb-result-actions button{min-height:42px}.tmdb-result-overview{-webkit-line-clamp:2}.tmdb-preview{grid-template-columns:105px minmax(0,1fr);gap:13px}.tmdb-preview-poster{width:105px}.tmdb-preview-overview{font-size:14px}.tmdb-preview-actions{display:grid;grid-template-columns:1fr}.tmdb-preview-actions button{width:100%;min-height:46px}.tmdb-preview-actions .tmdb-preview-back{order:2}
 }
 @media(min-width:721px) and (max-width:1100px){.carousel{grid-auto-columns:22%}.stats{grid-template-columns:repeat(4,1fr)}}
 @media(min-width:1100px){
@@ -211,6 +214,9 @@ const STORAGE_KEY='watchlist_v3',TOKEN_KEY='watchlist_tmdb_key',IMPORT_UNDO_KEY=
 const BACKUP_FORMAT='watchlist-full-backup',BACKUP_VERSION=1;
 let BASE={movies:[],series:[]},state={},items=[],filtered=[],renderLimit=30,typeFilter='all',stateFilter='all',searchQuery='',sortMode='rating',currentView='home',searchType='all';
 let pendingImportBackup=null;
+let addSearchState={query:'',results:[],scrollTop:0,searchRequest:0};
+let addPreviewRequest=0;
+const addDetailsCache=new Map();
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const norm=s=>String(s||'').toLocaleLowerCase('ru-RU').replace(/ё/g,'е').normalize('NFKC');
@@ -1015,30 +1021,130 @@ function addedItemFromTmdb(x){
   const rating=x.vote_average?+Number(x.vote_average).toFixed(1):null;
   return {title,original_title:original,year:year?+year:null,type,rating,tmdb_rating:rating,desc:x.overview||'',genres:(x.genres||[]).map(g=>typeof g==='string'?g:g&&g.name).filter(Boolean),poster_url:poster,tmdb_id:x.id,tmdb_type:x.media_type,kp_url:'https://www.kinopoisk.ru/index.php?kp_query='+encodeURIComponent(title)};
 }
+function isTmdbInLibrary(mediaType,tmdbId){
+  const wantedType=mediaType==='tv'?'tv':'movie',wantedId=String(tmdbId);
+  return items.some(it=>{
+    const ident=(state.identities||{})[idFor(it)]||{};
+    const savedId=ident.tmdb_id??it.tmdb_id;
+    const savedType=ident.tmdb_type||it.tmdb_type||(it.type==='S'?'tv':'movie');
+    return savedId!=null&&String(savedId)===wantedId&&savedType===wantedType;
+  });
+}
 function saveAddedTmdbItem(it){
   state.addedItems=state.addedItems||[];
-  if(state.addedItems.some(x=>String(x.tmdb_id)===String(it.tmdb_id)&&x.type===it.type))return false;
+  if(isTmdbInLibrary(it.tmdb_type,it.tmdb_id)||state.addedItems.some(x=>String(x.tmdb_id)===String(it.tmdb_id)&&x.type===it.type))return false;
   state.addedItems.push(it);
   if(it.original_title&&norm(it.original_title)!==norm(it.title))setIdentity(it,{status:'confirmed',tmdb_id:it.tmdb_id,tmdb_type:it.tmdb_type,original_title:it.original_title,aliases:[it.original_title]},'tmdb-add');
   saveState();return true;
 }
-function openAdd(){
-  openModal(`<h2>Добавить фильм или сериал</h2><input id="tmdbQ" placeholder="Введите название"><button class="small-btn gold" id="tmdbGo">Найти в TMDB</button><div id="tmdbResults"></div>`);
-  $('#tmdbGo').onclick=async()=>{
+function tmdbDetailsCacheKey(mediaType,tmdbId){return `${mediaType==='tv'?'tv':'movie'}:${tmdbId}`}
+async function getTmdbDetailsCached(mediaType,tmdbId){
+  const key=tmdbDetailsCacheKey(mediaType,tmdbId);
+  if(addDetailsCache.has(key))return addDetailsCache.get(key);
+  const details=await tmdbDetails(mediaType,tmdbId);
+  addDetailsCache.set(key,details);
+  return details;
+}
+function tmdbResultHTML(x){
+  const title=x.title||x.name||'Без названия',original=x.original_title||x.original_name||'',year=(x.release_date||x.first_air_date||'').slice(0,4);
+  const mediaType=x.media_type==='tv'?'tv':'movie',typeLabel=mediaType==='tv'?'Сериал':'Фильм',poster=x.poster_path?'https://image.tmdb.org/t/p/w185'+x.poster_path:'';
+  const rating=x.vote_average!=null&&Number(x.vote_average)>0?Number(x.vote_average).toFixed(1):'—',already=isTmdbInLibrary(mediaType,x.id);
+  return `<article class="tmdb-result" data-type="${mediaType}" data-id="${esc(x.id)}">
+    <button type="button" class="tmdb-result-poster tmdb-preview-open" aria-label="Подробнее: ${esc(title)}" style="${poster?`background-image:url('${esc(poster)}')`:''}"></button>
+    <div class="tmdb-result-body">
+      <button type="button" class="tmdb-result-title tmdb-preview-open">${esc(title)}</button>
+      ${original&&norm(original)!==norm(title)?`<div class="tmdb-result-original">${esc(original)}</div>`:''}
+      <div class="tmdb-result-meta">${year||'—'} · ${typeLabel} · ★ ${rating}</div>
+      ${x.overview?`<div class="tmdb-result-overview">${esc(x.overview)}</div>`:''}
+    </div>
+    <div class="tmdb-result-actions">
+      <button type="button" class="small-btn tmdb-preview-open">Подробнее</button>
+      <button type="button" class="small-btn gold tmdb-add" ${already?'disabled':''}>${already?'Уже в списке':'Добавить'}</button>
+    </div>
+  </article>`;
+}
+function bindTmdbResultActions(){
+  $$('.tmdb-result').forEach(row=>{
+    row.querySelectorAll('.tmdb-preview-open').forEach(b=>b.onclick=()=>openTmdbPreview(row.dataset.type,row.dataset.id));
+    const add=row.querySelector('.tmdb-add');
+    if(add&&!add.disabled)add.onclick=()=>addTmdbSelection(row.dataset.type,row.dataset.id,add);
+  });
+}
+function renderTmdbSearchResults(){
+  const box=$('#tmdbResults');if(!box)return;
+  box.innerHTML=addSearchState.results.length?addSearchState.results.map(tmdbResultHTML).join(''):(addSearchState.query?'<div class="empty">Ничего не найдено</div>':'');
+  bindTmdbResultActions();
+}
+function renderAddSearchModal(restoreScroll=false){
+  addPreviewRequest++;
+  openModal(`<h2>Добавить фильм или сериал</h2>
+    <form class="tmdb-search-form" id="tmdbSearchForm"><input id="tmdbQ" value="${esc(addSearchState.query)}" placeholder="Введите название" autocomplete="off"><button type="submit" class="small-btn gold" id="tmdbGo">Найти в TMDB</button></form>
+    <div class="tmdb-search-results" id="tmdbResults"></div>`);
+  renderTmdbSearchResults();
+  $('#tmdbSearchForm').onsubmit=async e=>{
+    e.preventDefault();
     const box=$('#tmdbResults'),q=$('#tmdbQ').value.trim();if(!q)return;
-    box.innerHTML='Ищу…';
+    addSearchState.query=q;addSearchState.scrollTop=0;
+    const request=++addSearchState.searchRequest;
+    box.innerHTML='<div class="tmdb-preview-loading">Ищу…</div>';
     try{
-      const d=await tmdbSearch(q),res=(d.results||[]).filter(x=>x.media_type==='movie'||x.media_type==='tv').slice(0,8);
-      box.innerHTML=res.map(x=>{const t=x.media_type==='movie'?'M':'S',title=x.title||x.name,year=(x.release_date||x.first_air_date||'').slice(0,4),poster=x.poster_path?'https://image.tmdb.org/t/p/w185'+x.poster_path:'';return `<div class="result"><div class="result-poster" style="${poster?`background-image:url('${poster}')`:''}"></div><div><b>${esc(title)}</b><br><small>${year||'—'} · ${t==='M'?'Фильм':'Сериал'} · ★ ${x.vote_average?Number(x.vote_average).toFixed(1):'—'}</small></div><button class="small-btn gold tmdb-add" data-type="${x.media_type}" data-id="${x.id}">Добавить</button></div>`}).join('')||'Ничего не найдено';
-      $$('.tmdb-add').forEach(b=>b.onclick=async()=>{
-        const label=b.textContent;b.disabled=true;b.textContent='Загружаю жанры…';
-        try{
-          const details=await tmdbDetails(b.dataset.type,b.dataset.id),it=addedItemFromTmdb(details);
-          if(saveAddedTmdbItem(it)){closeModal();rebuild()}else{b.textContent='Уже добавлено'}
-        }catch(e){b.disabled=false;b.textContent=label;alert('Не удалось загрузить данные TMDB: '+e.message)}
-      });
-    }catch(e){box.textContent=e.message}
+      const d=await tmdbSearch(q);if(request!==addSearchState.searchRequest||!$('#tmdbResults'))return;
+      addSearchState.results=(d.results||[]).filter(x=>x.media_type==='movie'||x.media_type==='tv').slice(0,12);
+      renderTmdbSearchResults();
+    }catch(err){if(request===addSearchState.searchRequest&&$('#tmdbResults'))box.textContent=err.message}
   };
+  requestAnimationFrame(()=>{
+    $('#modal').scrollTop=restoreScroll?addSearchState.scrollTop:0;
+    if(!restoreScroll)$('#tmdbQ')?.focus();
+  });
+}
+function renderTmdbPreview(details){
+  const mediaType=details.media_type==='tv'?'tv':'movie',title=details.title||details.name||'Без названия',original=details.original_title||details.original_name||'';
+  const releaseDate=details.release_date||details.first_air_date||'',year=releaseDate.slice(0,4),poster=details.poster_path?'https://image.tmdb.org/t/p/w500'+details.poster_path:'';
+  const rating=details.vote_average!=null&&Number(details.vote_average)>0?Number(details.vote_average).toFixed(1):'—',genres=(details.genres||[]).map(g=>g&&g.name).filter(Boolean);
+  let countryNames=null;try{if(typeof Intl.DisplayNames==='function')countryNames=new Intl.DisplayNames(['ru'],{type:'region'})}catch(e){}
+  const countries=(details.production_countries||[]).map(x=>{if(!x)return '';try{const code=x.iso_3166_1||'',localized=countryNames&&code?countryNames.of(code):'';return localized&&localized!==code?localized:(x.name||localized)}catch(e){return x.name||''}}).filter(Boolean),premiere=/^\d{4}-\d{2}-\d{2}$/.test(releaseDate)?new Date(releaseDate+'T00:00:00Z').toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}):releaseDate;
+  const extra=mediaType==='tv'&&details.number_of_seasons!=null?` · Сезонов: ${details.number_of_seasons}`:mediaType==='movie'&&details.runtime?` · ${details.runtime} мин.`:'';
+  const already=isTmdbInLibrary(mediaType,details.id);
+  openModal(`<div class="modal-nav"><button type="button" class="modal-back tmdb-preview-back">← Назад к результатам</button></div>
+    <div class="tmdb-preview">
+      <div class="tmdb-preview-poster" style="${poster?`background-image:url('${esc(poster)}')`:''}"></div>
+      <div class="tmdb-preview-main"><h2>${esc(title)}</h2>${original?`<div class="tmdb-preview-original">${esc(original)}</div>`:''}<div class="tmdb-preview-meta">${year||'—'} · ${mediaType==='tv'?'Сериал':'Фильм'} · ★ ${rating}${extra}</div>${genres.length?`<div class="tmdb-preview-genres">Жанры: ${esc(genres.join(', '))}</div>`:''}${countries.length?`<div class="tmdb-preview-genres">Страна: ${esc(countries.join(', '))}</div>`:''}${premiere?`<div class="tmdb-preview-genres">Премьера: ${esc(premiere)}</div>`:''}</div>
+      <p class="tmdb-preview-overview">${esc(details.overview||'Описание пока не добавлено.')}</p>
+      <div class="tmdb-preview-actions"><button type="button" class="small-btn tmdb-preview-back">← Назад к результатам</button><button type="button" class="small-btn gold" id="tmdbPreviewAdd" ${already?'disabled':''}>${already?'Уже в списке':'Добавить в список'}</button></div>
+    </div>`);
+  $('#modal').scrollTop=0;
+  $$('.tmdb-preview-back').forEach(b=>b.onclick=()=>renderAddSearchModal(true));
+  const add=$('#tmdbPreviewAdd');if(add&&!add.disabled)add.onclick=()=>addTmdbSelection(mediaType,details.id,add);
+}
+async function openTmdbPreview(mediaType,tmdbId){
+  addSearchState.scrollTop=$('#modal')?.scrollTop||0;
+  const request=++addPreviewRequest;
+  openModal(`<div id="tmdbPreviewShell"><div class="modal-nav"><button type="button" class="modal-back" id="tmdbPreviewLoadingBack">← Назад к результатам</button></div><div class="tmdb-preview-loading">Загружаю подробности TMDB…</div></div>`);
+  $('#modal').scrollTop=0;
+  $('#tmdbPreviewLoadingBack').onclick=()=>renderAddSearchModal(true);
+  try{
+    const details=await getTmdbDetailsCached(mediaType,tmdbId);
+    if(request!==addPreviewRequest||!$('#tmdbPreviewShell'))return;
+    renderTmdbPreview(details);
+  }catch(err){
+    if(request!==addPreviewRequest||!$('#tmdbPreviewShell'))return;
+    $('#tmdbPreviewShell').innerHTML=`<div class="modal-nav"><button type="button" class="modal-back" id="tmdbPreviewErrorBack">← Назад к результатам</button></div><div class="warning-box">Не удалось загрузить подробности TMDB: ${esc(err.message)}</div>`;
+    $('#tmdbPreviewErrorBack').onclick=()=>renderAddSearchModal(true);
+  }
+}
+async function addTmdbSelection(mediaType,tmdbId,button){
+  if(isTmdbInLibrary(mediaType,tmdbId)){button.disabled=true;button.textContent='Уже в списке';return false}
+  const label=button.textContent;button.disabled=true;button.textContent='Загружаю данные…';
+  try{
+    const details=await getTmdbDetailsCached(mediaType,tmdbId),it=addedItemFromTmdb(details);
+    if(!saveAddedTmdbItem(it)){button.textContent='Уже в списке';return false}
+    closeModal();rebuild();return true;
+  }catch(err){button.disabled=false;button.textContent=label;alert('Не удалось загрузить данные TMDB: '+err.message);return false}
+}
+function openAdd(){
+  addSearchState={query:'',results:[],scrollTop:0,searchRequest:addSearchState.searchRequest+1};
+  renderAddSearchModal();
 }
 
 function setTonight(id){
