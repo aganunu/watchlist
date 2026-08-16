@@ -86,9 +86,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
 .modal-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
 .modal-back{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:12px;padding:9px 12px}
 .action-sheet{display:grid;gap:8px;margin-top:14px}
-.action-sheet button{width:100%;text-align:left;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:14px;padding:13px 14px}
+.action-sheet button,.action-sheet a{width:100%;text-align:left;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:14px;padding:13px 14px;text-decoration:none}
 .action-sheet button.primary{background:var(--gold);border-color:var(--gold);color:#111;font-weight:800}
 .action-sheet button.danger{color:var(--danger)}
+.detail-layout{display:grid;grid-template-columns:110px minmax(0,1fr);gap:15px}.detail-meta{margin:10px 0 0}.detail-genres{margin:7px 0 0;color:var(--muted);line-height:1.4}.watch-query{color:var(--muted);margin:0 0 12px}.watch-options{display:grid;gap:8px}
+.search-hit{background:rgba(243,188,76,.28);color:#fff3cf;border-bottom:1px solid var(--gold2);border-radius:3px;padding:0 .08em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+@media(max-width:420px){.detail-layout{grid-template-columns:88px minmax(0,1fr);gap:12px}.detail-layout .row-poster{width:88px!important}}
 .match-list{display:grid;gap:10px;margin-top:12px}.manual-search-box{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0}.manual-search-box input{margin:0}.search-hint{color:var(--muted);font-size:12px;line-height:1.4;margin-top:6px}.match-badge{display:inline-block;margin-top:4px;padding:3px 7px;border-radius:999px;background:rgba(223,165,47,.10);color:var(--gold2);font-size:11px}.match-original{color:var(--muted);font-size:12px;margin-top:3px}.match-overview{color:var(--muted);font-size:11px;line-height:1.35;margin-top:5px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.update-history{display:grid;gap:8px;margin-top:12px}.update-history-item{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--panel)}.warning-box{border:1px solid rgba(220,113,104,.45);background:rgba(220,113,104,.08);border-radius:14px;padding:12px;color:var(--text);margin:10px 0}
 .match-item{display:grid;grid-template-columns:64px 1fr auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:9px;background:var(--panel)}
 .match-poster{width:64px;aspect-ratio:2/3;background:#20262c center/cover;border-radius:9px}
@@ -206,7 +209,7 @@ const BASE_URLS=[
 ];
 const STORAGE_KEY='watchlist_v3',TOKEN_KEY='watchlist_tmdb_key',IMPORT_UNDO_KEY='watchlist_v3_import_undo';
 const BACKUP_FORMAT='watchlist-full-backup',BACKUP_VERSION=1;
-let BASE={movies:[],series:[]},state={},items=[],filtered=[],renderLimit=30,typeFilter='all',stateFilter='all',query='',sortMode='rating',currentView='home',searchType='all';
+let BASE={movies:[],series:[]},state={},items=[],filtered=[],renderLimit=30,typeFilter='all',stateFilter='all',searchQuery='',sortMode='rating',currentView='home',searchType='all';
 let pendingImportBackup=null;
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -256,6 +259,54 @@ function searchableText(it){
   const ident=identityFor(it);
   return norm([it.title,ident.original_title||'',...aliasesFor(it),it.desc||'',...(it.genres||[])].join(' '));
 }
+function normalizedTextMap(text){
+  let value='';const map=[];
+  for(let i=0;i<text.length;){
+    const ch=String.fromCodePoint(text.codePointAt(i)),end=i+ch.length,n=norm(ch);
+    value+=n;for(let j=0;j<n.length;j++)map.push({start:i,end});i=end;
+  }
+  return {value,map};
+}
+function highlightRanges(text,terms){
+  const mapped=normalizedTextMap(text),ranges=[];
+  terms.forEach(term=>{
+    if(!term)return;
+    let from=0,index;
+    while((index=mapped.value.indexOf(term,from))!==-1){
+      const first=mapped.map[index],last=mapped.map[index+term.length-1];
+      if(first&&last)ranges.push({start:first.start,end:last.end});
+      from=index+Math.max(term.length,1);
+    }
+  });
+  ranges.sort((a,b)=>a.start-b.start||b.end-a.end);
+  return ranges.reduce((out,r)=>{
+    const last=out[out.length-1];
+    if(last&&r.start<=last.end)last.end=Math.max(last.end,r.end);else out.push(r);
+    return out;
+  },[]);
+}
+function highlightSearchText(root,query){
+  const phrase=norm(query.trim());if(!phrase)return;
+  const words=[...new Set(phrase.match(/[\p{L}\p{N}]+/gu)||[])];
+  root.querySelectorAll('.row').forEach(row=>{
+    const fields=[...row.querySelectorAll('.detail-title,.original-line,.row-desc,.row-genres')];
+    const terms=fields.some(field=>norm(field.textContent).includes(phrase))?[phrase]:words;
+    fields.forEach(field=>{
+      const walker=document.createTreeWalker(field,NodeFilter.SHOW_TEXT),nodes=[];let node;
+      while((node=walker.nextNode()))nodes.push(node);
+      nodes.forEach(textNode=>{
+        const text=textNode.nodeValue||'',ranges=highlightRanges(text,terms);if(!ranges.length)return;
+        const fragment=document.createDocumentFragment();let pos=0;
+        ranges.forEach(r=>{
+          if(r.start>pos)fragment.append(document.createTextNode(text.slice(pos,r.start)));
+          const mark=document.createElement('mark');mark.className='search-hit';mark.textContent=text.slice(r.start,r.end);fragment.append(mark);pos=r.end;
+        });
+        if(pos<text.length)fragment.append(document.createTextNode(text.slice(pos)));
+        textNode.replaceWith(fragment);
+      });
+    });
+  });
+}
 
 function loadState(){try{state=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch(e){state={}};state.watched=state.watched||[];state.pins=state.pins||[];state.addedItems=state.addedItems||[];state.tmdbMeta=state.tmdbMeta||{};state.ratings=state.ratings||{};state.notes=state.notes||{};ensureIdentityState();ensureBatchState()}
 function saveState(){ensureIdentityState();ensureBatchState();localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
@@ -281,6 +332,12 @@ function ratingOf(it){return it.tmdb_rating??it.rating??null}
 function posterOf(it){return it.poster_url||''}
 function isWatched(it){return state.watched.includes(idFor(it))}
 function isFav(it){return state.pins.includes(idFor(it))}
+function titleCompare(a,b){return String(a.title||'').localeCompare(String(b.title||''),'ru',{sensitivity:'base'})}
+function ratingCompare(a,b){
+  const ar=ratingOf(a),br=ratingOf(b);
+  const av=ar==null?-Infinity:Number(ar),bv=br==null?-Infinity:Number(br);
+  return bv!==av?bv-av:titleCompare(a,b);
+}
 
 function showView(name){
   currentView=name;
@@ -288,7 +345,8 @@ function showView(name){
   const target=$('#view-'+name); if(target) target.classList.add('active');
   $$('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
   if(name==='profile') updateProfile();
-  if(name==='search'){ setTimeout(()=>$('#search')?.focus(),60); renderSearch(); }
+  if(name==='list') applyFilters();
+  if(name==='search'){ $('#search').value=searchQuery; setTimeout(()=>$('#search')?.focus(),60); renderSearch(); }
   scrollTo({top:0,behavior:'smooth'});
 }
 function updateProfile(){
@@ -296,18 +354,19 @@ function updateProfile(){
   if(el)el.textContent=`${items.length} позиций · просмотрено ${items.filter(isWatched).length}`;
 }
 function renderSearch(){
-  const n=norm(query.trim());
+  const n=norm(searchQuery.trim());
   let arr=items.filter(it=>(searchType==='all'||it.type===searchType)&&(!n||searchableText(it).includes(n)));
-  arr.sort((a,b)=>(ratingOf(b)||0)-(ratingOf(a)||0));
+  arr.sort(ratingCompare);
   $('#searchCount').textContent=n?`Найдено: ${arr.length}`:'Введите запрос — поиск идёт сразу по фильмам и сериалам';
   $('#searchResults').innerHTML=arr.slice(0,80).map(rowHTML).join('') || '<div class="empty">Ничего не найдено</div>';
+  highlightSearchText($('#searchResults'),searchQuery);
   bindRowsIn($('#searchResults'));
 }
 function rowHTML(it){
-  const p=posterOf(it),r=ratingOf(it),id=esc(idFor(it));
+  const p=posterOf(it),r=ratingOf(it),id=esc(idFor(it)),genres=(it.genres||[]).slice(0,3).filter(Boolean);
   return `<article class="row" data-id="${id}">
     <button type="button" class="row-poster detail-trigger detail-poster" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}"></button>
-    <div><h3><button type="button" class="detail-trigger detail-title" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></h3>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<div class="original-line">${esc(identityFor(it).original_title)}</div>`:''}<div class="row-meta">${it.year||'Год не указан'} · ${it.type==='M'?'Фильм':'Сериал'} · ${(it.genres||[]).slice(0,3).map(esc).join(', ')}</div><div class="row-rating-mobile">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</div><div class="row-desc">${esc(it.desc||'Описание пока отсутствует')}</div></div>
+    <div><h3><button type="button" class="detail-trigger detail-title" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></h3>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<div class="original-line">${esc(identityFor(it).original_title)}</div>`:''}<div class="row-meta">${it.year||'Год не указан'} · ${it.type==='M'?'Фильм':'Сериал'}${genres.length?` · <span class="row-genres">${genres.map(esc).join(', ')}</span>`:''}</div><div class="row-rating-mobile">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</div><div class="row-desc">${esc(it.desc||'Описание пока отсутствует')}</div></div>
     <div class="row-actions"><span class="rating">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</span>
       <button class="small-btn more-toggle" aria-label="Действия">•••</button>
     </div>
@@ -329,9 +388,9 @@ function bindDetailTriggers(root=document){
   });
 }
 
-function applyFilters(){const n=norm(query.trim());filtered=items.filter(it=>{if(typeFilter!=='all'&&it.type!==typeFilter)return false;if(stateFilter==='watched'&&!isWatched(it))return false;if(stateFilter==='unwatched'&&isWatched(it))return false;if(stateFilter==='favorite'&&!isFav(it))return false;if(n&&!searchableText(it).includes(n))return false;return true});filtered.sort((a,b)=>sortMode==='title'?a.title.localeCompare(b.title,'ru'):sortMode==='year'?(b.year||0)-(a.year||0):(ratingOf(b)||0)-(ratingOf(a)||0));renderLimit=30;renderList()}
+function applyFilters(){filtered=items.filter(it=>{if(typeFilter!=='all'&&it.type!==typeFilter)return false;if(stateFilter==='watched'&&!isWatched(it))return false;if(stateFilter==='unwatched'&&isWatched(it))return false;if(stateFilter==='favorite'&&!isFav(it))return false;return true});filtered.sort((a,b)=>sortMode==='title'?titleCompare(a,b):sortMode==='year'?(b.year||0)-(a.year||0):ratingCompare(a,b));renderLimit=30;renderList()}
 function cardHTML(it){const p=posterOf(it),r=ratingOf(it),id=esc(idFor(it));return `<article class="media-card" data-id="${id}"><button type="button" class="poster detail-trigger detail-poster" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}"><span class="poster-title">${esc(it.title)}</span></button><div class="card-info"><b><button type="button" class="detail-trigger detail-title" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></b>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<span class="original-line">${esc(identityFor(it).original_title)}</span>`:''}<span>${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}</span><span class="r">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</span></div></article>`}
-function renderCarousels(){const fav=items.filter(isFav).slice(0,12),top=[...items].filter(x=>ratingOf(x)!=null).sort((a,b)=>ratingOf(b)-ratingOf(a)).slice(0,12);$('#favoritesCarousel').innerHTML=fav.length?fav.map(cardHTML).join(''):'<div class="empty">Пока пусто — добавляйте понравившееся через ⋯ → «В избранное» ⭐</div>';
+function renderCarousels(){const fav=items.filter(isFav).slice(0,12),top=[...items].filter(x=>ratingOf(x)!=null).sort(ratingCompare).slice(0,12);$('#favoritesCarousel').innerHTML=fav.length?fav.map(cardHTML).join(''):'<div class="empty">Пока пусто — добавляйте понравившееся через ⋯ → «В избранное» ⭐</div>';
   $('#favoritesCarousel').classList.toggle('favorites-empty',!fav.length);$('#topCarousel').innerHTML=top.map(cardHTML).join('');bindDetailTriggers($('#favoritesCarousel'));bindDetailTriggers($('#topCarousel'))}
 function renderList(){const show=filtered.slice(0,renderLimit);$('#resultCount').textContent=`Найдено: ${filtered.length}`;$('#list').innerHTML=show.length?show.map(rowHTML).join(''):'<div class="empty">Ничего не найдено</div>';$('#sentinel').textContent=renderLimit<filtered.length?'Показать ещё':'';bindRowsIn($('#list'))}
 function bindRows(){}
@@ -363,10 +422,33 @@ function openRowActions(id){
   $('#actTmdb').onclick=()=>openManualTmdbMatch(id,openRowActions);
 }
 
-function openDetails(id){const it=byId(id);if(!it)return;const p=posterOf(it),r=ratingOf(it),ident=identityFor(it);openModal(`<h2>${esc(it.title)}${ident.original_title&&norm(ident.original_title)!==norm(it.title)?`<div class="original-line">${esc(ident.original_title)}${ident.status==='confirmed'?' <span class="identity-status">TMDB подтверждено</span>':''}</div>`:''}</h2><div style="display:grid;grid-template-columns:110px 1fr;gap:15px"><div class="row-poster" style="width:110px;${p?`background-image:url('${esc(p)}')`:''}"></div><div><div class="rating">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</div><p>${esc(it.year||'')} · ${it.type==='M'?'Фильм':'Сериал'}</p><p style="color:var(--muted);line-height:1.5">${esc(it.desc||'')}</p></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:15px"><button class="small-btn ${isFav(it)?'on':''}" onclick="modalFav('${esc(id)}')">${isFav(it)?'★ В избранном':'☆ В избранное'}</button><button class="small-btn ${isWatched(it)?'on':''}" onclick="modalWatched('${esc(id)}')">${isWatched(it)?'✓ Просмотрено':'○ Отметить просмотренным'}</button><button class="small-btn" onclick="modalTonight('${esc(id)}')">🌆 На вечер</button><a class="small-btn gold" style="text-decoration:none" target="_blank" href="${esc(it.kp_url||'#')}">Кинопоиск ↗</a></div>`)}
+function openDetails(id){
+  const it=byId(id);if(!it)return;
+  const p=posterOf(it),r=ratingOf(it),ident=identityFor(it),genres=(it.genres||[]).filter(Boolean);
+  openModal(`<h2>${esc(it.title)}${ident.original_title&&norm(ident.original_title)!==norm(it.title)?`<div class="original-line">${esc(ident.original_title)}${ident.status==='confirmed'?' <span class="identity-status">TMDB подтверждено</span>':''}</div>`:''}</h2><div class="detail-layout"><div class="row-poster" style="width:110px;${p?`background-image:url('${esc(p)}')`:''}"></div><div><div class="rating">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</div><p class="detail-meta">${esc(it.year||'Год не указан')} · ${it.type==='M'?'Фильм':'Сериал'}</p>${genres.length?`<p class="detail-genres">${genres.map(esc).join(', ')}</p>`:''}<p style="color:var(--muted);line-height:1.5">${esc(it.desc||'')}</p></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:15px"><button class="small-btn ${isFav(it)?'on':''}" onclick="modalFav('${esc(id)}')">${isFav(it)?'★ В избранном':'☆ В избранное'}</button><button class="small-btn ${isWatched(it)?'on':''}" onclick="modalWatched('${esc(id)}')">${isWatched(it)?'✓ Просмотрено':'○ Отметить просмотренным'}</button><button class="small-btn" onclick="modalTonight('${esc(id)}')">🌆 На вечер</button><button class="small-btn gold" id="watchOpen">▶ Смотреть</button><a class="small-btn" style="text-decoration:none" target="_blank" rel="noopener noreferrer" href="${esc(it.kp_url||'#')}">Кинопоиск ↗</a></div>`);
+  $('#watchOpen').onclick=()=>openWatchPicker(id);
+}
+function watchQueryFor(it){return [it.title,it.year||''].filter(Boolean).join(' ').trim()}
+function openWatchPicker(id){
+  const it=byId(id);if(!it)return;
+  const q=watchQueryFor(it),encoded=encodeURIComponent(q);
+  const services=[
+    ['YouTube',`https://www.youtube.com/results?search_query=${encoded}`],
+    ['VK Видео',`https://vkvideo.ru/search?q=${encoded}`],
+    ['RuTube',`https://rutube.ru/search/?query=${encoded}`]
+  ];
+  openSubModal('▶ Смотреть',`<p class="watch-query">Поиск: <b>${esc(q)}</b></p><div class="action-sheet watch-options">${services.map(([name,url])=>`<a target="_blank" rel="noopener noreferrer" href="${esc(url)}">${name} ↗</a>`).join('')}</div>`,()=>openDetails(id));
+}
 window.modalFav=id=>{toggleFav(id);openDetails(id)};window.modalWatched=id=>{toggleWatched(id);openDetails(id)};window.modalTonight=id=>{setTonight(id);closeModal()}
 function randomPick(){const pool=items.filter(x=>!isWatched(x));if(!pool.length)return;openDetails(idFor(pool[Math.floor(Math.random()*pool.length)]))}
 async function tmdbSearch(q){const token=localStorage.getItem(TOKEN_KEY);if(!token)throw new Error('Сначала нужен TMDB Token. Он берётся из стабильной версии автоматически, если уже сохранён.');const r=await fetch('https://api.themoviedb.org/3/search/multi?query='+encodeURIComponent(q)+'&language=ru-RU&include_adult=false',{headers:{Authorization:'Bearer '+token,accept:'application/json'}});if(!r.ok)throw new Error('TMDB '+r.status);return r.json()}
+async function tmdbDetails(mediaType,id){
+  const token=localStorage.getItem(TOKEN_KEY);if(!token)throw new Error('TMDB Token не найден');
+  const kind=mediaType==='tv'?'tv':'movie';
+  const r=await fetch(`https://api.themoviedb.org/3/${kind}/${encodeURIComponent(id)}?language=ru-RU`,{headers:{Authorization:'Bearer '+token,accept:'application/json'}});
+  if(!r.ok)throw new Error('TMDB '+r.status);
+  const details=await r.json();details.media_type=kind;return details;
+}
 
 function isPlainObject(x){return !!x&&typeof x==='object'&&!Array.isArray(x)}
 function backupCounts(s){
@@ -723,6 +805,7 @@ function applyTmdbCandidate(it,x,manual=false){
   if(x.poster_path)meta.poster_url='https://image.tmdb.org/t/p/w500'+x.poster_path;
   if(x.vote_average!=null)meta.tmdb_rating=+Number(x.vote_average).toFixed(1);
   if(x.overview)meta.desc=x.overview;
+  if(Array.isArray(x.genres)&&x.genres.length)meta.genres=x.genres.map(g=>typeof g==='string'?g:g&&g.name).filter(Boolean);
   const yr=candidateYear(x);if(yr)meta.year=yr;
   meta.tmdb_id=x.id;meta.tmdb_type=x.media_type;state.tmdbMeta[oldKey]=meta;
   const original=x.original_title||x.original_name||'';
@@ -926,7 +1009,37 @@ function openAboutPanel(){
   openModal(`<h2>ℹ️ О приложении</h2><p>Кино-менеджер v6 Beta 15</p><p style="color:var(--muted)">Тестовая версия нового интерфейса. Работает поверх тех же локальных данных, что и стабильная версия.</p>`);
 }
 
-function openAdd(){openModal(`<h2>Добавить фильм или сериал</h2><input id="tmdbQ" placeholder="Введите название"><button class="small-btn gold" id="tmdbGo">Найти в TMDB</button><div id="tmdbResults"></div>`);$('#tmdbGo').onclick=async()=>{const box=$('#tmdbResults');box.innerHTML='Ищу…';try{const d=await tmdbSearch($('#tmdbQ').value.trim());const res=(d.results||[]).filter(x=>x.media_type==='movie'||x.media_type==='tv').slice(0,8);box.innerHTML=res.map(x=>{const t=x.media_type==='movie'?'M':'S',title=x.title||x.name,year=(x.release_date||x.first_air_date||'').slice(0,4),poster=x.poster_path?'https://image.tmdb.org/t/p/w185'+x.poster_path:'';return `<div class="result"><div class="result-poster" style="${poster?`background-image:url('${poster}')`:''}"></div><div><b>${esc(title)}</b><br><small>${year||'—'} · ${t==='M'?'Фильм':'Сериал'} · ★ ${x.vote_average?Number(x.vote_average).toFixed(1):'—'}</small></div><button class="small-btn gold tmdb-add" data-json="${encodeURIComponent(JSON.stringify({title,year:year?+year:null,type:t,rating:x.vote_average?+Number(x.vote_average).toFixed(1):null,tmdb_rating:x.vote_average?+Number(x.vote_average).toFixed(1):null,desc:x.overview||'',genres:[],poster_url:poster?poster.replace('/w185','/w500'):'',tmdb_id:x.id,tmdb_type:x.media_type,kp_url:'https://www.kinopoisk.ru/index.php?kp_query='+encodeURIComponent(title)}))}">Добавить</button></div>`}).join('')||'Ничего не найдено';$$('.tmdb-add').forEach(b=>b.onclick=()=>{const it=JSON.parse(decodeURIComponent(b.dataset.json));state.addedItems=state.addedItems||[];if(!state.addedItems.some(x=>x.tmdb_id===it.tmdb_id&&x.type===it.type))state.addedItems.push(it);saveState();closeModal();rebuild()})}catch(e){box.textContent=e.message}}}
+function addedItemFromTmdb(x){
+  const type=x.media_type==='tv'?'S':'M',title=x.title||x.name||'Без названия',original=x.original_title||x.original_name||'';
+  const year=(x.release_date||x.first_air_date||'').slice(0,4),poster=x.poster_path?'https://image.tmdb.org/t/p/w500'+x.poster_path:'';
+  const rating=x.vote_average?+Number(x.vote_average).toFixed(1):null;
+  return {title,original_title:original,year:year?+year:null,type,rating,tmdb_rating:rating,desc:x.overview||'',genres:(x.genres||[]).map(g=>typeof g==='string'?g:g&&g.name).filter(Boolean),poster_url:poster,tmdb_id:x.id,tmdb_type:x.media_type,kp_url:'https://www.kinopoisk.ru/index.php?kp_query='+encodeURIComponent(title)};
+}
+function saveAddedTmdbItem(it){
+  state.addedItems=state.addedItems||[];
+  if(state.addedItems.some(x=>String(x.tmdb_id)===String(it.tmdb_id)&&x.type===it.type))return false;
+  state.addedItems.push(it);
+  if(it.original_title&&norm(it.original_title)!==norm(it.title))setIdentity(it,{status:'confirmed',tmdb_id:it.tmdb_id,tmdb_type:it.tmdb_type,original_title:it.original_title,aliases:[it.original_title]},'tmdb-add');
+  saveState();return true;
+}
+function openAdd(){
+  openModal(`<h2>Добавить фильм или сериал</h2><input id="tmdbQ" placeholder="Введите название"><button class="small-btn gold" id="tmdbGo">Найти в TMDB</button><div id="tmdbResults"></div>`);
+  $('#tmdbGo').onclick=async()=>{
+    const box=$('#tmdbResults'),q=$('#tmdbQ').value.trim();if(!q)return;
+    box.innerHTML='Ищу…';
+    try{
+      const d=await tmdbSearch(q),res=(d.results||[]).filter(x=>x.media_type==='movie'||x.media_type==='tv').slice(0,8);
+      box.innerHTML=res.map(x=>{const t=x.media_type==='movie'?'M':'S',title=x.title||x.name,year=(x.release_date||x.first_air_date||'').slice(0,4),poster=x.poster_path?'https://image.tmdb.org/t/p/w185'+x.poster_path:'';return `<div class="result"><div class="result-poster" style="${poster?`background-image:url('${poster}')`:''}"></div><div><b>${esc(title)}</b><br><small>${year||'—'} · ${t==='M'?'Фильм':'Сериал'} · ★ ${x.vote_average?Number(x.vote_average).toFixed(1):'—'}</small></div><button class="small-btn gold tmdb-add" data-type="${x.media_type}" data-id="${x.id}">Добавить</button></div>`}).join('')||'Ничего не найдено';
+      $$('.tmdb-add').forEach(b=>b.onclick=async()=>{
+        const label=b.textContent;b.disabled=true;b.textContent='Загружаю жанры…';
+        try{
+          const details=await tmdbDetails(b.dataset.type,b.dataset.id),it=addedItemFromTmdb(details);
+          if(saveAddedTmdbItem(it)){closeModal();rebuild()}else{b.textContent='Уже добавлено'}
+        }catch(e){b.disabled=false;b.textContent=label;alert('Не удалось загрузить данные TMDB: '+e.message)}
+      });
+    }catch(e){box.textContent=e.message}
+  };
+}
 
 function setTonight(id){
   state.tonightId=id||null;
@@ -1257,9 +1370,9 @@ function openSafeRepairPanel(){
 
 function openProfile(){openModal(`<h2>Профиль и данные</h2><p style="color:var(--muted)">Beta 15 использует тот же localStorage, что и стабильная v5.6.3. Поэтому отметки, избранное, добавленные позиции и TMDB-кэш общие для обеих версий в одном браузере.</p><div class="result"><div>🎬</div><div><b>${items.length}</b><br><small>всего позиций</small></div></div><div class="result"><div>✨</div><div><b>${Object.keys(state.tmdbMeta||{}).length}</b><br><small>TMDB-кэш</small></div></div><div class="result"><div>🔑</div><div><b>${localStorage.getItem(TOKEN_KEY)?'TMDB Token сохранён':'TMDB Token не найден'}</b></div></div>`)}
 
-$('#homeSearch').oninput=e=>{query=e.target.value;showView('search');$('#search').value=query;renderSearch()};
-$('#search').oninput=e=>{query=e.target.value;renderSearch()};
-$('#clearSearch').onclick=()=>{query='';$('#search').value='';renderSearch()};
+$('#homeSearch').oninput=e=>{searchQuery=e.target.value;$('#search').value=searchQuery;showView('search')};
+$('#search').oninput=e=>{searchQuery=e.target.value;renderSearch()};
+$('#clearSearch').onclick=()=>{searchQuery='';$('#search').value='';$('#homeSearch').value='';renderSearch()};
 $('#sort').onchange=e=>{sortMode=e.target.value;applyFilters()};
 $('#randomBtn').onclick=randomPick;$('#tonightAction').onclick=openTonightPicker;$('#doubleAction').onclick=openDoubleSession;
 $('#addBtn').onclick=openAdd;$('#deskAdd').onclick=openAdd;$('#profileAdd').onclick=openAdd;$('#profileData').onclick=openDataPanel;$('#profileTech').onclick=openTechPanel;$('#profileSafeRepair').onclick=openSafeRepairPanel;$('#profileAbout').onclick=openAboutPanel;
