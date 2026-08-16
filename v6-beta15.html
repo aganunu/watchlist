@@ -40,6 +40,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
 .poster{aspect-ratio:2/3;background:linear-gradient(145deg,#2e3339,#101317) center/cover;position:relative}
 .poster::after{content:"";position:absolute;inset:45% 0 0;background:linear-gradient(180deg,transparent,rgba(0,0,0,.78))}
 .poster-title{display:none}.card-info{padding:10px 11px 12px}.card-info b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-info span{display:block;color:var(--muted);font-size:12px;margin-top:3px}.card-info .r{color:var(--gold2)}
+.detail-trigger{appearance:none;border:0;padding:0;margin:0;color:inherit;font:inherit;background-color:transparent}.detail-poster{display:block}.poster.detail-poster{width:100%}.detail-title{display:inline-block;max-width:100%;border-radius:6px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}.detail-trigger:focus-visible{outline:3px solid var(--gold2);outline-offset:3px}.detail-poster:focus-visible{outline-offset:-3px}
+@media(hover:hover) and (pointer:fine){.detail-poster,.detail-title{cursor:pointer;transition:transform .16s ease,filter .16s ease,box-shadow .16s ease,color .16s ease}.detail-poster:hover{transform:translateY(-2px);filter:brightness(1.08);box-shadow:0 10px 24px rgba(0,0,0,.28)}.detail-title:hover{color:var(--gold2);text-decoration:underline;text-underline-offset:3px}}
 .list-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:8px 0 14px}.count{color:var(--muted)}
 .list-grid{display:grid;gap:9px}.row{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),#0c1014);border-radius:17px;padding:9px}
 .row-poster{width:72px;aspect-ratio:2/3;border-radius:10px;background:#1b2025 center/cover}.row h3{margin:0 0 4px;font-size:18px}.row-meta{color:var(--muted);font-size:12px}.row-rating-mobile{display:none;color:var(--gold2);font-weight:800;font-size:13px;margin-top:4px}.row-desc{color:var(--muted);font-size:12px;line-height:1.38;margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -304,27 +306,33 @@ function renderSearch(){
 function rowHTML(it){
   const p=posterOf(it),r=ratingOf(it),id=esc(idFor(it));
   return `<article class="row" data-id="${id}">
-    <div class="row-poster" style="${p?`background-image:url('${esc(p)}')`:''}"></div>
-    <div><h3>${esc(it.title)}</h3>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<div class="original-line">${esc(identityFor(it).original_title)}</div>`:''}<div class="row-meta">${it.year||'Год не указан'} · ${it.type==='M'?'Фильм':'Сериал'} · ${(it.genres||[]).slice(0,3).map(esc).join(', ')}</div><div class="row-rating-mobile">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</div><div class="row-desc">${esc(it.desc||'Описание пока отсутствует')}</div></div>
+    <button type="button" class="row-poster detail-trigger detail-poster" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}"></button>
+    <div><h3><button type="button" class="detail-trigger detail-title" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></h3>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<div class="original-line">${esc(identityFor(it).original_title)}</div>`:''}<div class="row-meta">${it.year||'Год не указан'} · ${it.type==='M'?'Фильм':'Сериал'} · ${(it.genres||[]).slice(0,3).map(esc).join(', ')}</div><div class="row-rating-mobile">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</div><div class="row-desc">${esc(it.desc||'Описание пока отсутствует')}</div></div>
     <div class="row-actions"><span class="rating">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</span>
       <button class="small-btn more-toggle" aria-label="Действия">•••</button>
     </div>
   </article>`;
 }
 function bindRowsIn(root){
+  bindDetailTriggers(root);
   root.querySelectorAll('.row').forEach(row=>{
     row.querySelector('.more-toggle')?.addEventListener('click',e=>{
       e.stopPropagation();
       openRowActions(row.dataset.id);
     });
-    row.addEventListener('dblclick',()=>openDetails(row.dataset.id));
+  });
+}
+
+function bindDetailTriggers(root=document){
+  root.querySelectorAll('.detail-trigger').forEach(trigger=>{
+    trigger.onclick=e=>{e.stopPropagation();openDetails(trigger.dataset.id)};
   });
 }
 
 function applyFilters(){const n=norm(query.trim());filtered=items.filter(it=>{if(typeFilter!=='all'&&it.type!==typeFilter)return false;if(stateFilter==='watched'&&!isWatched(it))return false;if(stateFilter==='unwatched'&&isWatched(it))return false;if(stateFilter==='favorite'&&!isFav(it))return false;if(n&&!searchableText(it).includes(n))return false;return true});filtered.sort((a,b)=>sortMode==='title'?a.title.localeCompare(b.title,'ru'):sortMode==='year'?(b.year||0)-(a.year||0):(ratingOf(b)||0)-(ratingOf(a)||0));renderLimit=30;renderList()}
-function cardHTML(it){const p=posterOf(it),r=ratingOf(it);return `<article class="media-card" tabindex="0" data-id="${esc(idFor(it))}"><div class="poster" style="${p?`background-image:url('${esc(p)}')`:''}"><span class="poster-title">${esc(it.title)}</span></div><div class="card-info"><b>${esc(it.title)}</b>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<span class="original-line">${esc(identityFor(it).original_title)}</span>`:''}<span>${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}</span><span class="r">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</span></div></article>`}
+function cardHTML(it){const p=posterOf(it),r=ratingOf(it),id=esc(idFor(it));return `<article class="media-card" data-id="${id}"><button type="button" class="poster detail-trigger detail-poster" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}"><span class="poster-title">${esc(it.title)}</span></button><div class="card-info"><b><button type="button" class="detail-trigger detail-title" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></b>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<span class="original-line">${esc(identityFor(it).original_title)}</span>`:''}<span>${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}</span><span class="r">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</span></div></article>`}
 function renderCarousels(){const fav=items.filter(isFav).slice(0,12),top=[...items].filter(x=>ratingOf(x)!=null).sort((a,b)=>ratingOf(b)-ratingOf(a)).slice(0,12);$('#favoritesCarousel').innerHTML=fav.length?fav.map(cardHTML).join(''):'<div class="empty">Пока пусто — добавляйте понравившееся через ⋯ → «В избранное» ⭐</div>';
-  $('#favoritesCarousel').classList.toggle('favorites-empty',!fav.length);$('#topCarousel').innerHTML=top.map(cardHTML).join('')}
+  $('#favoritesCarousel').classList.toggle('favorites-empty',!fav.length);$('#topCarousel').innerHTML=top.map(cardHTML).join('');bindDetailTriggers($('#favoritesCarousel'));bindDetailTriggers($('#topCarousel'))}
 function renderList(){const show=filtered.slice(0,renderLimit);$('#resultCount').textContent=`Найдено: ${filtered.length}`;$('#list').innerHTML=show.length?show.map(rowHTML).join(''):'<div class="empty">Ничего не найдено</div>';$('#sentinel').textContent=renderLimit<filtered.length?'Показать ещё':'';bindRowsIn($('#list'))}
 function bindRows(){}
 function updateStats(){const watched=items.filter(isWatched).length,fav=items.filter(isFav).length,rs=items.map(ratingOf).filter(x=>x!=null);$('#heroCount').textContent=`${items.length} позиций в вашем списке`;$('#favNum').textContent=fav;$('#avgNum').textContent=rs.length?(rs.reduce((a,b)=>a+b,0)/rs.length).toFixed(1):'—';$('#watchedNum').textContent=watched;$('#watchedSub').textContent=`из ${items.length}`;$('#status').textContent=`TMDB: ${Object.keys(state.tmdbMeta||{}).length} карточек в локальном кэше · токен ${localStorage.getItem(TOKEN_KEY)?'сохранён':'не задан'}`}
@@ -933,10 +941,11 @@ function renderTonightSlot(){
   if(!it){host.innerHTML='';return;}
   const p=posterOf(it),r=ratingOf(it);
   host.innerHTML=`<div class="tonight-card" data-id="${esc(idFor(it))}">
-    <div class="tonight-poster" style="${p?`background-image:url('${esc(p)}')`:''}"></div>
-    <div><b>${esc(it.title)}</b><div class="row-meta">${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}${r!=null?' · ★ '+Number(r).toFixed(1):''}</div><div class="row-desc">Запланировано на сегодня вечером</div></div>
+    <button type="button" class="tonight-poster detail-trigger detail-poster" data-id="${esc(idFor(it))}" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}"></button>
+    <div><b><button type="button" class="detail-trigger detail-title" data-id="${esc(idFor(it))}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></b><div class="row-meta">${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}${r!=null?' · ★ '+Number(r).toFixed(1):''}</div><div class="row-desc">Запланировано на сегодня вечером</div></div>
     <div class="row-actions"><button class="small-btn gold tonight-open">Открыть</button><button class="small-btn tonight-clear">✕</button></div>
   </div>`;
+  bindDetailTriggers(host);
   host.querySelector('.tonight-open').onclick=()=>openDetails(idFor(it));
   host.querySelector('.tonight-clear').onclick=()=>setTonight(null);
 }
@@ -952,11 +961,12 @@ function openTonightPicker(){
     $('#tonightResults').innerHTML=arr.map(it=>{
       const p=posterOf(it),r=ratingOf(it);
       return `<div class="result">
-        <div class="result-poster" style="${p?`background-image:url('${esc(p)}')`:''}"></div>
-        <div><b>${esc(it.title)}</b><br><small>${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}${r!=null?' · ★ '+Number(r).toFixed(1):''}</small></div>
+        <button type="button" class="result-poster detail-trigger detail-poster" data-id="${esc(idFor(it))}" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}"></button>
+        <div><b><button type="button" class="detail-trigger detail-title" data-id="${esc(idFor(it))}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></b><br><small>${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}${r!=null?' · ★ '+Number(r).toFixed(1):''}</small></div>
         <button class="small-btn gold choose-tonight" data-id="${esc(idFor(it))}">Выбрать</button>
       </div>`;
     }).join('')||'<div class="empty">Ничего не найдено</div>';
+    bindDetailTriggers($('#tonightResults'));
     $$('.choose-tonight').forEach(b=>b.onclick=()=>{setTonight(b.dataset.id);closeModal()});
   };
   $('#tonightSearch').oninput=draw; draw();
@@ -968,12 +978,13 @@ function openDoubleSession(){
   if(!movies.length||!series.length){openModal('<h2>🎬+📺 Двойной сеанс</h2><p>Недостаточно непросмотренных фильмов или сериалов.</p>');return;}
   const movie=pickRandom(movies),seriesItem=pickRandom(series);
   const card=it=>{const p=posterOf(it),r=ratingOf(it);return `<div class="double-card" data-id="${esc(idFor(it))}">
-    <div class="row-poster" style="${p?`background-image:url('${esc(p)}')`:''}"></div>
-    <b>${esc(it.title)}</b><div class="row-meta">${it.type==='M'?'Фильм':'Сериал'}${r!=null?' · ★ '+Number(r).toFixed(1):''}</div>
+    <button type="button" class="row-poster detail-trigger detail-poster" data-id="${esc(idFor(it))}" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}"></button>
+    <b><button type="button" class="detail-trigger detail-title" data-id="${esc(idFor(it))}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></b><div class="row-meta">${it.type==='M'?'Фильм':'Сериал'}${r!=null?' · ★ '+Number(r).toFixed(1):''}</div>
     <button class="small-btn gold dbl-open" style="width:100%;margin-top:8px">Открыть</button></div>`};
   openModal(`<h2>🎬+📺 Двойной сеанс</h2><p style="color:var(--muted)">Один случайный фильм и один случайный сериал из непросмотренных.</p>
     <div class="double-result">${card(movie)}${card(seriesItem)}</div>
     <button class="small-btn" id="rerollDouble" style="width:100%;margin-top:12px">🎲 Другой вариант</button>`);
+  bindDetailTriggers($('#modal'));
   $$('.dbl-open').forEach(b=>b.onclick=()=>openDetails(b.closest('.double-card').dataset.id));
   $('#rerollDouble').onclick=openDoubleSession;
 }
