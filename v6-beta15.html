@@ -1,0 +1,1264 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07090c">
+<title>Кино-менеджер v6 Beta 15</title>
+
+<style>
+:root{
+  --bg:#07090c; --panel:#10151b; --panel2:#151b22; --line:#28313a;
+  --text:#f7f7f4; --muted:#99a2ad; --gold:#dfa52f; --gold2:#f3bc4c;
+  --green:#6dbb6e; --danger:#dc7168; --max:1440px; --navh:82px; --bottom-gap:calc(var(--navh) + env(safe-area-inset-bottom) + 110px);
+}
+*{box-sizing:border-box}
+html{scroll-padding-bottom:140px}html,body{margin:0;min-height:100%;background:radial-gradient(900px 520px at 70% -8%,rgba(223,165,47,.10),transparent 58%),var(--bg);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!important}
+button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--gold2);outline-offset:3px}
+.app{max-width:var(--max);margin:auto;padding:18px 18px var(--bottom-gap)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:22px}
+.brand{display:flex;align-items:center;gap:9px;min-width:0;font-size:21px;font-weight:800;white-space:nowrap}
+.brand span.title{overflow:hidden;text-overflow:ellipsis}.brand small{color:var(--muted);font-size:13px;font-weight:500}
+.top-tools{display:flex;gap:8px;flex:0 0 auto}.icon{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--text)}
+.view{display:none}.view.active{display:block}
+.hero{display:grid;grid-template-columns:1fr auto;align-items:start;gap:14px;margin-bottom:18px}
+.hero h1{font-size:clamp(29px,7vw,46px);margin:0 0 6px}.hero p{margin:0;color:var(--muted);font-size:17px}
+.random{border:1px solid var(--line);background:linear-gradient(180deg,#161b20,#101419);color:var(--gold2);padding:15px 18px;border-radius:18px;font-weight:800}
+.search-wrap{display:grid;grid-template-columns:1fr auto;overflow:hidden;border:1px solid var(--line);background:var(--panel);border-radius:17px;margin:18px 0 14px}
+.search-wrap input{border:0;background:transparent;color:var(--text);padding:16px 17px;outline:none;min-width:0}
+.filter-open{border:0;border-left:1px solid var(--line);background:transparent;color:var(--gold2);padding:0 16px}
+.filter-panel{display:flex;gap:8px;overflow:auto;padding:0 34px 8px 0;margin-bottom:14px;scrollbar-width:none;mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 38px),transparent 100%)}.filter-panel::-webkit-scrollbar{display:none}
+.chip{white-space:nowrap;border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:9px 13px;border-radius:999px}
+.chip.active{background:var(--gold);border-color:var(--gold);color:#141414;font-weight:800}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(132px,1fr));gap:10px;overflow:auto;padding-bottom:6px;scrollbar-width:none;margin:16px 0 20px}.stats::-webkit-scrollbar{display:none}
+.stat{border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),#0c1014);border-radius:16px;padding:12px;min-height:88px}
+.stat b{display:block;font-size:12px}.stat strong{display:block;color:var(--gold2);font-size:25px;margin:6px 0 1px}.stat span{color:var(--muted);font-size:10px}
+.section{margin-top:20px}.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}.section h2{margin:0;font-size:22px}.ghost{border:0;background:none;color:var(--gold2)}
+.carousel{display:grid;grid-auto-flow:column;grid-auto-columns:156px;gap:11px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 1px 7px;scrollbar-width:none}.carousel::-webkit-scrollbar{display:none}.carousel.favorites-empty{display:block}.carousel.favorites-empty .empty{max-width:420px}
+.media-card{scroll-snap-align:start;background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;min-width:0;position:relative}
+.poster{aspect-ratio:2/3;background:linear-gradient(145deg,#2e3339,#101317) center/cover;position:relative}
+.poster::after{content:"";position:absolute;inset:45% 0 0;background:linear-gradient(180deg,transparent,rgba(0,0,0,.78))}
+.poster-title{display:none}.card-info{padding:10px 11px 12px}.card-info b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-info span{display:block;color:var(--muted);font-size:12px;margin-top:3px}.card-info .r{color:var(--gold2)}
+.list-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:8px 0 14px}.count{color:var(--muted)}
+.list-grid{display:grid;gap:9px}.row{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),#0c1014);border-radius:17px;padding:9px}
+.row-poster{width:72px;aspect-ratio:2/3;border-radius:10px;background:#1b2025 center/cover}.row h3{margin:0 0 4px;font-size:18px}.row-meta{color:var(--muted);font-size:12px}.row-rating-mobile{display:none;color:var(--gold2);font-weight:800;font-size:13px;margin-top:4px}.row-desc{color:var(--muted);font-size:12px;line-height:1.38;margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.row-actions{display:flex;align-items:center;gap:6px;min-width:max-content}.small-btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:11px;padding:9px 10px}.small-btn.gold{background:var(--gold);border-color:var(--gold);color:#111;font-weight:800}.small-btn.on{color:var(--gold2);border-color:#76591e}.rating{color:var(--gold2);font-weight:800;white-space:nowrap}
+.more-menu{position:relative}.more-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:5;min-width:160px;background:#131920;border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 14px 40px rgba(0,0,0,.45)}.more-pop button{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--text);padding:10px;border-radius:9px}.more-pop button:hover{background:#1b222a}
+.empty{text-align:center;color:var(--muted);padding:14px 14px;border:1px dashed var(--line);border-radius:14px;background:rgba(255,255,255,.015);font-size:13px}.sentinel{text-align:center;color:var(--muted);padding:14px}.status{display:none}
+.page-title{font-size:31px;margin:6px 0 14px}.page-sub{color:var(--muted);margin-top:-8px;margin-bottom:18px}
+.nav{position:fixed;left:50%;bottom:max(18px,calc(env(safe-area-inset-bottom) + 8px));transform:translateX(-50%);width:min(760px,calc(100% - 16px));height:var(--navh);display:grid;grid-template-columns:repeat(5,1fr);padding:7px;background:rgba(14,18,23,.95);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:22px;z-index:30;box-shadow:0 16px 50px rgba(0,0,0,.42)}
+.nav button{border:0;background:transparent;color:var(--muted);padding:7px 4px;border-radius:14px;display:grid;place-items:center;gap:3px}.nav button.active{color:var(--gold2);background:rgba(223,165,47,.08)}.nav small{font-size:10px}.nav .plus{width:50px;height:50px;margin:-17px auto 0;border-radius:50%;display:grid;place-items:center;background:var(--gold);color:#111;font-size:26px}
+.profile-card{border:1px solid var(--line);background:var(--panel);border-radius:18px;padding:16px;margin-bottom:12px}.profile-grid{display:grid;gap:10px}.profile-link{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:15px;color:var(--text)}.setting-row{display:grid;grid-template-columns:42px 1fr auto;gap:12px;align-items:center;border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:14px;margin-top:10px}.setting-row button{border:0;background:transparent;color:var(--gold2);font-weight:800;padding:8px 4px}.setting-row small{display:block;color:var(--muted);margin-top:3px}.danger{color:var(--danger)!important}
+.quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0 8px}
+.quick-action{border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),#0c1014);color:var(--text);border-radius:17px;padding:14px;text-align:left}
+.quick-action b{display:block;margin-bottom:4px}.quick-action span{color:var(--muted);font-size:12px}
+.tonight-card{display:grid;grid-template-columns:62px 1fr auto;gap:12px;align-items:center;border:1px solid rgba(223,165,47,.35);background:linear-gradient(135deg,rgba(223,165,47,.10),var(--panel));border-radius:17px;padding:10px;margin-top:12px}
+.tonight-poster{width:62px;aspect-ratio:2/3;border-radius:10px;background:#1b2025 center/cover}
+.double-result{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.double-card{border:1px solid var(--line);border-radius:15px;background:var(--panel);padding:10px}
+.double-card .row-poster{width:100%;max-width:110px;margin:0 auto 8px}
+@media(max-width:520px){.quick-actions{grid-template-columns:1fr}.double-result{grid-template-columns:1fr 1fr}}
+
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(7px);z-index:50;display:flex;align-items:flex-end;justify-content:center;padding:12px}.modal{width:min(650px,100%);max-height:88vh;overflow:auto;background:#10151a;border:1px solid var(--line);border-radius:24px;padding:20px}.modal h2{margin:0 0 14px}.modal input,.modal select{width:100%;background:#0b0f13;color:var(--text);border:1px solid var(--line);border-radius:13px;padding:13px;margin-bottom:9px}.result{display:grid;grid-template-columns:60px 1fr auto;gap:10px;align-items:center;padding:9px;border:1px solid var(--line);border-radius:13px;margin-top:8px}.result-poster{width:60px;aspect-ratio:2/3;background:#222 center/cover;border-radius:8px}.result small{color:var(--muted)}.close{float:right}
+.desktop-side{display:none}
+@media(max-width:720px){
+  .app{padding:16px 14px calc(var(--navh) + env(safe-area-inset-bottom) + 92px)}
+  .brand{font-size:18px}.brand small{font-size:12px}.top-tools .icon:first-child{display:none}
+  .hero{grid-template-columns:1fr}.random{width:100%}.hero h1{font-size:34px}
+  .stats{grid-template-columns:repeat(3,145px);overflow:auto;margin-top:14px}.stat{min-height:88px}
+  .carousel{grid-auto-columns:42%}
+  .row{grid-template-columns:62px minmax(0,1fr) auto}.row-poster{width:62px}.row-desc{display:none}.row-meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.row-rating-mobile{display:block}.row-actions .rating{display:none}
+  .row-actions .watched,.row-actions .details{display:none}.row-actions .fav{display:none}.row-actions .more-toggle{display:inline-block}
+  .filter-open{padding:0 13px}.page-title{font-size:28px}
+}
+@media(min-width:721px) and (max-width:1100px){.carousel{grid-auto-columns:22%}.stats{grid-template-columns:repeat(4,1fr)}}
+@media(min-width:1100px){
+  body{padding-left:88px}.desktop-side{display:flex;position:fixed;left:13px;top:50%;transform:translateY(-50%);width:64px;flex-direction:column;gap:8px;padding:8px;background:rgba(14,18,23,.94);border:1px solid var(--line);border-radius:21px;z-index:35}.desktop-side button{height:50px;border:0;border-radius:14px;background:transparent;color:var(--muted);font-size:20px}.desktop-side button.active{color:var(--gold2);background:rgba(223,165,47,.09)}.nav{display:none}.app{padding-bottom:40px}.carousel{grid-auto-columns:185px}
+}
+@media(min-width:1700px){
+  :root{--max:1650px}.app{padding-top:36px}.brand{font-size:28px}.hero h1{font-size:58px}.hero p{font-size:21px}.search-wrap input{font-size:20px;padding:21px}.filter-open{font-size:19px}.stat{padding:22px}.stat b{font-size:18px}.stat strong{font-size:46px}.stat span{font-size:16px}.section h2{font-size:30px}.carousel{grid-auto-columns:235px}.row{grid-template-columns:104px 1fr auto;padding:14px}.row-poster{width:104px}.row h3{font-size:24px}.row-meta,.row-desc{font-size:16px}.small-btn{font-size:17px;padding:13px 16px}
+}
+@media(min-width:1600px) and (pointer:coarse){button,.chip{font-size:20px}.desktop-side{width:90px}.desktop-side button{height:70px;font-size:28px}.carousel{grid-auto-columns:260px}}
+
+.modal-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.modal-back{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:12px;padding:9px 12px}
+.action-sheet{display:grid;gap:8px;margin-top:14px}
+.action-sheet button{width:100%;text-align:left;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:14px;padding:13px 14px}
+.action-sheet button.primary{background:var(--gold);border-color:var(--gold);color:#111;font-weight:800}
+.action-sheet button.danger{color:var(--danger)}
+.match-list{display:grid;gap:10px;margin-top:12px}.manual-search-box{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0}.manual-search-box input{margin:0}.search-hint{color:var(--muted);font-size:12px;line-height:1.4;margin-top:6px}.match-badge{display:inline-block;margin-top:4px;padding:3px 7px;border-radius:999px;background:rgba(223,165,47,.10);color:var(--gold2);font-size:11px}.match-original{color:var(--muted);font-size:12px;margin-top:3px}.match-overview{color:var(--muted);font-size:11px;line-height:1.35;margin-top:5px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.update-history{display:grid;gap:8px;margin-top:12px}.update-history-item{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--panel)}.warning-box{border:1px solid rgba(220,113,104,.45);background:rgba(220,113,104,.08);border-radius:14px;padding:12px;color:var(--text);margin:10px 0}
+.match-item{display:grid;grid-template-columns:64px 1fr auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:9px;background:var(--panel)}
+.match-poster{width:64px;aspect-ratio:2/3;background:#20262c center/cover;border-radius:9px}
+.unresolved-list{display:grid;gap:8px;margin-top:12px}.unresolved-item{min-height:58px}.unresolved-controls{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:10px 0}.unresolved-toggle{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:12px;padding:9px 12px}
+.unresolved-item{display:flex;justify-content:space-between;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+
+
+.identity-note{margin:9px 0;padding:11px 12px;border:1px solid var(--line);border-radius:13px;background:var(--panel);font-size:12px;line-height:1.45}
+.identity-note.ok{border-color:rgba(109,187,110,.45)}
+.identity-note.warn{border-color:rgba(220,113,104,.45)}
+.original-line{color:var(--muted);font-size:12px;margin-top:3px}
+.suggest-original{width:100%;text-align:left;border:1px solid rgba(223,165,47,.4);background:rgba(223,165,47,.08);color:var(--text);padding:12px;border-radius:13px;margin:10px 0}
+.identity-status{display:inline-block;margin-left:6px;padding:3px 7px;border-radius:999px;background:rgba(109,187,110,.12);color:#a9d9aa;font-size:11px}
+
+.batch-report{display:grid;gap:10px;margin-top:12px}
+.batch-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+.batch-row small{display:block;color:var(--muted);margin-top:4px;line-height:1.35}
+.batch-status{font-size:11px;padding:4px 8px;border-radius:999px;white-space:nowrap}
+.batch-status.ok{background:rgba(109,187,110,.12);color:#a9d9aa}
+.batch-status.manual{background:rgba(223,165,47,.10);color:var(--gold2)}
+.batch-status.skip{background:rgba(160,160,160,.10);color:var(--muted)}
+.batch-status.err{background:rgba(220,113,104,.12);color:#e99a94}
+.batch-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.batch-summary{padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--panel);line-height:1.5}
+
+</style>
+
+</head>
+<body>
+
+<aside class="desktop-side">
+  <button class="active" data-view="home">⌂</button>
+  <button data-view="list">☷</button>
+  <button id="deskAdd">＋</button>
+  <button data-view="search">⌕</button>
+  <button data-view="profile">◉</button>
+</aside>
+
+<main class="app">
+<header class="top">
+  <div class="brand">🎬 <span class="title">Кино-менеджер</span></div>
+  <div class="top-tools"><button class="icon" data-view="search">⌕</button><button class="icon" data-view="profile">A</button></div>
+</header>
+
+<section class="view active" id="view-home">
+  <section class="hero">
+    <div><h1>Добрый вечер! 👋</h1><p id="heroCount">Загружаю ваш список…</p></div>
+    <button class="random" id="randomBtn">🎲 Что посмотреть?　›</button>
+  </section>
+  <div class="search-wrap"><input id="homeSearch" placeholder="Быстрый поиск по списку…"><button class="filter-open" data-view="search">⌕ Поиск</button></div>
+  <section class="stats">
+    <article class="stat"><b>⭐ Избранное</b><strong id="favNum">0</strong><span>позиций</span></article>
+    <article class="stat"><b>🏆 Средний рейтинг</b><strong id="avgNum">—</strong><span>TMDB / список</span></article>
+    <article class="stat"><b>✓ Просмотрено</b><strong id="watchedNum">0</strong><span id="watchedSub">из 0</span></article>
+  </section>
+
+  <div class="quick-actions">
+    <button class="quick-action" id="tonightAction"><b>🌆 Сегодня вечером</b><span id="tonightActionText">Выбрать фильм или сериал</span></button>
+    <button class="quick-action" id="doubleAction"><b>🎬+📺 Двойной сеанс</b><span>Случайный фильм + сериал</span></button>
+  </div>
+  <div id="tonightSlot"></div>
+
+  <section class="section"><div class="section-head"><h2>Высокий рейтинг</h2><button class="ghost" data-view="list">Все ›</button></div><div class="carousel" id="topCarousel"></div></section>
+  <section class="section"><div class="section-head"><h2>В избранном</h2><button class="ghost" data-view="list" data-state-go="favorite">Все ›</button></div><div class="carousel" id="favoritesCarousel"></div></section>
+</section>
+
+<section class="view" id="view-list">
+  <h1 class="page-title">Мой список</h1><div class="page-sub" id="resultCount"></div>
+  <div class="page-sub" style="margin-bottom:8px">Фильтры →</div><div class="filter-panel" id="filters">
+    <button class="chip active" data-type="all">Все</button><button class="chip" data-type="M">Фильмы</button><button class="chip" data-type="S">Сериалы</button>
+    <button class="chip" data-state="unwatched">Не просмотрено</button><button class="chip" data-state="watched">Просмотрено</button><button class="chip" data-state="favorite">Избранное</button>
+  </div>
+  <div class="list-toolbar"><div></div><select id="sort" class="chip"><option value="rating">По рейтингу</option><option value="title">По названию</option><option value="year">По году</option></select></div>
+  <div class="list-grid" id="list"></div><div class="sentinel" id="sentinel"></div>
+</section>
+
+<section class="view" id="view-search">
+  <h1 class="page-title">Поиск</h1><div class="page-sub">По названию, описанию и жанрам сразу среди фильмов и сериалов.</div>
+  <div class="search-wrap"><input id="search" placeholder="Начните вводить название или слово…"><button class="filter-open" id="clearSearch">Очистить</button></div>
+  <div class="filter-panel" id="searchFilters">
+    <button class="chip active" data-search-type="all">Все</button><button class="chip" data-search-type="M">Фильмы</button><button class="chip" data-search-type="S">Сериалы</button>
+  </div>
+  <div class="count" id="searchCount"></div>
+  <div class="list-grid" id="searchResults"></div>
+</section>
+
+<section class="view" id="view-profile">
+  <h1 class="page-title">Профиль</h1><div class="page-sub">Ваш список, настройки и данные.</div>
+  <div class="profile-card"><b>🎬 Моя библиотека</b><p id="profileListCount" style="color:var(--muted)"></p></div>
+  <div class="profile-grid">
+    <button class="profile-link" id="profileAdd"><span>＋ Добавить фильм или сериал</span><span>›</span></button>
+    <button class="profile-link" id="profileData"><span>💾 Данные и резервная копия</span><span>›</span></button>
+    <button class="profile-link" id="profileTech"><span>⚙️ Настройки и TMDB</span><span>›</span></button>
+    <button class="profile-link" id="profileSafeRepair"><span>🛡️ Безопасное обновление</span><span>›</span></button>
+    <button class="profile-link" id="profileAbout"><span>ℹ️ О приложении</span><span>›</span></button>
+  </div>
+</section>
+
+<div class="status" id="status"></div>
+</main>
+
+<nav class="nav">
+  <button class="active" data-view="home">⌂<small>Главная</small></button>
+  <button data-view="list">☷<small>Мой список</small></button>
+  <button id="addBtn"><span class="plus">＋</span><small>Добавить</small></button>
+  <button data-view="search">⌕<small>Поиск</small></button>
+  <button data-view="profile">◉<small>Профиль</small></button>
+</nav>
+
+<div class="modal-bg hidden" id="modalBg"><div class="modal" id="modal"></div></div>
+<script>
+const BASE_URLS=[
+ 'https://raw.githubusercontent.com/aganunu/watchlist/60a72abc567dd3b95c4cbd21d5b960a78e2b6c5f/index.html',
+ 'https://cdn.jsdelivr.net/gh/aganunu/watchlist@60a72abc567dd3b95c4cbd21d5b960a78e2b6c5f/index.html'
+];
+const STORAGE_KEY='watchlist_v3',TOKEN_KEY='watchlist_tmdb_key',IMPORT_UNDO_KEY='watchlist_v3_import_undo';
+const BACKUP_FORMAT='watchlist-full-backup',BACKUP_VERSION=1;
+let BASE={movies:[],series:[]},state={},items=[],filtered=[],renderLimit=30,typeFilter='all',stateFilter='all',query='',sortMode='rating',currentView='home',searchType='all';
+let pendingImportBackup=null;
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const norm=s=>String(s||'').toLocaleLowerCase('ru-RU').replace(/ё/g,'е').normalize('NFKC');
+const idFor=it=>(it.type||'M')+'::'+it.title+'::'+(it.year||'');
+
+const B12_ALIAS_HINTS={
+  'во все тяжкое':{original:'The Professor',tmdb_id:467956,tmdb_type:'movie',year:2018,type:'M'},
+  'во всё тяжкое':{original:'The Professor',tmdb_id:467956,tmdb_type:'movie',year:2018,type:'M'}
+};
+function ensureIdentityState(){
+  state.identities=state.identities||{};
+  state.identityHistory=state.identityHistory||[];
+  state.titleAliases=state.titleAliases||{};
+}
+function identityFor(it){ensureIdentityState();return state.identities[idFor(it)]||{}}
+function aliasesFor(it){
+  ensureIdentityState();
+  const ident=identityFor(it);
+  return [...new Set([...(state.titleAliases[idFor(it)]||[]),...(ident.aliases||[]),ident.original_title].filter(Boolean))];
+}
+function aliasHintFor(it){
+  const h=B12_ALIAS_HINTS[norm(it.title)];
+  if(!h)return null;
+  if(h.type&&h.type!==it.type)return null;
+  if(h.year&&it.year&&Math.abs(+it.year-h.year)>1)return null;
+  return h;
+}
+function isConfirmedKinopoiskUrl(url){
+  return /^https?:\/\/(?:www\.)?kinopoisk\.ru\/(?:film|series)\/\d+\/?(?:[?#].*)?$/i.test(String(url||''));
+}
+function setIdentity(it,data,kind='manual'){
+  ensureIdentityState();
+  const key=idFor(it);
+  const before=JSON.parse(JSON.stringify(state.identities[key]||{}));
+  const next=Object.assign({},before,data,{updated_at:Date.now()});
+  state.identities[key]=next;
+  if(next.original_title){
+    const a=new Set(state.titleAliases[key]||[]);
+    a.add(next.original_title);
+    state.titleAliases[key]=[...a];
+  }
+  state.identityHistory.unshift({at:Date.now(),kind,id:key,title:it.title,before,after:JSON.parse(JSON.stringify(next))});
+  state.identityHistory=state.identityHistory.slice(0,50);
+}
+function searchableText(it){
+  const ident=identityFor(it);
+  return norm([it.title,ident.original_title||'',...aliasesFor(it),it.desc||'',...(it.genres||[])].join(' '));
+}
+
+function loadState(){try{state=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch(e){state={}};state.watched=state.watched||[];state.pins=state.pins||[];state.addedItems=state.addedItems||[];state.tmdbMeta=state.tmdbMeta||{};state.ratings=state.ratings||{};state.notes=state.notes||{};ensureIdentityState();ensureBatchState()}
+function saveState(){ensureIdentityState();ensureBatchState();localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
+async function fetchBase(){for(const u of BASE_URLS){try{const r=await fetch(u,{cache:'force-cache'});if(!r.ok)continue;const t=await r.text();const m=t.match(/const DATA = (\{[\s\S]*?\});\nconst GENRE_COLORS/);if(m)return JSON.parse(m[1])}catch(e){console.warn(e)}}throw new Error('Не удалось загрузить базовый список')}
+function metaEntryFor(it){
+  const exact=idFor(it);
+  if(state.tmdbMeta[exact]) return [exact,state.tmdbMeta[exact]];
+  const prefix=(it.type||'M')+'::'+it.title+'::';
+  const key=Object.keys(state.tmdbMeta||{}).find(k=>k.startsWith(prefix));
+  return key?[key,state.tmdbMeta[key]]:[exact,{}];
+}
+function mergedItem(it){
+  const [,meta]=metaEntryFor(it);
+  const ident=identityFor(it);
+  const x=Object.assign({},it,meta);
+  if(!x.year&&meta.release_date)x.year=+(meta.release_date||'').slice(0,4)||null;
+  if(!x.year&&meta.first_air_date)x.year=+(meta.first_air_date||'').slice(0,4)||null;
+  if(ident.original_title)x.original_title=ident.original_title;
+  return x
+}
+function rebuild(){items=[...BASE.movies,...BASE.series,...state.addedItems].map(mergedItem);const seen=new Set();items=items.filter(it=>{const id=idFor(it);if(seen.has(id))return false;seen.add(id);return true});applyFilters();updateStats();renderCarousels();renderSearch();updateProfile();renderTonightSlot()}
+function ratingOf(it){return it.tmdb_rating??it.rating??null}
+function posterOf(it){return it.poster_url||''}
+function isWatched(it){return state.watched.includes(idFor(it))}
+function isFav(it){return state.pins.includes(idFor(it))}
+
+function showView(name){
+  currentView=name;
+  $$('.view').forEach(v=>v.classList.remove('active'));
+  const target=$('#view-'+name); if(target) target.classList.add('active');
+  $$('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
+  if(name==='profile') updateProfile();
+  if(name==='search'){ setTimeout(()=>$('#search')?.focus(),60); renderSearch(); }
+  scrollTo({top:0,behavior:'smooth'});
+}
+function updateProfile(){
+  const el=$('#profileListCount');
+  if(el)el.textContent=`${items.length} позиций · просмотрено ${items.filter(isWatched).length}`;
+}
+function renderSearch(){
+  const n=norm(query.trim());
+  let arr=items.filter(it=>(searchType==='all'||it.type===searchType)&&(!n||searchableText(it).includes(n)));
+  arr.sort((a,b)=>(ratingOf(b)||0)-(ratingOf(a)||0));
+  $('#searchCount').textContent=n?`Найдено: ${arr.length}`:'Введите запрос — поиск идёт сразу по фильмам и сериалам';
+  $('#searchResults').innerHTML=arr.slice(0,80).map(rowHTML).join('') || '<div class="empty">Ничего не найдено</div>';
+  bindRowsIn($('#searchResults'));
+}
+function rowHTML(it){
+  const p=posterOf(it),r=ratingOf(it),id=esc(idFor(it));
+  return `<article class="row" data-id="${id}">
+    <div class="row-poster" style="${p?`background-image:url('${esc(p)}')`:''}"></div>
+    <div><h3>${esc(it.title)}</h3>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<div class="original-line">${esc(identityFor(it).original_title)}</div>`:''}<div class="row-meta">${it.year||'Год не указан'} · ${it.type==='M'?'Фильм':'Сериал'} · ${(it.genres||[]).slice(0,3).map(esc).join(', ')}</div><div class="row-rating-mobile">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</div><div class="row-desc">${esc(it.desc||'Описание пока отсутствует')}</div></div>
+    <div class="row-actions"><span class="rating">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</span>
+      <button class="small-btn more-toggle" aria-label="Действия">•••</button>
+    </div>
+  </article>`;
+}
+function bindRowsIn(root){
+  root.querySelectorAll('.row').forEach(row=>{
+    row.querySelector('.more-toggle')?.addEventListener('click',e=>{
+      e.stopPropagation();
+      openRowActions(row.dataset.id);
+    });
+    row.addEventListener('dblclick',()=>openDetails(row.dataset.id));
+  });
+}
+
+function applyFilters(){const n=norm(query.trim());filtered=items.filter(it=>{if(typeFilter!=='all'&&it.type!==typeFilter)return false;if(stateFilter==='watched'&&!isWatched(it))return false;if(stateFilter==='unwatched'&&isWatched(it))return false;if(stateFilter==='favorite'&&!isFav(it))return false;if(n&&!searchableText(it).includes(n))return false;return true});filtered.sort((a,b)=>sortMode==='title'?a.title.localeCompare(b.title,'ru'):sortMode==='year'?(b.year||0)-(a.year||0):(ratingOf(b)||0)-(ratingOf(a)||0));renderLimit=30;renderList()}
+function cardHTML(it){const p=posterOf(it),r=ratingOf(it);return `<article class="media-card" tabindex="0" data-id="${esc(idFor(it))}"><div class="poster" style="${p?`background-image:url('${esc(p)}')`:''}"><span class="poster-title">${esc(it.title)}</span></div><div class="card-info"><b>${esc(it.title)}</b>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<span class="original-line">${esc(identityFor(it).original_title)}</span>`:''}<span>${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}</span><span class="r">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</span></div></article>`}
+function renderCarousels(){const fav=items.filter(isFav).slice(0,12),top=[...items].filter(x=>ratingOf(x)!=null).sort((a,b)=>ratingOf(b)-ratingOf(a)).slice(0,12);$('#favoritesCarousel').innerHTML=fav.length?fav.map(cardHTML).join(''):'<div class="empty">Пока пусто — добавляйте понравившееся через ⋯ → «В избранное» ⭐</div>';
+  $('#favoritesCarousel').classList.toggle('favorites-empty',!fav.length);$('#topCarousel').innerHTML=top.map(cardHTML).join('')}
+function renderList(){const show=filtered.slice(0,renderLimit);$('#resultCount').textContent=`Найдено: ${filtered.length}`;$('#list').innerHTML=show.length?show.map(rowHTML).join(''):'<div class="empty">Ничего не найдено</div>';$('#sentinel').textContent=renderLimit<filtered.length?'Показать ещё':'';bindRowsIn($('#list'))}
+function bindRows(){}
+function updateStats(){const watched=items.filter(isWatched).length,fav=items.filter(isFav).length,rs=items.map(ratingOf).filter(x=>x!=null);$('#heroCount').textContent=`${items.length} позиций в вашем списке`;$('#favNum').textContent=fav;$('#avgNum').textContent=rs.length?(rs.reduce((a,b)=>a+b,0)/rs.length).toFixed(1):'—';$('#watchedNum').textContent=watched;$('#watchedSub').textContent=`из ${items.length}`;$('#status').textContent=`TMDB: ${Object.keys(state.tmdbMeta||{}).length} карточек в локальном кэше · токен ${localStorage.getItem(TOKEN_KEY)?'сохранён':'не задан'}`}
+function byId(id){return items.find(x=>idFor(x)===id)}
+function toggleFav(id){state.pins=state.pins||[];state.pins=state.pins.includes(id)?state.pins.filter(x=>x!==id):[...state.pins,id];saveState();rebuild()}
+function toggleWatched(id){state.watched=state.watched||[];state.watched=state.watched.includes(id)?state.watched.filter(x=>x!==id):[...state.watched,id];saveState();rebuild()}
+function openModal(html){$('#modal').innerHTML=`<button class="small-btn close" onclick="closeModal()">✕</button>${html}`;$('#modalBg').classList.remove('hidden')}
+function closeModal(){$('#modalBg').classList.add('hidden')}window.closeModal=closeModal;$('#modalBg').onclick=e=>{if(e.target===$('#modalBg'))closeModal()}
+
+function openSubModal(title, bodyHtml, backFn){
+  openModal(`<div class="modal-nav"><button class="modal-back" id="modalBack">← Назад</button></div><h2>${title}</h2>${bodyHtml}`);
+  $('#modalBack').onclick=backFn;
+}
+function openRowActions(id){
+  const it=byId(id); if(!it)return;
+  openModal(`<h2>${esc(it.title)}</h2>
+    <div class="action-sheet">
+      <button class="primary" id="actOpen">Открыть карточку</button>
+      <button id="actFav">${isFav(it)?'★ Убрать из избранного':'☆ В избранное'}</button>
+      <button id="actWatched">${isWatched(it)?'✓ Снять отметку «Просмотрено»':'○ Отметить просмотренным'}</button>
+      <button id="actTonight">🌆 На сегодня вечером</button>
+      <button id="actTmdb">✨ Найти/исправить данные в TMDB</button>
+    </div>`);
+  $('#actOpen').onclick=()=>openDetails(id);
+  $('#actFav').onclick=()=>{toggleFav(id);closeModal()};
+  $('#actWatched').onclick=()=>{toggleWatched(id);closeModal()};
+  $('#actTonight').onclick=()=>{setTonight(id);closeModal()};
+  $('#actTmdb').onclick=()=>openManualTmdbMatch(id,openRowActions);
+}
+
+function openDetails(id){const it=byId(id);if(!it)return;const p=posterOf(it),r=ratingOf(it),ident=identityFor(it);openModal(`<h2>${esc(it.title)}${ident.original_title&&norm(ident.original_title)!==norm(it.title)?`<div class="original-line">${esc(ident.original_title)}${ident.status==='confirmed'?' <span class="identity-status">TMDB подтверждено</span>':''}</div>`:''}</h2><div style="display:grid;grid-template-columns:110px 1fr;gap:15px"><div class="row-poster" style="width:110px;${p?`background-image:url('${esc(p)}')`:''}"></div><div><div class="rating">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</div><p>${esc(it.year||'')} · ${it.type==='M'?'Фильм':'Сериал'}</p><p style="color:var(--muted);line-height:1.5">${esc(it.desc||'')}</p></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:15px"><button class="small-btn ${isFav(it)?'on':''}" onclick="modalFav('${esc(id)}')">${isFav(it)?'★ В избранном':'☆ В избранное'}</button><button class="small-btn ${isWatched(it)?'on':''}" onclick="modalWatched('${esc(id)}')">${isWatched(it)?'✓ Просмотрено':'○ Отметить просмотренным'}</button><button class="small-btn" onclick="modalTonight('${esc(id)}')">🌆 На вечер</button><a class="small-btn gold" style="text-decoration:none" target="_blank" href="${esc(it.kp_url||'#')}">Кинопоиск ↗</a></div>`)}
+window.modalFav=id=>{toggleFav(id);openDetails(id)};window.modalWatched=id=>{toggleWatched(id);openDetails(id)};window.modalTonight=id=>{setTonight(id);closeModal()}
+function randomPick(){const pool=items.filter(x=>!isWatched(x));if(!pool.length)return;openDetails(idFor(pool[Math.floor(Math.random()*pool.length)]))}
+async function tmdbSearch(q){const token=localStorage.getItem(TOKEN_KEY);if(!token)throw new Error('Сначала нужен TMDB Token. Он берётся из стабильной версии автоматически, если уже сохранён.');const r=await fetch('https://api.themoviedb.org/3/search/multi?query='+encodeURIComponent(q)+'&language=ru-RU&include_adult=false',{headers:{Authorization:'Bearer '+token,accept:'application/json'}});if(!r.ok)throw new Error('TMDB '+r.status);return r.json()}
+
+function isPlainObject(x){return !!x&&typeof x==='object'&&!Array.isArray(x)}
+function backupCounts(s){
+  s=isPlainObject(s)?s:{};
+  return {items:(BASE.movies||[]).length+(BASE.series||[]).length+(Array.isArray(s.addedItems)?s.addedItems.length:0),added:Array.isArray(s.addedItems)?s.addedItems.length:0,tmdb:Object.keys(isPlainObject(s.tmdbMeta)?s.tmdbMeta:{}).length,watched:Array.isArray(s.watched)?s.watched.length:0,pins:Array.isArray(s.pins)?s.pins.length:0,queue:isPlainObject(s.manualReviewQueue)&&Array.isArray(s.manualReviewQueue.ids)?s.manualReviewQueue.ids.length:0};
+}
+function makeFullBackup(includeToken=true){
+  const counts=backupCounts(state),token=localStorage.getItem(TOKEN_KEY);
+  const backup={format:BACKUP_FORMAT,formatVersion:BACKUP_VERSION,appVersion:'Beta 15',exportedAt:new Date().toISOString(),storageKey:STORAGE_KEY,summary:counts,state:cloneJSON(state)};
+  if(includeToken&&token)backup.tmdbToken=token;
+  return backup;
+}
+function safeFileDate(){return new Date().toISOString().replace(/[:.]/g,'-')}
+function downloadJSON(data,filename){
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+function validateBackup(data){
+  if(!isPlainObject(data))throw new Error('Файл не содержит JSON-объект резервной копии.');
+  if(data.format!==BACKUP_FORMAT)throw new Error('Это не резервная копия Кино-менеджера Beta 15.');
+  if(!Number.isInteger(data.formatVersion)||data.formatVersion<1)throw new Error('В файле не указана корректная версия формата.');
+  if(data.formatVersion>BACKUP_VERSION)throw new Error(`Версия копии ${data.formatVersion} новее поддерживаемой ${BACKUP_VERSION}. Обновите приложение.`);
+  if(!isPlainObject(data.state))throw new Error('В копии отсутствует состояние watchlist_v3.');
+  if(!data.exportedAt||Number.isNaN(Date.parse(data.exportedAt)))throw new Error('В копии отсутствует корректная дата экспорта.');
+  if('tmdbToken' in data&&typeof data.tmdbToken!=='string')throw new Error('Поле TMDB Token имеет неверный формат.');
+  return data;
+}
+function readJSONFile(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>{try{resolve(JSON.parse(String(reader.result||'')))}catch(e){reject(new Error('Не удалось прочитать JSON: '+e.message))}};
+    reader.onerror=()=>reject(new Error('Не удалось прочитать выбранный файл.'));
+    reader.readAsText(file,'utf-8');
+  });
+}
+function mergeUniqueArray(a,b){
+  const out=[],seen=new Set();
+  [...(Array.isArray(a)?a:[]),...(Array.isArray(b)?b:[])].forEach(v=>{const k=isPlainObject(v)||Array.isArray(v)?JSON.stringify(v):typeof v+':'+String(v);if(!seen.has(k)){seen.add(k);out.push(cloneJSON(v))}});
+  return out;
+}
+function mergeGeneric(current,incoming){
+  if(Array.isArray(current)||Array.isArray(incoming))return mergeUniqueArray(current,incoming);
+  if(isPlainObject(current)&&isPlainObject(incoming)){
+    const out=cloneJSON(current);
+    Object.keys(incoming).filter(k=>!['__proto__','prototype','constructor'].includes(k)).forEach(k=>{out[k]=k in out?mergeGeneric(out[k],incoming[k]):cloneJSON(incoming[k])});
+    return out;
+  }
+  return incoming===undefined?cloneJSON(current):cloneJSON(incoming);
+}
+function isConfirmedIdentity(x){return isPlainObject(x)&&x.status==='confirmed'&&x.tmdb_id!=null}
+function mergeIdentities(current,incoming){
+  const out={},keys=new Set([...Object.keys(current||{}),...Object.keys(incoming||{})]);
+  keys.forEach(k=>{
+    const a=(current||{})[k],b=(incoming||{})[k];
+    if(!a)out[k]=cloneJSON(b);else if(!b)out[k]=cloneJSON(a);
+    else if(isConfirmedIdentity(a))out[k]=cloneJSON(a);
+    else if(isConfirmedIdentity(b))out[k]=cloneJSON(b);
+    else out[k]=mergeGeneric(a,b);
+  });
+  return out;
+}
+function addedItemKey(x){return x&&x.tmdb_id!=null?`tmdb:${x.tmdb_type||x.type||''}:${x.tmdb_id}`:`local:${norm(x&&x.title)}:${x&&x.year||''}:${x&&x.type||''}`}
+function mergeAddedItems(current,incoming){
+  const map=new Map();
+  [...(current||[]),...(incoming||[])].forEach(x=>{const k=addedItemKey(x);map.set(k,map.has(k)?mergeGeneric(map.get(k),x):cloneJSON(x))});
+  return [...map.values()];
+}
+function mergeJournal(a,b){
+  const all=mergeUniqueArray(a,b);
+  return all.sort((x,y)=>(Number(y&&y.at)||0)-(Number(x&&x.at)||0));
+}
+function mergeManualQueue(a,b,identities){
+  a=isPlainObject(a)?a:{};b=isPlainObject(b)?b:{};
+  const ids=mergeUniqueArray(a.ids,b.ids).filter(id=>!isConfirmedIdentity((identities||{})[id]));
+  return {ids,total:ids.length+(Number(a.completed)||0)+(Number(b.completed)||0)+(Number(a.skipped)||0)+(Number(b.skipped)||0),completed:(Number(a.completed)||0)+(Number(b.completed)||0),skipped:(Number(a.skipped)||0)+(Number(b.skipped)||0),createdAt:[a.createdAt,b.createdAt].filter(Boolean).sort()[0]||Date.now()};
+}
+function mergeWatchlistState(current,incoming){
+  const out=mergeGeneric(current,incoming);
+  out.watched=mergeUniqueArray(current.watched,incoming.watched);
+  out.pins=mergeUniqueArray(current.pins,incoming.pins);
+  out.addedItems=mergeAddedItems(current.addedItems,incoming.addedItems);
+  out.identities=mergeIdentities(current.identities,incoming.identities);
+  out.tonightId=current.tonightId||incoming.tonightId||null;
+  ['identityHistory','batchHistory','tmdbAuditLog','tmdbUpdateHistory'].forEach(k=>out[k]=mergeJournal(current[k],incoming[k]));
+  out.tmdbReviewSkipped=mergeUniqueArray(current.tmdbReviewSkipped,incoming.tmdbReviewSkipped);
+  out.tmdbUnresolved=mergeUniqueArray(current.tmdbUnresolved,incoming.tmdbUnresolved);
+  out.manualReviewQueue=mergeManualQueue(current.manualReviewQueue,incoming.manualReviewQueue,out.identities);
+  const meta=Object.assign({},current.tmdbMeta||{},incoming.tmdbMeta||{});
+  Object.keys(out.identities).forEach(k=>{
+    const fromCurrent=(current.identities||{})[k],fromIncoming=(incoming.identities||{})[k];
+    if(isConfirmedIdentity(fromCurrent)&&(current.tmdbMeta||{})[k])meta[k]=cloneJSON(current.tmdbMeta[k]);
+    else if(isConfirmedIdentity(fromIncoming)&&(incoming.tmdbMeta||{})[k])meta[k]=cloneJSON(incoming.tmdbMeta[k]);
+  });
+  out.tmdbMeta=meta;
+  return out;
+}
+function savePreImportSnapshot(){
+  const snapshot={at:new Date().toISOString(),state:cloneJSON(state),tokenPresent:localStorage.getItem(TOKEN_KEY)!==null,tmdbToken:localStorage.getItem(TOKEN_KEY)};
+  localStorage.setItem(IMPORT_UNDO_KEY,JSON.stringify(snapshot));
+}
+function applyBackupImport(mode){
+  const backup=pendingImportBackup;if(!backup)return;
+  const previousState=cloneJSON(state),previousToken=localStorage.getItem(TOKEN_KEY),previousUndo=localStorage.getItem(IMPORT_UNDO_KEY);
+  try{
+    savePreImportSnapshot();
+    const before=backupCounts(state),source=backupCounts(backup.state);
+    state=mode==='replace'?cloneJSON(backup.state):mergeWatchlistState(state,backup.state);
+    ensureIdentityState();ensureBatchState();
+    logTmdbEvent('data_import',null,{mode,exportedAt:backup.exportedAt});
+    saveState();
+    if(typeof backup.tmdbToken==='string'&&backup.tmdbToken)localStorage.setItem(TOKEN_KEY,backup.tmdbToken);
+    rebuild();pendingImportBackup=null;
+    const after=backupCounts(state),verb=mode==='replace'?'восстановлено':'объединено';
+    openModal(`<h2>Резервная копия ${verb}</h2><div class="identity-note ok">Операция завершена. Из копии принято: ${source.items} позиций, ${source.tmdb} TMDB-карточек, ${source.watched} отметок просмотра и ${source.pins} избранных. Перед импортом автоматически создан снимок для отката.</div><div class="result"><div>🎬</div><div><b>${after.items}</b><br><small>позиций · было ${before.items}</small></div></div><div class="result"><div>✨</div><div><b>${after.tmdb}</b><br><small>TMDB-карточек · было ${before.tmdb}</small></div></div><div class="result"><div>✓</div><div><b>${after.watched}</b><br><small>просмотрено · избранное ${after.pins} · очередь ${after.queue}</small></div></div><div class="batch-actions"><button class="small-btn" id="importReportBack">К данным</button></div>`);
+    $('#importReportBack').onclick=openDataPanel;
+  }catch(e){
+    state=previousState;localStorage.setItem(STORAGE_KEY,JSON.stringify(previousState));
+    if(previousToken===null)localStorage.removeItem(TOKEN_KEY);else localStorage.setItem(TOKEN_KEY,previousToken);
+    if(previousUndo===null)localStorage.removeItem(IMPORT_UNDO_KEY);else localStorage.setItem(IMPORT_UNDO_KEY,previousUndo);
+    rebuild();alert('Импорт не выполнен, исходные данные сохранены: '+(e.message||String(e)));
+  }
+}
+function showImportPreview(backup){
+  pendingImportBackup=backup;
+  const c=backup.summary&&isPlainObject(backup.summary)?backup.summary:backupCounts(backup.state),date=new Date(backup.exportedAt).toLocaleString('ru-RU');
+  openSubModal('Проверка резервной копии',`<div class="identity-note ok">Формат распознан · версия ${backup.formatVersion}</div><div class="result"><div>🗓</div><div><b>${esc(date)}</b><br><small>дата создания копии</small></div></div><div class="result"><div>🎬</div><div><b>${Number(c.items)||0}</b><br><small>позиций (${Number(c.added)||0} пользовательских)</small></div></div><div class="result"><div>✨</div><div><b>${Number(c.tmdb)||0}</b><br><small>TMDB-карточек · очередь ${Number(c.queue)||0}</small></div></div><div class="identity-note ${backup.tmdbToken?'warn':''}">${backup.tmdbToken?'В копии есть приватный TMDB Token — он будет восстановлен.':'TMDB Token в копию не включён; текущий токен не изменится.'}</div><p style="color:var(--muted)">Перед любым режимом приложение сохранит автоматический снимок текущих данных.</p><div class="batch-actions"><button class="small-btn danger" id="restoreBackupFull">Полностью восстановить копию</button><button class="small-btn gold" id="mergeBackupData">Объединить с текущими данными</button></div>`,openDataPanel);
+  $('#restoreBackupFull').onclick=()=>{if(confirm('Полностью заменить текущие данные содержимым копии? Снимок для отката будет создан автоматически.'))applyBackupImport('replace')};
+  $('#mergeBackupData').onclick=()=>applyBackupImport('merge');
+}
+function undoLastImport(){
+  try{
+    const raw=localStorage.getItem(IMPORT_UNDO_KEY);if(!raw)return;
+    const snapshot=JSON.parse(raw);if(!isPlainObject(snapshot)||!isPlainObject(snapshot.state))throw new Error('снимок повреждён');
+    if(!confirm('Вернуть данные к состоянию до последнего импорта?'))return;
+    state=cloneJSON(snapshot.state);ensureIdentityState();ensureBatchState();logTmdbEvent('data_import_rollback',null,{snapshotAt:snapshot.at});saveState();
+    if(snapshot.tokenPresent)localStorage.setItem(TOKEN_KEY,snapshot.tmdbToken||'');else localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(IMPORT_UNDO_KEY);rebuild();alert('Последний импорт отменён.');openDataPanel();
+  }catch(e){alert('Не удалось отменить импорт: '+(e.message||String(e)))}
+}
+function openDataPanel(){
+  const hasUndo=!!localStorage.getItem(IMPORT_UNDO_KEY);
+  openModal(`<h2>💾 Данные и резервная копия</h2><p style="color:var(--muted)">Полная переносимая копия всех пользовательских данных из ${STORAGE_KEY}.</p><div class="result"><div>🎬</div><div><b>${items.length}</b><br><small>позиций в библиотеке</small></div></div><div class="result"><div>✨</div><div><b>${Object.keys(state.tmdbMeta||{}).length}</b><br><small>карточек TMDB в локальном кэше</small></div></div><label class="identity-note warn" style="display:flex;gap:10px;align-items:flex-start"><input id="backupIncludeToken" type="checkbox" checked style="width:auto;margin:2px 0 0"><span><b>Включить TMDB Token в резервную копию</b><br>Файл будет содержать приватный токен. Не публикуйте и не передавайте его посторонним.</span></label><div class="batch-actions"><button class="small-btn gold" id="exportFullBackup">Экспорт полной копии JSON</button><button class="small-btn" id="chooseBackupFile">Импорт JSON</button>${hasUndo?'<button class="small-btn danger" id="undoLastImport">↶ Отменить последний импорт</button>':''}</div><input id="backupFileInput" type="file" accept="application/json,.json" class="hidden">`);
+  $('#exportFullBackup').onclick=()=>{const include=$('#backupIncludeToken').checked;if(include&&!confirm('Файл будет содержать приватный TMDB Token. Сохранить полную копию и не публиковать её?'))return;downloadJSON(makeFullBackup(include),`watchlist-beta15-${safeFileDate()}.json`)};
+  $('#chooseBackupFile').onclick=()=>$('#backupFileInput').click();
+  $('#backupFileInput').onchange=async e=>{const file=e.target.files&&e.target.files[0];if(!file)return;if(file.size>100*1024*1024){alert('Файл слишком большой: максимум 100 МБ.');return}try{showImportPreview(validateBackup(await readJSONFile(file)))}catch(err){alert('Импорт невозможен: '+(err.message||String(err)))}};
+  if($('#undoLastImport'))$('#undoLastImport').onclick=undoLastImport;
+}
+
+function openTokenManager(){
+  const current=localStorage.getItem(TOKEN_KEY)||'';
+  openSubModal('🔑 TMDB Token',`
+    <p style="color:var(--muted)">Токен нужен для поиска и обновления постеров, рейтингов и описаний.</p>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:8px">
+      <input id="tokenInput" type="password" placeholder="Вставьте TMDB API Read Access Token" value="${esc(current)}">
+      <button class="small-btn" id="tokenEye" type="button">👁</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="small-btn gold" id="tokenSave">Сохранить</button>
+      ${current?'<button class="small-btn danger" id="tokenDelete">Удалить токен</button>':''}
+    </div>`,openTechPanel);
+  $('#tokenEye').onclick=()=>{$('#tokenInput').type=$('#tokenInput').type==='password'?'text':'password'};
+  $('#tokenSave').onclick=()=>{
+    const v=$('#tokenInput').value.trim();
+    if(!v){alert('Вставьте токен');return;}
+    localStorage.setItem(TOKEN_KEY,v);
+    openTechPanel();
+  };
+  const del=$('#tokenDelete');
+  if(del)del.onclick=()=>{
+    if(confirm('Удалить TMDB Token с этого устройства?')){
+      localStorage.removeItem(TOKEN_KEY);
+      openTechPanel();
+    }
+  };
+}
+
+
+function cleanSearchTitle(title){
+  return String(title||'')
+    .replace(/\([^)]*\)/g,' ')
+    .replace(/[«»"“”]/g,' ')
+    .replace(/\s*[:/|]\s*/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+function titleVariants(title){
+  const raw=String(title||'').trim();
+  const out=[];
+  const add=v=>{v=String(v||'').replace(/\s+/g,' ').trim();if(v&&!out.includes(v))out.push(v)};
+  const normalizedRu=raw
+    .replace(/ё/g,'е')
+    .replace(/[«»"“”]/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+
+  add(raw);
+  add(normalizedRu);
+  add(cleanSearchTitle(raw));
+  add(raw.split(':')[0]);
+  add(raw.split('/')[0]);
+  add(raw.split('—')[0]);
+  add(raw.split(' - ')[0]);
+  add(raw.replace(/\s*\([^)]*\)\s*/g,' '));
+
+  if(raw.includes(':')) add(raw.split(':').slice(1).join(':'));
+
+  // Heuristics for Russian translated titles:
+  add(raw.replace(/\bво\s+все\b/gi,'во всё'));
+  add(raw.replace(/\bво\s+всё\b/gi,'во все'));
+  add(raw.replace(/\bтяжкое\b/gi,'тяжкое'));
+  add(raw.replace(/\bэволюция\b/gi,'').trim());
+
+  return out.filter(v=>v.length>=2).slice(0,10);
+}
+function candidateYear(x){
+  const d=x.release_date||x.first_air_date||'';
+  return +String(d).slice(0,4)||null;
+}
+function tokenSet(s){
+  return new Set(norm(s).split(/[^a-zа-яё0-9]+/i).filter(x=>x.length>1));
+}
+function tokenSimilarity(a,b){
+  const A=tokenSet(a),B=tokenSet(b);
+  if(!A.size||!B.size)return 0;
+  let inter=0;A.forEach(x=>{if(B.has(x))inter++});
+  return inter/Math.max(A.size,B.size);
+}
+function candidateScore(it,x){
+  const title=x.title||x.name||'';
+  const original=x.original_title||x.original_name||'';
+  const ident=identityFor(it),hint=aliasHintFor(it);
+  const a=norm(it.title),b=norm(title);
+  let s=0;
+  if(a===b)s+=120;else if(a.includes(b)||b.includes(a))s+=60;
+  const variants=titleVariants(it.title).map(norm);
+  if(variants.includes(b))s+=90;
+  s+=Math.round(tokenSimilarity(it.title,title)*60);
+  const iy=+it.year||null,xy=candidateYear(x);
+  if(iy&&xy){const d=Math.abs(iy-xy);if(d===0)s+=35;else if(d===1)s+=16;else if(d<=3)s+=4;else s-=35}
+  const wanted=it.type==='S'?'tv':'movie';
+  if(x.media_type===wanted)s+=40;else s-=60;
+  if(x.poster_path)s+=8;if(x.vote_count>50)s+=4;
+  if(ident.original_title&&norm(original)===norm(ident.original_title))s+=160;
+  if(hint&&norm(original)===norm(hint.original))s+=180;
+  if(hint&&String(x.id)===String(hint.tmdb_id)&&x.media_type===hint.tmdb_type)s+=260;
+  if(ident.tmdb_id){if(String(x.id)===String(ident.tmdb_id))s+=350;else s-=350}
+  return s;
+}
+async function tmdbSearchEndpoint(path,query,token){
+  const sep=path.includes('?')?'&':'?';
+  const r=await fetch(`https://api.themoviedb.org/3/${path}${sep}query=${encodeURIComponent(query)}&language=ru-RU&include_adult=false`,{
+    headers:{Authorization:'Bearer '+token,accept:'application/json'}
+  });
+  if(!r.ok)throw new Error('TMDB '+r.status);
+  const d=await r.json();
+  return d.results||[];
+}
+async function searchTmdbCandidates(it, customQuery=''){
+  const token=localStorage.getItem(TOKEN_KEY);
+  if(!token)throw new Error('TMDB Token не найден');
+  const ident=identityFor(it),hint=aliasHintFor(it);
+  const queries=[];
+  const addQ=q=>{q=String(q||'').replace(/\s+/g,' ').trim();if(q&&!queries.includes(q))queries.push(q)};
+  if(customQuery)addQ(customQuery);
+  if(ident.original_title)addQ(ident.original_title);
+  aliasesFor(it).forEach(addQ);
+  if(hint&&hint.original)addQ(hint.original);
+  titleVariants(it.title).forEach(addQ);
+  const words=cleanSearchTitle(it.title).split(/\s+/).filter(Boolean);
+  if(words.length>=3){addQ(words.slice(0,3).join(' '));addQ(words.slice(0,2).join(' '))}
+  let all=[];
+  if(hint&&hint.tmdb_id){
+    try{
+      const r=await fetch('https://api.themoviedb.org/3/'+(hint.tmdb_type==='tv'?'tv/':'movie/')+hint.tmdb_id+'?language=ru-RU',{headers:{Authorization:'Bearer '+token,accept:'application/json'}});
+      if(r.ok){const x=await r.json();x.media_type=hint.tmdb_type;all.push(x)}
+    }catch(e){console.warn('hint lookup',e)}
+  }
+  for(const q of queries.slice(0,16)){
+    try{all.push(...(await tmdbSearchEndpoint('search/multi',q,token)).filter(x=>x.media_type==='movie'||x.media_type==='tv'))}catch(e){}
+    try{
+      const endpoint=it.type==='S'?'search/tv':'search/movie';
+      const typed=await tmdbSearchEndpoint(endpoint,q,token);
+      all.push(...typed.map(x=>Object.assign({media_type:it.type==='S'?'tv':'movie'},x)));
+    }catch(e){}
+  }
+  const seen=new Set();
+  all=all.filter(x=>{const k=(x.media_type||'')+':'+x.id;if(seen.has(k))return false;seen.add(k);return true});
+  return all.sort((a,b)=>candidateScore(it,b)-candidateScore(it,a));
+}
+function isSafeAutoMatch(it,arr){
+  const ident=identityFor(it);
+  if(ident.status==='confirmed'&&ident.tmdb_id)return {ok:false,reason:'identity_locked'};
+  if(!arr||!arr.length)return {ok:false,reason:'not_found'};
+  const top=arr[0],second=arr[1],topScore=candidateScore(it,top),secondScore=second?candidateScore(it,second):-999,wanted=it.type==='S'?'tv':'movie';
+  if(top.media_type!==wanted)return {ok:false,reason:'wrong_type'};
+  if(it.year){const y=candidateYear(top);if(!y||Math.abs(+it.year-y)>1)return {ok:false,reason:'year_mismatch'}}
+  if(topScore<205)return {ok:false,reason:'low_score'};
+  if(second&&(topScore-secondScore)<40)return {ok:false,reason:'ambiguous'};
+  return {ok:true,top,topScore,secondScore};
+}
+function metaSnapshot(it){
+  const [key,meta]=metaEntryFor(it);
+  return {key,meta:JSON.parse(JSON.stringify(meta||{}))};
+}
+function saveUpdateHistory(entries){
+  state.tmdbUpdateHistory=state.tmdbUpdateHistory||[];
+  state.tmdbUpdateHistory.unshift({
+    at:Date.now(),
+    entries:entries
+  });
+  state.tmdbUpdateHistory=state.tmdbUpdateHistory.slice(0,5);
+  saveState();
+}
+function rollbackLastTmdbUpdate(){
+  const h=(state.tmdbUpdateHistory||[])[0];
+  if(!h||!h.entries||!h.entries.length){
+    alert('Нет автообновления, которое можно откатить');
+    return;
+  }
+  if(!confirm(`Откатить последнее автообновление (${h.entries.length} карточек)?`))return;
+  h.entries.forEach(e=>{
+    if(e.before && Object.keys(e.before).length) state.tmdbMeta[e.key]=e.before;
+    else delete state.tmdbMeta[e.key];
+  });
+  logTmdbEvent('rollback',null,{source:'cache_update',count:h.entries.length});
+  state.tmdbUpdateHistory.shift();
+  saveState(); rebuild(); openCacheManager();
+}
+function renderLastUpdateHistory(){
+  const host=$('#lastUpdateHistory'); if(!host)return;
+  const h=(state.tmdbUpdateHistory||[])[0];
+  if(!h||!h.entries||!h.entries.length){
+    host.innerHTML='';
+    return;
+  }
+  const list=h.entries.slice(0,12);
+  host.innerHTML=`<div class="update-history">
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+      <b>Последнее автообновление: ${h.entries.length}</b>
+      <button class="small-btn danger" id="rollbackUpdate">Откатить</button>
+    </div>
+    ${list.map(e=>`<div class="update-history-item">${esc(e.title)}</div>`).join('')}
+    ${h.entries.length>12?`<div class="search-hint">И ещё ${h.entries.length-12}</div>`:''}
+  </div>`;
+  $('#rollbackUpdate').onclick=rollbackLastTmdbUpdate;
+}
+
+function applyTmdbCandidate(it,x,manual=false){
+  const ident=identityFor(it);
+  if(ident.status==='confirmed'&&ident.tmdb_id&&String(ident.tmdb_id)!==String(x.id)){
+    if(!manual||!confirm('У карточки уже подтверждён другой TMDB ID. Заменить привязку вручную?'))return false;
+  }
+  const [oldKey,oldMeta]=metaEntryFor(it),meta=Object.assign({},oldMeta);
+  if(x.poster_path)meta.poster_url='https://image.tmdb.org/t/p/w500'+x.poster_path;
+  if(x.vote_average!=null)meta.tmdb_rating=+Number(x.vote_average).toFixed(1);
+  if(x.overview)meta.desc=x.overview;
+  const yr=candidateYear(x);if(yr)meta.year=yr;
+  meta.tmdb_id=x.id;meta.tmdb_type=x.media_type;state.tmdbMeta[oldKey]=meta;
+  const original=x.original_title||x.original_name||'';
+  setIdentity(it,{status:manual?'confirmed':'auto',tmdb_id:x.id,tmdb_type:x.media_type,original_title:original||ident.original_title||'',aliases:[...new Set([...(ident.aliases||[]),original].filter(Boolean))]},manual?'manual-confirm':'auto-match');
+  state.tmdbUnresolved=(state.tmdbUnresolved||[]).filter(v=>v!==idFor(it));
+  logTmdbEvent(manual?'manual_confirm':'automatic_update',it,{tmdb_id:x.id,tmdb_type:x.media_type,original_title:original||''});
+  saveState();return true;
+}
+async function openManualTmdbMatch(id, backFn=openRowActions, queueMode=false){
+  const it=byId(id);if(!it)return;
+  const ident=identityFor(it),hint=aliasHintFor(it),kpConfirmed=isConfirmedKinopoiskUrl(it.kp_url);
+  openSubModal('✨ Найти в TMDB',`
+    <p style="color:var(--muted)">Русское название остаётся основным. Оригинальное сохраняется отдельно и тоже участвует в поиске.</p>
+    ${hint?`<button class="suggest-original" id="useOriginalHint">Похоже, это адаптированное название.<br><b>Попробовать оригинальное: ${esc(hint.original)}</b>${hint.year?' · '+hint.year:''}</button>`:''}
+    ${ident.original_title?`<div class="identity-note ok">Оригинальное название: <b>${esc(ident.original_title)}</b>${ident.status==='confirmed'?'<span class="identity-status">подтверждено</span>':''}</div>`:''}
+    <div class="manual-search-box"><input id="manualQuery" value="${esc(it.title)}" placeholder="Русское или оригинальное название"><button class="small-btn gold" id="manualSearchBtn">Искать</button></div>
+    <div class="search-hint">Оригинальное название знать не обязательно. После «Это он» русское название не заменяется.</div>
+    ${it.kp_url?(kpConfirmed
+      ?`<div class="identity-note ok">Кинопоиск: подтверждённая ссылка на конкретную карточку.</div><a class="small-btn gold" target="_blank" style="display:inline-block;text-decoration:none;margin-bottom:8px" href="${esc(it.kp_url)}">Открыть Кинопоиск ↗</a>`
+      :`<div class="identity-note warn">Ссылка Кинопоиска не подтверждена: это поиск, а не конкретная карточка. Она не используется как доказательство совпадения.</div><a class="small-btn" target="_blank" style="display:inline-block;text-decoration:none;margin-bottom:8px" href="${esc(it.kp_url)}">Открыть поиск Кинопоиска ↗</a>`
+    ):''}
+    ${queueMode?'<div class="batch-actions"><button class="small-btn" id="skipManualItem">Пропустить</button></div>':''}
+    <div id="manualMatches"><div class="empty">Поиск…</div></div>`,()=>backFn(id));
+  if(queueMode&&$('#modalBack'))$('#modalBack').textContent='← К очереди';
+  if(queueMode&&$('#skipManualItem'))$('#skipManualItem').onclick=()=>skipManualReviewItem(id);
+  const box=$('#manualMatches');
+  const draw=async(custom='')=>{
+    box.innerHTML='<div class="empty">Поиск…</div>';
+    try{
+      const arr=(await searchTmdbCandidates(it,custom)).slice(0,20);
+      if(!arr.length){box.innerHTML='<div class="empty">TMDB ничего не нашёл. Карточка не будет изменена автоматически.</div>';return}
+      box.innerHTML='<div class="match-list">'+arr.map(x=>{
+        const p=x.poster_path?'https://image.tmdb.org/t/p/w185'+x.poster_path:'',t=x.title||x.name||'Без названия',o=x.original_title||x.original_name||'',y=candidateYear(x)||'—',sc=candidateScore(it,x),media=x.media_type==='tv'?'Сериал':'Фильм';
+        return `<div class="match-item"><div class="match-poster" style="${p?`background-image:url('${p}')`:''}"></div><div><b>${esc(t)}</b>${o&&norm(o)!==norm(t)?`<div class="match-original">${esc(o)}</div>`:''}<small>${y} · ${media} · ★ ${x.vote_average?Number(x.vote_average).toFixed(1):'—'}</small><span class="match-badge">совпадение ${sc}</span>${x.overview?`<div class="match-overview">${esc(x.overview)}</div>`:''}</div><button class="small-btn gold choose-match" data-mid="${x.media_type}:${x.id}">Это он</button></div>`;
+      }).join('')+'</div>';
+      box.querySelectorAll('.choose-match').forEach(b=>{
+        b.onclick=(ev)=>{
+          ev.preventDefault();ev.stopPropagation();
+          const raw=b.getAttribute('data-mid')||'';
+          const cut=raw.indexOf(':');
+          const mt=cut>=0?raw.slice(0,cut):'';
+          const mid=cut>=0?raw.slice(cut+1):raw;
+          const x=arr.find(z=>String(z.id)===String(mid)&&(!mt||z.media_type===mt));
+          if(!x){alert('Не удалось определить выбранную карточку TMDB. Попробуйте нажать «Искать» ещё раз.');return}
+          b.disabled=true;b.textContent='Сохраняю…';
+          try{
+            const ok=applyTmdbCandidate(it,x,true);
+            if(!ok){b.disabled=false;b.textContent='Это он';return}
+            if(queueMode)completeManualReviewItem(id);
+            rebuild();
+            if(queueMode)openManualReviewSaved(it,x);
+            else{
+              closeModal();
+              setTimeout(()=>{
+                openDetails(id);
+                const title=x.title||x.name||it.title;
+                const original=x.original_title||x.original_name||'';
+                alert('Готово: привязка подтверждена.\n'+title+(original&&norm(original)!==norm(title)?' ('+original+')':''));
+              },50);
+            }
+          }catch(err){
+            console.error(err);
+            b.disabled=false;b.textContent='Это он';
+            alert('Не удалось сохранить выбор: '+(err&&err.message?err.message:String(err)));
+          }
+        };
+      });
+    }catch(e){box.innerHTML='<div class="empty">'+esc(e.message)+'</div>'}
+  };
+  $('#manualSearchBtn').onclick=()=>draw($('#manualQuery').value.trim());
+  $('#manualQuery').addEventListener('keydown',e=>{if(e.key==='Enter')draw($('#manualQuery').value.trim())});
+  if($('#useOriginalHint'))$('#useOriginalHint').onclick=()=>{$('#manualQuery').value=hint.original;draw(hint.original)};
+  await draw('');
+}
+async function refreshTmdbCacheBeta(){
+  const token=localStorage.getItem(TOKEN_KEY);
+  if(!token){alert('Сначала сохраните TMDB Token');return;}
+
+  const targets=items.filter(it=>!posterOf(it)||ratingOf(it)==null||!it.desc||!it.year).slice(0,80);
+  if(!targets.length){alert('В локальном списке нет очевидно неполных карточек');return;}
+
+  let done=0,updated=0,found=0,errors=0;
+  const unresolved=[];
+  const history=[];
+
+  const progress=$('#cacheProgress');
+  if(progress)progress.textContent=`0 / ${targets.length}`;
+
+  for(const it of targets){
+    try{
+      const arr=await searchTmdbCandidates(it);
+      if(arr.length)found++;
+
+      const verdict=isSafeAutoMatch(it,arr);
+
+      if(verdict.ok){
+        const snap=metaSnapshot(it);
+        const before=JSON.stringify(snap.meta||{});
+        applyTmdbCandidate(it,verdict.top,false);
+        const afterMeta=metaEntryFor(it)[1]||{};
+        const after=JSON.stringify(afterMeta);
+
+        if(before!==after){
+          updated++;
+          history.push({
+            id:idFor(it),
+            title:it.title,
+            key:snap.key,
+            before:snap.meta,
+            after:JSON.parse(after)
+          });
+        }
+      }else{
+        unresolved.push(idFor(it));
+      }
+    }catch(e){
+      errors++;
+      unresolved.push(idFor(it));
+      console.warn('TMDB refresh beta',it.title,e);
+    }
+
+    done++;
+    const p=$('#cacheProgress');
+    if(p)p.textContent=`${done} / ${targets.length} · найдено ${found} · обновлено ${updated}${errors?' · ошибок '+errors:''}`;
+  }
+
+  state.tmdbUnresolved=[...new Set([...(state.tmdbUnresolved||[]),...unresolved])];
+
+  if(history.length)saveUpdateHistory(history);
+  else saveState();
+
+  rebuild();
+
+  const p=$('#cacheProgress');
+  if(p)p.textContent=`Готово · найдено ${found} · обновлено ${updated} · вручную ${unresolved.length}${errors?' · ошибок '+errors:''}`;
+
+  renderUnresolvedTmdb();
+  renderLastUpdateHistory();
+}
+function renderUnresolvedTmdb(){
+  const host=$('#unresolvedTmdb'); if(!host)return;
+  const ids=(state.tmdbUnresolved||[]).filter(id=>byId(id));
+  if(!ids.length){host.innerHTML='';return;}
+  const expanded=!!state.tmdbUnresolvedExpanded;
+  const shown=expanded?ids:ids.slice(0,8);
+  host.innerHTML=`<div class="unresolved-list">
+    <div class="unresolved-controls">
+      <b>Нужно проверить вручную: ${ids.length}</b>
+      ${ids.length>8?`<button class="unresolved-toggle" id="unresolvedToggle">${expanded?'Свернуть':'Показать все'}</button>`:''}
+    </div>`+
+    shown.map(id=>{
+      const it=byId(id);
+      return `<div class="unresolved-item"><span>${esc(it.title)}</span><button class="small-btn manual-fix" data-id="${esc(id)}">Подобрать</button></div>`;
+    }).join('')+
+    `</div>`;
+  $$('.manual-fix').forEach(b=>b.onclick=()=>openManualTmdbMatch(b.dataset.id,openCacheManager));
+  const t=$('#unresolvedToggle');
+  if(t)t.onclick=()=>{state.tmdbUnresolvedExpanded=!expanded;saveState();renderUnresolvedTmdb()};
+}
+function openCacheManager(){
+  const count=Object.keys(state.tmdbMeta||{}).length;
+  openSubModal('✨ TMDB-кэш',`
+    <p style="color:var(--muted)">Сейчас сохранено ${count} карточек. Автообновление применяет только достаточно уверенные совпадения.</p>
+    <div id="cacheProgress" class="profile-card" style="margin:10px 0">Готов к действию</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="small-btn gold" id="cacheRefresh">Обновить недостающие данные</button>
+      <button class="small-btn danger" id="cacheClear">Очистить кэш</button>
+    </div>
+    <div id="lastUpdateHistory"></div>
+    <div id="unresolvedTmdb"></div>`,openTechPanel);
+  $('#cacheRefresh').onclick=refreshTmdbCacheBeta;
+  $('#cacheClear').onclick=()=>{
+    if(confirm('Очистить локальный TMDB-кэш? Постеры и рейтинги придётся загрузить заново.')){
+      state.tmdbMeta={}; state.tmdbUnresolved=[];
+      saveState(); rebuild(); openTechPanel();
+    }
+  };
+  renderUnresolvedTmdb();
+  renderLastUpdateHistory();
+}
+function openTechPanel(){
+  const hasToken=!!localStorage.getItem(TOKEN_KEY);
+  openModal(`<h2>⚙️ Настройки и TMDB</h2>
+    <div class="setting-row">
+      <div style="font-size:26px">🔑</div>
+      <div><b>TMDB Token</b><small>${hasToken?'Сохранён на этом устройстве':'Не найден'}</small></div>
+      <button id="tmdbTokenManage" aria-label="Открыть настройки TMDB Token">›</button>
+    </div>
+    <div class="setting-row">
+      <div style="font-size:26px">✨</div>
+      <div><b>TMDB-кэш</b><small>${Object.keys(state.tmdbMeta||{}).length} карточек</small></div>
+      <button id="tmdbCacheManage" aria-label="Открыть настройки TMDB-кэша">›</button>
+    </div>
+    <div style="margin-top:14px"><button class="small-btn gold" id="safeRepairTech">🛡️ Безопасное обновление</button></div>
+    <p style="color:var(--muted)">Технические параметры спрятаны сюда, чтобы не перегружать основной интерфейс.</p>`);
+  $('#tmdbTokenManage').onclick=openTokenManager;
+  $('#tmdbCacheManage').onclick=openCacheManager;
+  $('#safeRepairTech').onclick=openSafeRepairPanel;
+}
+function openAboutPanel(){
+  openModal(`<h2>ℹ️ О приложении</h2><p>Кино-менеджер v6 Beta 15</p><p style="color:var(--muted)">Тестовая версия нового интерфейса. Работает поверх тех же локальных данных, что и стабильная версия.</p>`);
+}
+
+function openAdd(){openModal(`<h2>Добавить фильм или сериал</h2><input id="tmdbQ" placeholder="Введите название"><button class="small-btn gold" id="tmdbGo">Найти в TMDB</button><div id="tmdbResults"></div>`);$('#tmdbGo').onclick=async()=>{const box=$('#tmdbResults');box.innerHTML='Ищу…';try{const d=await tmdbSearch($('#tmdbQ').value.trim());const res=(d.results||[]).filter(x=>x.media_type==='movie'||x.media_type==='tv').slice(0,8);box.innerHTML=res.map(x=>{const t=x.media_type==='movie'?'M':'S',title=x.title||x.name,year=(x.release_date||x.first_air_date||'').slice(0,4),poster=x.poster_path?'https://image.tmdb.org/t/p/w185'+x.poster_path:'';return `<div class="result"><div class="result-poster" style="${poster?`background-image:url('${poster}')`:''}"></div><div><b>${esc(title)}</b><br><small>${year||'—'} · ${t==='M'?'Фильм':'Сериал'} · ★ ${x.vote_average?Number(x.vote_average).toFixed(1):'—'}</small></div><button class="small-btn gold tmdb-add" data-json="${encodeURIComponent(JSON.stringify({title,year:year?+year:null,type:t,rating:x.vote_average?+Number(x.vote_average).toFixed(1):null,tmdb_rating:x.vote_average?+Number(x.vote_average).toFixed(1):null,desc:x.overview||'',genres:[],poster_url:poster?poster.replace('/w185','/w500'):'',tmdb_id:x.id,tmdb_type:x.media_type,kp_url:'https://www.kinopoisk.ru/index.php?kp_query='+encodeURIComponent(title)}))}">Добавить</button></div>`}).join('')||'Ничего не найдено';$$('.tmdb-add').forEach(b=>b.onclick=()=>{const it=JSON.parse(decodeURIComponent(b.dataset.json));state.addedItems=state.addedItems||[];if(!state.addedItems.some(x=>x.tmdb_id===it.tmdb_id&&x.type===it.type))state.addedItems.push(it);saveState();closeModal();rebuild()})}catch(e){box.textContent=e.message}}}
+
+function setTonight(id){
+  state.tonightId=id||null;
+  saveState();
+  updateStats();
+  renderTonightSlot();
+}
+function renderTonightSlot(){
+  const host=$('#tonightSlot'); if(!host)return;
+  const it=state.tonightId?byId(state.tonightId):null;
+  $('#tonightActionText').textContent=it?it.title:'Выбрать фильм или сериал';
+  if(!it){host.innerHTML='';return;}
+  const p=posterOf(it),r=ratingOf(it);
+  host.innerHTML=`<div class="tonight-card" data-id="${esc(idFor(it))}">
+    <div class="tonight-poster" style="${p?`background-image:url('${esc(p)}')`:''}"></div>
+    <div><b>${esc(it.title)}</b><div class="row-meta">${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}${r!=null?' · ★ '+Number(r).toFixed(1):''}</div><div class="row-desc">Запланировано на сегодня вечером</div></div>
+    <div class="row-actions"><button class="small-btn gold tonight-open">Открыть</button><button class="small-btn tonight-clear">✕</button></div>
+  </div>`;
+  host.querySelector('.tonight-open').onclick=()=>openDetails(idFor(it));
+  host.querySelector('.tonight-clear').onclick=()=>setTonight(null);
+}
+function openTonightPicker(){
+  const pool=items.filter(x=>!isWatched(x)).slice().sort((a,b)=>(ratingOf(b)||0)-(ratingOf(a)||0)).slice(0,60);
+  openModal(`<h2>🌆 Сегодня вечером</h2>
+    <p style="color:var(--muted)">Выберите фильм или сериал. Он появится отдельной карточкой на главной.</p>
+    <input id="tonightSearch" placeholder="Поиск по списку">
+    <div id="tonightResults"></div>`);
+  const draw=()=>{
+    const n=norm($('#tonightSearch').value);
+    const arr=pool.filter(it=>!n||norm([it.title,it.desc||'',...(it.genres||[])].join(' ')).includes(n)).slice(0,24);
+    $('#tonightResults').innerHTML=arr.map(it=>{
+      const p=posterOf(it),r=ratingOf(it);
+      return `<div class="result">
+        <div class="result-poster" style="${p?`background-image:url('${esc(p)}')`:''}"></div>
+        <div><b>${esc(it.title)}</b><br><small>${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}${r!=null?' · ★ '+Number(r).toFixed(1):''}</small></div>
+        <button class="small-btn gold choose-tonight" data-id="${esc(idFor(it))}">Выбрать</button>
+      </div>`;
+    }).join('')||'<div class="empty">Ничего не найдено</div>';
+    $$('.choose-tonight').forEach(b=>b.onclick=()=>{setTonight(b.dataset.id);closeModal()});
+  };
+  $('#tonightSearch').oninput=draw; draw();
+}
+function pickRandom(pool){return pool[Math.floor(Math.random()*pool.length)]}
+function openDoubleSession(){
+  const movies=items.filter(x=>x.type==='M'&&!isWatched(x));
+  const series=items.filter(x=>x.type==='S'&&!isWatched(x));
+  if(!movies.length||!series.length){openModal('<h2>🎬+📺 Двойной сеанс</h2><p>Недостаточно непросмотренных фильмов или сериалов.</p>');return;}
+  const movie=pickRandom(movies),seriesItem=pickRandom(series);
+  const card=it=>{const p=posterOf(it),r=ratingOf(it);return `<div class="double-card" data-id="${esc(idFor(it))}">
+    <div class="row-poster" style="${p?`background-image:url('${esc(p)}')`:''}"></div>
+    <b>${esc(it.title)}</b><div class="row-meta">${it.type==='M'?'Фильм':'Сериал'}${r!=null?' · ★ '+Number(r).toFixed(1):''}</div>
+    <button class="small-btn gold dbl-open" style="width:100%;margin-top:8px">Открыть</button></div>`};
+  openModal(`<h2>🎬+📺 Двойной сеанс</h2><p style="color:var(--muted)">Один случайный фильм и один случайный сериал из непросмотренных.</p>
+    <div class="double-result">${card(movie)}${card(seriesItem)}</div>
+    <button class="small-btn" id="rerollDouble" style="width:100%;margin-top:12px">🎲 Другой вариант</button>`);
+  $$('.dbl-open').forEach(b=>b.onclick=()=>openDetails(b.closest('.double-card').dataset.id));
+  $('#rerollDouble').onclick=openDoubleSession;
+}
+
+
+function ensureBatchState(){
+  state.batchHistory=state.batchHistory||[];
+  state.lastBatchUndo=state.lastBatchUndo||null;
+  state.tmdbAuditLog=state.tmdbAuditLog||[];
+  state.tmdbReviewSkipped=state.tmdbReviewSkipped||[];
+  const q=state.manualReviewQueue||{};
+  state.manualReviewQueue={ids:Array.isArray(q.ids)?q.ids.filter(Boolean):[],total:Number.isFinite(q.total)?q.total:0,completed:Number.isFinite(q.completed)?q.completed:0,skipped:Number.isFinite(q.skipped)?q.skipped:0,createdAt:q.createdAt||null};
+}
+function cloneJSON(x){return JSON.parse(JSON.stringify(x))}
+function logTmdbEvent(type,it,details={}){
+  ensureBatchState();
+  state.tmdbAuditLog.unshift({at:Date.now(),type,id:it?idFor(it):null,title:it?it.title:'',details:cloneJSON(details)});
+}
+function queueManualReviews(ids){
+  ensureBatchState();
+  const valid=[...new Set((ids||[]).filter(id=>id&&byId(id)))],q=state.manualReviewQueue;
+  if(!q.ids.length){q.total=0;q.completed=0;q.skipped=0;q.createdAt=Date.now()}
+  const known=new Set(q.ids),added=valid.filter(id=>!known.has(id)&&!identityFor(byId(id)).tmdb_id);
+  q.ids.push(...added);q.total+=added.length;saveState();return q;
+}
+function completeManualReviewItem(id){
+  ensureBatchState();const q=state.manualReviewQueue,wasQueued=q.ids.includes(id);
+  q.ids=q.ids.filter(x=>x!==id);if(wasQueued)q.completed++;saveState();
+}
+function skipManualReviewItem(id){
+  ensureBatchState();const it=byId(id),q=state.manualReviewQueue,wasQueued=q.ids.includes(id);
+  q.ids=q.ids.filter(x=>x!==id);
+  if(wasQueued){q.skipped++;state.tmdbReviewSkipped=[...new Set([...state.tmdbReviewSkipped,id])];logTmdbEvent('manual_skip',it)}
+  saveState();
+  if(q.ids.length)openManualTmdbMatch(q.ids[0],openManualReviewQueue,true);else openManualReviewQueue();
+}
+function openManualReviewSaved(it,x){
+  ensureBatchState();const q=state.manualReviewQueue,done=q.total-q.ids.length;
+  openModal(`<h2>Готово: привязка сохранена</h2><div class="identity-note ok"><b>${esc(it.title)}</b>${x.original_title||x.original_name?`<div class="match-original">${esc(x.original_title||x.original_name)}</div>`:''}</div><p style="color:var(--muted)">Прогресс очереди: <b>${done} из ${q.total}</b></p><div class="batch-actions"><button class="small-btn" id="backToManualQueue">← К очереди</button>${q.ids.length?'<button class="small-btn gold" id="nextManualReview">Следующая →</button>':''}</div>`);
+  $('#backToManualQueue').onclick=()=>openManualReviewQueue();
+  if($('#nextManualReview'))$('#nextManualReview').onclick=()=>openManualTmdbMatch(q.ids[0],openManualReviewQueue,true);
+}
+function snapshotItemState(it){
+  const [key,meta]=metaEntryFor(it);
+  return {
+    id:idFor(it),
+    key,
+    meta:cloneJSON(meta||{}),
+    identity:cloneJSON(identityFor(it)||{})
+  };
+}
+function restoreItemSnapshot(s){
+  if(!s)return;
+  state.tmdbMeta=state.tmdbMeta||{};
+  state.identities=state.identities||{};
+  state.tmdbMeta[s.key]=cloneJSON(s.meta||{});
+  state.identities[s.id]=cloneJSON(s.identity||{});
+}
+function needsMetadataRepair(it){
+  const x=mergedItem(it);
+  const ident=identityFor(it);
+  return !posterOf(x)||!x.year||!ratingOf(x)||!x.desc||!ident.tmdb_id;
+}
+function unresolvedCandidates(){
+  return items.filter(it=>{
+    const ident=identityFor(it);
+    if(ident.status==='confirmed'&&ident.tmdb_id)return false;
+    if((state.manualReviewQueue.ids||[]).includes(idFor(it)))return false;
+    if((state.tmdbReviewSkipped||[]).includes(idFor(it)))return false;
+    return needsMetadataRepair(it);
+  });
+}
+function batchReasonText(reason){
+  const map={
+    identity_locked:'уже подтверждено',
+    not_found:'ничего не найдено',
+    wrong_type:'не совпал тип',
+    year_mismatch:'не совпал год',
+    low_score:'низкая уверенность',
+    ambiguous:'несколько похожих вариантов'
+  };
+  return map[reason]||reason||'нужно проверить';
+}
+async function runSafeBatchRepair(limit=25,onProgress=()=>{}){
+  ensureBatchState();
+  const pool=unresolvedCandidates().slice(0,limit);
+  const before=[];
+  const results=[];
+  let applied=0, manual=0, skipped=0, errors=0;
+
+  for(let i=0;i<pool.length;i++){
+    const it=pool[i];
+    onProgress({i:i+1,total:pool.length,title:it.title,applied,manual,skipped,errors});
+    try{
+      const arr=await searchTmdbCandidates(it,'');
+      const verdict=isSafeAutoMatch(it,arr);
+      if(verdict.ok){
+        before.push(snapshotItemState(it));
+        const ok=applyTmdbCandidate(it,verdict.top,false);
+        if(ok){
+          applied++;
+          results.push({
+            id:idFor(it),title:it.title,status:'applied',
+            candidate:verdict.top.title||verdict.top.name||'',
+            original:verdict.top.original_title||verdict.top.original_name||'',
+            score:verdict.topScore||candidateScore(it,verdict.top)
+          });
+        }else{
+          manual++;
+          results.push({id:idFor(it),title:it.title,status:'manual',reason:'identity_locked'});
+        }
+      }else{
+        manual++;
+        results.push({
+          id:idFor(it),title:it.title,status:'manual',
+          reason:verdict.reason,
+          candidate:verdict.top?(verdict.top.title||verdict.top.name||''):'',
+          score:verdict.topScore||null
+        });
+      }
+    }catch(e){
+      errors++;
+      results.push({id:idFor(it),title:it.title,status:'error',reason:e.message||String(e)});
+    }
+  }
+
+  state.lastBatchUndo = before.length ? {
+    at:Date.now(),
+    label:'Безопасное массовое TMDB-обновление',
+    snapshots:before
+  } : null;
+
+  state.batchHistory.unshift({
+    at:Date.now(),
+    version:'Beta 15',
+    total:pool.length,
+    applied,manual,skipped,errors,
+    results:cloneJSON(results)
+  });
+  state.batchHistory=state.batchHistory.slice(0,20);
+  queueManualReviews(results.filter(r=>r.status==='manual').map(r=>r.id));
+  saveState(); rebuild();
+
+  return {total:pool.length,applied,manual,skipped,errors,results};
+}
+function undoLastBatchRepair(){
+  ensureBatchState();
+  const u=state.lastBatchUndo;
+  if(!u||!u.snapshots||!u.snapshots.length)return false;
+  u.snapshots.forEach(restoreItemSnapshot);
+  state.batchHistory.unshift({
+    at:Date.now(),version:'Beta 15',type:'undo',label:u.label,count:u.snapshots.length
+  });
+  logTmdbEvent('rollback',null,{source:'safe_batch',count:u.snapshots.length});
+  state.lastBatchUndo=null;
+  saveState(); rebuild();
+  return true;
+}
+function batchResultHTML(r){
+  const cls=r.status==='applied'?'ok':r.status==='manual'?'manual':r.status==='error'?'err':'skip';
+  const label=r.status==='applied'?'обновлено':r.status==='manual'?'проверить':r.status==='error'?'ошибка':'пропущено';
+  const extra=r.status==='applied'
+    ? `${r.candidate||''}${r.original&&norm(r.original)!==norm(r.candidate)?' · '+r.original:''}${r.score!=null?' · score '+r.score:''}`
+    : `${batchReasonText(r.reason)}${r.candidate?' · кандидат: '+r.candidate:''}${r.score!=null?' · score '+r.score:''}`;
+  return `<div class="batch-row">
+    <div><b>${esc(r.title)}</b><small>${esc(extra)}</small></div>
+    <span class="batch-status ${cls}">${label}</span>
+  </div>`;
+}
+function openBatchReport(report){
+  openModal(`<h2>🛡️ Результат безопасного обновления</h2>
+    <div class="batch-summary">
+      Проверено: <b>${report.total}</b><br>
+      Автоматически обновлено: <b>${report.applied}</b><br>
+      Нужно проверить вручную: <b>${report.manual}</b><br>
+      Ошибок: <b>${report.errors}</b>
+    </div>
+    <div class="batch-actions">
+      ${report.applied?'<button class="small-btn" id="undoBatchBtn">↶ Откатить обновлённые</button>':''}
+      ${report.manual?'<button class="small-btn gold" id="openManualQueueBtn">Показать ручную проверку</button>':''}
+    </div>
+    <div class="batch-report">${report.results.map(batchResultHTML).join('')}</div>`);
+
+  if($('#undoBatchBtn'))$('#undoBatchBtn').onclick=()=>{
+    if(!confirm('Вернуть данные карточек к состоянию до последнего массового обновления?'))return;
+    if(undoLastBatchRepair()){
+      alert('Последнее массовое обновление отменено.');
+      closeModal();
+    }
+  };
+
+  if($('#openManualQueueBtn'))$('#openManualQueueBtn').onclick=()=>{
+    const ids=report.results.filter(r=>r.status==='manual').map(r=>r.id);
+    queueManualReviews(ids);
+    openManualReviewQueue(ids);
+  };
+}
+function openManualReviewQueue(ids){
+  ensureBatchState();
+  if(ids&&ids.length)queueManualReviews(ids);
+  const q=state.manualReviewQueue;
+  q.ids=q.ids.filter(id=>byId(id)&&!(identityFor(byId(id)).status==='confirmed'&&identityFor(byId(id)).tmdb_id));
+  saveState();
+  const pending=q.ids,done=q.total-pending.length;
+  openModal(`<h2>🔎 Нужно проверить вручную: ${pending.length}</h2>
+    <p style="color:var(--muted)">Прогресс: <b>${done} из ${q.total}</b></p>
+    <p style="color:var(--muted)">Автоматически эти карточки не изменялись.</p>
+    <div class="batch-report">${pending.map(id=>{
+      const it=byId(id);
+      if(!it)return '';
+      const ident=identityFor(it);
+      return `<div class="batch-row">
+        <div><b>${esc(it.title)}</b><small>${ident.original_title?'Оригинальное: '+esc(ident.original_title):'Нет подтверждённой идентичности'}</small></div>
+        <div class="batch-actions"><button class="small-btn skip-one" data-id="${esc(id)}">Пропустить</button><button class="small-btn gold review-one" data-id="${esc(id)}">Подобрать</button></div>
+      </div>`;
+    }).join('')||'<div class="empty">Очередь обработана.</div>'}</div>`);
+
+  $$('.review-one').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.id;
+    openManualTmdbMatch(id,openManualReviewQueue,true);
+  });
+  $$('.skip-one').forEach(b=>b.onclick=()=>skipManualReviewItem(b.dataset.id));
+}
+function openSafeRepairPanel(){
+  ensureBatchState();
+  const remaining=unresolvedCandidates().length;
+  const queued=state.manualReviewQueue.ids.length;
+  const last=(state.batchHistory||[]).find(x=>x.results);
+  openModal(`<h2>🛡️ Безопасное обновление TMDB</h2>
+    <p style="color:var(--muted)">Проверяются только карточки без подтверждённой идентичности или с неполными данными. Сомнительные совпадения автоматически не применяются.</p>
+    <div class="batch-summary">
+      Новых карточек для безопасной проверки: <b>${remaining}</b><br>
+      В сохранённой ручной очереди: <b>${queued}</b><br>
+      ${last?`Последний запуск: обновлено <b>${last.applied||0}</b>, вручную <b>${last.manual||0}</b>`:'Массовое безопасное обновление ещё не запускалось.'}
+    </div>
+    <div class="batch-actions">
+      <button class="small-btn gold" id="runSafe25">Проверить следующие 25</button>
+      <button class="small-btn" id="runSafeAll">Проверить до 100</button>
+      ${queued?'<button class="small-btn gold" id="resumeManualQueue">Продолжить ручную проверку</button>':''}
+      ${state.lastBatchUndo?'<button class="small-btn" id="undoLastSafe">↶ Откатить последнее</button>':''}
+    </div>
+    <div id="safeProgress" class="identity-note" style="display:none"></div>`);
+
+  const run=async limit=>{
+    const p=$('#safeProgress');
+    p.style.display='block';
+    $('#runSafe25').disabled=true;
+    $('#runSafeAll').disabled=true;
+    try{
+      const report=await runSafeBatchRepair(limit,st=>{
+        p.textContent=`${st.i} / ${st.total} · ${st.title} · обновлено ${st.applied} · вручную ${st.manual}`;
+      });
+      closeModal();
+      openBatchReport(report);
+    }catch(e){
+      p.textContent='Ошибка: '+(e.message||String(e));
+      $('#runSafe25').disabled=false;
+      $('#runSafeAll').disabled=false;
+    }
+  };
+
+  $('#runSafe25').onclick=()=>run(25);
+  $('#runSafeAll').onclick=()=>run(100);
+  if($('#resumeManualQueue'))$('#resumeManualQueue').onclick=()=>openManualReviewQueue();
+  if($('#undoLastSafe'))$('#undoLastSafe').onclick=()=>{
+    if(!confirm('Откатить последнее массовое обновление?'))return;
+    if(undoLastBatchRepair()){alert('Откат выполнен.');closeModal()}
+  };
+}
+
+function openProfile(){openModal(`<h2>Профиль и данные</h2><p style="color:var(--muted)">Beta 15 использует тот же localStorage, что и стабильная v5.6.3. Поэтому отметки, избранное, добавленные позиции и TMDB-кэш общие для обеих версий в одном браузере.</p><div class="result"><div>🎬</div><div><b>${items.length}</b><br><small>всего позиций</small></div></div><div class="result"><div>✨</div><div><b>${Object.keys(state.tmdbMeta||{}).length}</b><br><small>TMDB-кэш</small></div></div><div class="result"><div>🔑</div><div><b>${localStorage.getItem(TOKEN_KEY)?'TMDB Token сохранён':'TMDB Token не найден'}</b></div></div>`)}
+
+$('#homeSearch').oninput=e=>{query=e.target.value;showView('search');$('#search').value=query;renderSearch()};
+$('#search').oninput=e=>{query=e.target.value;renderSearch()};
+$('#clearSearch').onclick=()=>{query='';$('#search').value='';renderSearch()};
+$('#sort').onchange=e=>{sortMode=e.target.value;applyFilters()};
+$('#randomBtn').onclick=randomPick;$('#tonightAction').onclick=openTonightPicker;$('#doubleAction').onclick=openDoubleSession;
+$('#addBtn').onclick=openAdd;$('#deskAdd').onclick=openAdd;$('#profileAdd').onclick=openAdd;$('#profileData').onclick=openDataPanel;$('#profileTech').onclick=openTechPanel;$('#profileSafeRepair').onclick=openSafeRepairPanel;$('#profileAbout').onclick=openAboutPanel;
+$('#sentinel').onclick=()=>{renderLimit+=30;renderList()};
+$$('[data-view]').forEach(b=>b.addEventListener('click',()=>{const view=b.dataset.view;if(view)showView(view)}));
+$$('[data-type]').forEach(b=>b.onclick=()=>{$$('[data-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active');typeFilter=b.dataset.type;applyFilters()});
+$$('[data-state]').forEach(b=>b.onclick=()=>{const was=b.classList.contains('active');$$('[data-state]').forEach(x=>x.classList.remove('active'));stateFilter=was?'all':b.dataset.state;if(!was)b.classList.add('active');applyFilters()});
+$$('[data-search-type]').forEach(b=>b.onclick=()=>{$$('[data-search-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active');searchType=b.dataset.searchType;renderSearch()});
+$$('[data-state-go]').forEach(b=>b.addEventListener('click',()=>{stateFilter=b.dataset.stateGo||'all';showView('list');$$('[data-state]').forEach(x=>x.classList.toggle('active',x.dataset.state===stateFilter));applyFilters()}));
+;(async()=>{try{loadState();BASE=await fetchBase();rebuild();showView('home')}catch(e){$('#heroCount').textContent='Ошибка загрузки';$('#list').innerHTML='<div class="empty">'+esc(e.message)+'</div>'}})()
+</script>
+</body>
+</html>
