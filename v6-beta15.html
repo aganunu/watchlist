@@ -55,6 +55,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
 .nav{position:fixed;left:50%;bottom:max(18px,calc(env(safe-area-inset-bottom) + 8px));transform:translateX(-50%);width:min(760px,calc(100% - 16px));height:var(--navh);display:grid;grid-template-columns:repeat(5,1fr);padding:7px;background:rgba(14,18,23,.95);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:22px;z-index:30;box-shadow:0 16px 50px rgba(0,0,0,.42)}
 .nav button{border:0;background:transparent;color:var(--muted);padding:7px 4px;border-radius:14px;display:grid;place-items:center;gap:3px}.nav button.active{color:var(--gold2);background:rgba(223,165,47,.08)}.nav small{font-size:10px}.nav .plus{width:50px;height:50px;margin:-17px auto 0;border-radius:50%;display:grid;place-items:center;background:var(--gold);color:#111;font-size:26px}
 .profile-card{border:1px solid var(--line);background:var(--panel);border-radius:18px;padding:16px;margin-bottom:12px}.profile-grid{display:grid;gap:10px}.profile-link{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:15px;color:var(--text)}.setting-row{display:grid;grid-template-columns:42px 1fr auto;gap:12px;align-items:center;border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:14px;margin-top:10px}.setting-row button{border:0;background:transparent;color:var(--gold2);font-weight:800;padding:8px 4px}.setting-row small{display:block;color:var(--muted);margin-top:3px}.danger{color:var(--danger)!important}
+.sync-card{display:grid;gap:10px}.sync-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.sync-head small,.sync-meta{display:block;color:var(--muted);font-size:12px;line-height:1.45;margin-top:4px}.sync-badge{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:5px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:11px}.sync-badge.on{border-color:rgba(223,165,47,.5);background:rgba(223,165,47,.11);color:var(--gold2)}.sync-actions{display:flex;gap:8px;flex-wrap:wrap}.sync-actions .small-btn{min-height:40px}.sync-form{display:grid;gap:9px}.sync-form input{margin:0}.sync-choice{display:grid;gap:9px;margin-top:12px}.sync-choice .small-btn{width:100%;text-align:left;min-height:44px}
 .quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0 8px}
 .quick-action{border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),#0c1014);color:var(--text);border-radius:17px;padding:14px;text-align:left}
 .quick-action b{display:block;margin-bottom:4px}.quick-action span{color:var(--muted);font-size:12px}
@@ -187,6 +188,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
 <section class="view" id="view-profile">
   <h1 class="page-title">Профиль</h1><div class="page-sub">Ваш список, настройки и данные.</div>
   <div class="profile-card"><b>🎬 Моя библиотека</b><p id="profileListCount" style="color:var(--muted)"></p></div>
+  <div class="profile-card sync-card" id="syncCard"></div>
   <div class="profile-grid">
     <button class="profile-link" id="profileAdd"><span>＋ Добавить фильм или сериал</span><span>›</span></button>
     <button class="profile-link" id="profileData"><span>💾 Данные и резервная копия</span><span>›</span></button>
@@ -214,9 +216,13 @@ const BASE_URLS=[
  'https://cdn.jsdelivr.net/gh/aganunu/watchlist@60a72abc567dd3b95c4cbd21d5b960a78e2b6c5f/index.html'
 ];
 const STORAGE_KEY='watchlist_v3',TOKEN_KEY='watchlist_tmdb_key',IMPORT_UNDO_KEY='watchlist_v3_import_undo';
+const SUPABASE_URL='https://owiqnzkavzjqbckstegc.supabase.co',SUPABASE_KEY='sb_publishable_PE807IeLQs8bng9MMI2Rhg_Ey2WPEYt';
+const CLOUD_SESSION_KEY='watchlist_supabase_session',CLOUD_SYNC_KEY='watchlist_supabase_sync',CLOUD_PULL_UNDO_KEY='watchlist_supabase_pull_undo',CLOUD_DEVICE_KEY='watchlist_device_id';
+const SUPABASE_AUTH_URL_KEYS=['access_token','refresh_token','expires_in','expires_at','token_type','type','provider_token','provider_refresh_token','code','error','error_code','error_description','token_hash'];
 const BACKUP_FORMAT='watchlist-full-backup',BACKUP_VERSION=1;
 let BASE={movies:[],series:[]},state={},items=[],filtered=[],renderLimit=30,typeFilter='all',stateFilter='all',searchQuery='',sortMode='rating',currentView='home',searchType='all';
 let pendingImportBackup=null;
+let cloudSession=null,cloudDeviceId='',cloudSyncBusy=false,cloudUiStatus='Локальный режим';
 let addSearchState={query:'',results:[],scrollTop:0,searchRequest:0};
 let addPreviewRequest=0;
 let detailLoadRequest=0;
@@ -320,6 +326,195 @@ function highlightSearchText(root,query){
 
 function loadState(){try{state=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch(e){state={}};state.watched=state.watched||[];state.pins=state.pins||[];state.addedItems=state.addedItems||[];state.tmdbMeta=state.tmdbMeta||{};state.ratings=state.ratings||{};state.notes=state.notes||{};ensureIdentityState();ensureBatchState()}
 function saveState(){ensureIdentityState();ensureBatchState();localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
+function readStoredJSON(key){try{return JSON.parse(localStorage.getItem(key)||'null')}catch(e){return null}}
+function normalizeCloudSession(value){
+  if(!isPlainObject(value)||!value.access_token||!value.refresh_token||!isPlainObject(value.user))return null;
+  const session=Object.assign({},value);
+  if(!session.expires_at&&session.expires_in)session.expires_at=Math.floor(Date.now()/1000)+Number(session.expires_in);
+  return session;
+}
+function loadCloudSession(){return normalizeCloudSession(readStoredJSON(CLOUD_SESSION_KEY))}
+function parseCloudAuthURL(href=location.href){
+  const url=new URL(href),rawHash=url.hash.slice(1);let hashKind='route',hashRoute=rawHash,hashParams=null;
+  const questionAt=rawHash.indexOf('?');
+  if(questionAt>=0){hashKind='route-query';hashRoute=rawHash.slice(0,questionAt);hashParams=new URLSearchParams(rawHash.slice(questionAt+1))}
+  else if(rawHash){const candidate=new URLSearchParams(rawHash);if(SUPABASE_AUTH_URL_KEYS.some(key=>candidate.has(key))){hashKind='params';hashRoute='';hashParams=candidate}}
+  const values={};
+  SUPABASE_AUTH_URL_KEYS.forEach(key=>{if(url.searchParams.has(key))values[key]=url.searchParams.get(key);if(hashParams&&hashParams.has(key))values[key]=hashParams.get(key)});
+  return {url,values,hashKind,hashRoute,hashParams};
+}
+function clearCloudAuthURL(parsed){
+  const {url,hashKind,hashRoute,hashParams}=parsed;
+  SUPABASE_AUTH_URL_KEYS.forEach(key=>url.searchParams.delete(key));
+  if(hashParams){
+    SUPABASE_AUTH_URL_KEYS.forEach(key=>hashParams.delete(key));const rest=hashParams.toString();
+    if(hashKind==='route-query')url.hash=hashRoute+(rest?'?'+rest:'');else url.hash=rest;
+  }
+  history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+}
+async function restoreCloudSession(){
+  const stored=loadCloudSession(),parsed=parseCloudAuthURL(),params=parsed.values;
+  if(!params.access_token||!params.refresh_token)return stored;
+  try{
+    const userResult=await supabaseJSON('/auth/v1/user',{token:params.access_token}),user=isPlainObject(userResult&&userResult.user)?userResult.user:userResult;
+    if(!isPlainObject(user))throw new Error('Supabase не вернул пользователя');
+    const incoming={access_token:params.access_token,refresh_token:params.refresh_token,token_type:params.token_type||'bearer',user},expiresIn=Number(params.expires_in),expiresAt=Number(params.expires_at);
+    if(Number.isFinite(expiresIn))incoming.expires_in=expiresIn;if(Number.isFinite(expiresAt))incoming.expires_at=expiresAt;
+    cloudUiStatus='Вход выполнен';storeCloudSession(incoming);clearCloudAuthURL(parsed);return cloudSession;
+  }catch(err){cloudUiStatus='Не удалось завершить вход';console.warn('Supabase auth callback',err);return stored}
+}
+function loadCloudDeviceId(){
+  let value=localStorage.getItem(CLOUD_DEVICE_KEY);if(value)return value;
+  value=globalThis.crypto&&typeof crypto.randomUUID==='function'?crypto.randomUUID():`device-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,12)}`;
+  localStorage.setItem(CLOUD_DEVICE_KEY,value);return value;
+}
+function storeCloudSession(value){
+  cloudSession=normalizeCloudSession(value);
+  if(cloudSession)localStorage.setItem(CLOUD_SESSION_KEY,JSON.stringify(cloudSession));else localStorage.removeItem(CLOUD_SESSION_KEY);
+  renderSyncCard();
+}
+function loadCloudMeta(){const value=readStoredJSON(CLOUD_SYNC_KEY);return isPlainObject(value)?value:{}}
+function storeCloudMeta(value){localStorage.setItem(CLOUD_SYNC_KEY,JSON.stringify(value));renderSyncCard()}
+function stableSerialize(value){
+  if(value===null||typeof value!=='object')return JSON.stringify(value);
+  if(Array.isArray(value))return '['+value.map(stableSerialize).join(',')+']';
+  return '{'+Object.keys(value).sort().map(key=>JSON.stringify(key)+':'+stableSerialize(value[key])).join(',')+'}';
+}
+function cloudStateDigest(value){
+  const text=stableSerialize(value);let hash=2166136261;
+  for(let i=0;i<text.length;i++)hash=Math.imul(hash^text.charCodeAt(i),16777619);
+  return (hash>>>0).toString(16).padStart(8,'0');
+}
+function canonicalSyncState(value){
+  const payload=cloneJSON(value);
+  delete payload.tmdbToken;delete payload.tmdb_token;delete payload.watchlist_tmdb_key;
+  delete payload.tmdbUnresolvedExpanded;
+  return payload;
+}
+function cloudPayload(){return canonicalSyncState(state)}
+async function supabaseJSON(path,{method='GET',body=null,token=''}={}){
+  const headers={apikey:SUPABASE_KEY,accept:'application/json'};
+  if(token)headers.Authorization='Bearer '+token;
+  if(body!==null)headers['Content-Type']='application/json';
+  const response=await fetch(SUPABASE_URL+path,{method,headers,body:body===null?undefined:JSON.stringify(body),cache:'no-store'});
+  const text=await response.text();let data=null;try{data=text?JSON.parse(text):null}catch(e){data=text}
+  if(!response.ok){const error=new Error((data&&typeof data==='object'&&(data.message||data.msg||data.error_description||data.error))||`Supabase ${response.status}`);error.status=response.status;error.payload=data;throw error}
+  return data;
+}
+async function ensureCloudSession(){
+  cloudSession=cloudSession||loadCloudSession();if(!cloudSession)return null;
+  if(!cloudSession.expires_at||Number(cloudSession.expires_at)>Math.floor(Date.now()/1000)+60)return cloudSession;
+  try{
+    const refreshed=await supabaseJSON('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:cloudSession.refresh_token}});
+    storeCloudSession(refreshed);return cloudSession;
+  }catch(err){storeCloudSession(null);cloudUiStatus='Сессия истекла';throw new Error('Сессия истекла. Войдите снова.')}
+}
+function syncTimeText(value){if(!value)return 'ещё не выполнялась';const date=new Date(value);return Number.isNaN(date.getTime())?'ещё не выполнялась':date.toLocaleString('ru-RU')}
+function renderSyncCard(){
+  const host=$('#syncCard');if(!host)return;
+  const session=cloudSession||loadCloudSession(),user=session&&session.user,meta=loadCloudMeta(),hasUndo=!!localStorage.getItem(CLOUD_PULL_UNDO_KEY);
+  if(!user){
+    host.innerHTML=`<div class="sync-head"><div><b>☁️ Аккаунт и синхронизация</b><small>Приложение полностью работает локально. Вход нужен только для облачной копии.</small></div><span class="sync-badge">Локально</span></div><div class="sync-actions"><button type="button" class="small-btn gold" id="cloudOpenAuth">Войти / создать аккаунт</button></div>`;
+    $('#cloudOpenAuth').onclick=openCloudAuth;return;
+  }
+  const ownMeta=meta.userId===user.id?meta:{},last=syncTimeText(ownMeta.lastSyncedAt);
+  host.innerHTML=`<div class="sync-head"><div><b>☁️ Аккаунт и синхронизация</b><small>${esc(user.email||'Аккаунт Supabase')}</small></div><span class="sync-badge on">Подключено</span></div><div class="sync-meta">${esc(cloudUiStatus)} · последняя синхронизация: ${esc(last)}${ownMeta.revision!=null?` · revision ${esc(ownMeta.revision)}`:''}</div><div class="sync-actions"><button type="button" class="small-btn gold" id="cloudSyncNow" ${cloudSyncBusy?'disabled':''}>${cloudSyncBusy?'Синхронизация…':'Синхронизировать сейчас'}</button><button type="button" class="small-btn" id="cloudSignOut">Выйти</button>${hasUndo?'<button type="button" class="small-btn" id="cloudUndoPull">↶ Отменить получение</button>':''}</div>`;
+  $('#cloudSyncNow').onclick=syncCloudNow;$('#cloudSignOut').onclick=signOutCloud;
+  if($('#cloudUndoPull'))$('#cloudUndoPull').onclick=undoLastCloudPull;
+}
+function openCloudAuth(){
+  openModal(`<h2>☁️ Аккаунт и синхронизация</h2><p style="color:var(--muted)">Войдите по email и паролю или создайте аккаунт. До входа все функции остаются локальными.</p><div class="sync-form"><input id="cloudEmail" type="email" inputmode="email" autocomplete="email" placeholder="Email"><input id="cloudPassword" type="password" autocomplete="current-password" placeholder="Пароль"><div class="sync-actions"><button type="button" class="small-btn gold" id="cloudSignIn">Войти</button><button type="button" class="small-btn" id="cloudSignUp">Создать аккаунт</button></div></div>`);
+  $('#cloudSignIn').onclick=()=>performCloudAuth('signin');$('#cloudSignUp').onclick=()=>performCloudAuth('signup');
+  $('#cloudPassword').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();performCloudAuth('signin')}};
+}
+async function performCloudAuth(mode){
+  const email=$('#cloudEmail').value.trim(),password=$('#cloudPassword').value;
+  if(!email||!password){alert('Введите email и пароль');return}
+  const buttons=$$('#cloudSignIn,#cloudSignUp');buttons.forEach(button=>button.disabled=true);
+  try{
+    const path=mode==='signup'?'/auth/v1/signup':'/auth/v1/token?grant_type=password',result=await supabaseJSON(path,{method:'POST',body:{email,password}});
+    if(!result||!result.access_token){alert('Аккаунт создан. Если подтверждение email включено, откройте письмо и затем войдите.');return}
+    storeCloudSession(result);cloudUiStatus='Вход выполнен';await openFirstCloudSync();
+  }catch(err){alert('Supabase Auth: '+err.message)}finally{buttons.forEach(button=>button.disabled=false)}
+}
+async function signOutCloud(){
+  const session=cloudSession||loadCloudSession();
+  try{if(session)await supabaseJSON('/auth/v1/logout',{method:'POST',token:session.access_token})}catch(err){console.warn('Supabase sign out',err)}
+  storeCloudSession(null);cloudUiStatus='Локальный режим';renderSyncCard();
+}
+async function fetchCloudRecord(){
+  const session=await ensureCloudSession();if(!session)throw new Error('Сначала войдите в аккаунт');
+  const userId=encodeURIComponent(session.user.id);let rows;
+  try{rows=await supabaseJSON(`/rest/v1/watchlist_state?select=state,revision,updated_at,updated_by&user_id=eq.${userId}&limit=1`,{token:session.access_token})}
+  catch(err){if(err.status!==400||!/updated_by/i.test(JSON.stringify(err.payload||err.message)))throw err;rows=await supabaseJSON(`/rest/v1/watchlist_state?select=state,revision,updated_at&user_id=eq.${userId}&limit=1`,{token:session.access_token})}
+  if(!Array.isArray(rows)||!rows.length)return null;
+  const row=rows[0];if(!isPlainObject(row.state))throw new Error('Облачное состояние имеет неверный формат');
+  return {state:canonicalSyncState(row.state),revision:Number(row.revision)||0,updated_at:row.updated_at||null,updated_by:row.updated_by||null};
+}
+function storeSyncedMeta(record,payload){
+  const session=cloudSession||loadCloudSession();if(!session)return;
+  const localSnapshot=canonicalSyncState(payload),localDigest=cloudStateDigest(localSnapshot),cloudSnapshot=canonicalSyncState(record.state),cloudDigest=cloudStateDigest(cloudSnapshot);
+  const meta={userId:session.user.id,deviceId:cloudDeviceId||loadCloudDeviceId(),revision:record.revision,baseRevision:record.revision,cloudUpdatedAt:record.updated_at,updatedBy:record.updated_by||null,lastSyncedAt:new Date().toISOString(),digest:localDigest,localDigest,cloudDigest,baseSnapshot:localSnapshot};
+  try{storeCloudMeta(meta)}catch(err){delete meta.baseSnapshot;meta.baseSnapshotUnavailable=true;storeCloudMeta(meta);console.warn('Supabase base snapshot не сохранён',err)}
+}
+async function uploadCloudState(expectedRevision){
+  const session=await ensureCloudSession();if(!session)throw new Error('Сначала войдите в аккаунт');
+  const payload=cloudPayload();
+  try{
+    await supabaseJSON('/rest/v1/rpc/save_watchlist_state',{method:'POST',token:session.access_token,body:{p_state:payload,p_expected_revision:Number(expectedRevision)||0,p_device_id:cloudDeviceId||loadCloudDeviceId()}});
+  }catch(err){
+    const latest=await fetchCloudRecord().catch(()=>null);
+    if(latest&&latest.revision!==Number(expectedRevision||0)){cloudUiStatus='Обнаружен конфликт revision';openCloudSyncChoice(latest,{conflict:true});return false}
+    throw err;
+  }
+  const saved=await fetchCloudRecord();if(!saved)throw new Error('Supabase не вернул сохранённую облачную копию');
+  storeSyncedMeta(saved,payload);cloudUiStatus=`Облако обновлено · revision ${saved.revision}`;renderSyncCard();return true;
+}
+function savePreCloudPullSnapshot(){localStorage.setItem(CLOUD_PULL_UNDO_KEY,JSON.stringify({at:new Date().toISOString(),state:cloneJSON(state)}))}
+function applyCloudRecord(record){
+  if(!record||!isPlainObject(record.state))throw new Error('Облачное состояние имеет неверный формат');
+  savePreCloudPullSnapshot();state=cloneJSON(record.state);ensureIdentityState();ensureBatchState();saveState();rebuild();storeSyncedMeta(record,cloudPayload());cloudUiStatus=`Получена облачная копия · revision ${record.revision}`;renderSyncCard();
+}
+function undoLastCloudPull(){
+  try{
+    const snapshot=readStoredJSON(CLOUD_PULL_UNDO_KEY);if(!isPlainObject(snapshot)||!isPlainObject(snapshot.state))throw new Error('снимок отсутствует или повреждён');
+    if(!confirm('Вернуть локальные данные к состоянию до получения облачной копии?'))return;
+    state=cloneJSON(snapshot.state);ensureIdentityState();ensureBatchState();saveState();localStorage.removeItem(CLOUD_PULL_UNDO_KEY);rebuild();cloudUiStatus='Получение из облака отменено; локальные данные изменены';renderSyncCard();
+  }catch(err){alert('Не удалось отменить получение: '+err.message)}
+}
+function syncSummaryHTML(label,value){
+  const counts=backupCounts(value),digest=cloudStateDigest(value);
+  return `<div class="result"><div>${label==='Локально'?'📱':'☁️'}</div><div><b>${esc(label)}</b><br><small>${counts.items} позиций · ${counts.tmdb} TMDB · просмотрено ${counts.watched} · избранное ${counts.pins}</small><br><small>контрольная сумма ${esc(digest)}</small></div></div>`;
+}
+function openCloudSyncChoice(record,{conflict=false}={}){
+  const hasCloud=!!record,title=conflict?'⚠️ Конфликт синхронизации':'☁️ Первая синхронизация',updatedBy=conflict&&record&&record.updated_by?`<br><small>updated_by: ${esc(record.updated_by)}</small>`:'';
+  openModal(`<h2>${title}</h2>${conflict?`<div class="identity-note warn">Локальные данные изменены, но в облаке уже есть более новая revision. Автоматическое объединение отключено — выберите источник вручную.${updatedBy}</div>`:hasCloud?'<p style="color:var(--muted)">Облачная копия уже существует. Выберите, какие данные считать основными.</p>':'<p style="color:var(--muted)">Облачной копии ещё нет. Можно безопасно загрузить текущие локальные данные.</p>'}${syncSummaryHTML('Локально',cloudPayload())}${hasCloud?syncSummaryHTML(`Облако · revision ${record.revision}`,record.state):''}<div class="sync-choice"><button type="button" class="small-btn gold" id="cloudChooseUpload">${hasCloud?'Использовать локальные и заменить облачные':'Загрузить локальные данные в облако'}</button>${hasCloud?'<button type="button" class="small-btn" id="cloudChooseDownload">Получить облачные данные на устройство</button>':''}<button type="button" class="small-btn" id="cloudChooseCancel">Отмена</button></div>`);
+  $('#cloudChooseCancel').onclick=closeModal;
+  $('#cloudChooseUpload').onclick=async()=>{if(hasCloud&&!confirm('Заменить облачную копию текущими локальными данными?'))return;try{const ok=await uploadCloudState(hasCloud?record.revision:0);if(ok){closeModal();renderSyncCard()}}catch(err){alert('Синхронизация: '+err.message)}};
+  if(hasCloud)$('#cloudChooseDownload').onclick=()=>{if(!confirm('Заменить локальный кэш облачной копией? Перед заменой будет создан снимок для отката.'))return;try{applyCloudRecord(record);closeModal()}catch(err){alert('Синхронизация: '+err.message)}};
+}
+async function openFirstCloudSync(){
+  cloudSyncBusy=true;renderSyncCard();
+  try{openCloudSyncChoice(await fetchCloudRecord())}catch(err){cloudUiStatus='Ошибка: '+err.message;alert('Синхронизация: '+err.message)}finally{cloudSyncBusy=false;renderSyncCard()}
+}
+async function syncCloudNow(){
+  if(cloudSyncBusy)return;cloudSyncBusy=true;cloudUiStatus='Проверяю revision…';renderSyncCard();
+  try{
+    const session=await ensureCloudSession();if(!session){openCloudAuth();return}
+    const record=await fetchCloudRecord(),meta=loadCloudMeta(),payload=cloudPayload(),localDigest=cloudStateDigest(payload),cloudDigest=record?cloudStateDigest(record.state):'',knownLocalDigest=meta.localDigest||meta.digest||'',knownCloudDigest=meta.cloudDigest||'',localChanged=!knownLocalDigest||knownLocalDigest!==localDigest,first=meta.userId!==session.user.id||meta.revision==null;
+    if(!record||first){openCloudSyncChoice(record);return}
+    const revisionSame=record.revision===Number(meta.revision),baselineReady=!!meta.localDigest&&!!meta.cloudDigest&&meta.baseRevision!=null;
+    if(!baselineReady&&revisionSame){
+      if(meta.digest===localDigest||localDigest===cloudDigest){storeSyncedMeta(record,payload);cloudUiStatus='Синхронизировано';return}
+      openCloudSyncChoice(record,{conflict:true});return;
+    }
+    const cloudChanged=record.revision!==Number(meta.revision)||!!knownCloudDigest&&knownCloudDigest!==cloudDigest;
+    if(!localChanged&&!cloudChanged){storeSyncedMeta(record,payload);cloudUiStatus='Синхронизировано'}
+    else if(localChanged&&!cloudChanged){if(await uploadCloudState(meta.revision))cloudUiStatus='Локальные изменения сохранены в облаке'}
+    else if(!localChanged&&cloudChanged&&record.revision>Number(meta.revision))applyCloudRecord(record);
+    else openCloudSyncChoice(record,{conflict:true});
+  }catch(err){cloudUiStatus='Ошибка: '+err.message;alert('Синхронизация: '+err.message)}finally{cloudSyncBusy=false;renderSyncCard()}
+}
 async function fetchBase(){for(const u of BASE_URLS){try{const r=await fetch(u,{cache:'force-cache'});if(!r.ok)continue;const t=await r.text();const m=t.match(/const DATA = (\{[\s\S]*?\});\nconst GENRE_COLORS/);if(m)return JSON.parse(m[1])}catch(e){console.warn(e)}}throw new Error('Не удалось загрузить базовый список')}
 function metaEntryFor(it){
   const exact=idFor(it);
@@ -369,6 +564,7 @@ function showView(name){
 function updateProfile(){
   const el=$('#profileListCount');
   if(el)el.textContent=`${items.length} позиций · просмотрено ${items.filter(isWatched).length}`;
+  renderSyncCard();
 }
 function renderSearch(){
   const n=norm(searchQuery.trim());
@@ -1546,7 +1742,7 @@ $$('[data-type]').forEach(b=>b.onclick=()=>{$$('[data-type]').forEach(x=>x.class
 $$('[data-state]').forEach(b=>b.onclick=()=>{const was=b.classList.contains('active');$$('[data-state]').forEach(x=>x.classList.remove('active'));stateFilter=was?'all':b.dataset.state;if(!was)b.classList.add('active');applyFilters()});
 $$('[data-search-type]').forEach(b=>b.onclick=()=>{$$('[data-search-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active');searchType=b.dataset.searchType;renderSearch()});
 $$('[data-state-go]').forEach(b=>b.addEventListener('click',()=>{stateFilter=b.dataset.stateGo||'all';showView('list');$$('[data-state]').forEach(x=>x.classList.toggle('active',x.dataset.state===stateFilter));applyFilters()}));
-;(async()=>{try{loadState();BASE=await fetchBase();rebuild();showView('home')}catch(e){$('#heroCount').textContent='Ошибка загрузки';$('#list').innerHTML='<div class="empty">'+esc(e.message)+'</div>'}})()
+;(async()=>{try{loadState();cloudSession=await restoreCloudSession();cloudDeviceId=loadCloudDeviceId();BASE=await fetchBase();rebuild();showView('home')}catch(e){$('#heroCount').textContent='Ошибка загрузки';$('#list').innerHTML='<div class="empty">'+esc(e.message)+'</div>'}})()
 </script>
 </body>
 </html>
