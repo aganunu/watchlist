@@ -24,6 +24,7 @@
 - Reuse existing functions instead of duplicating logic.
 - Preserve mobile, desktop, and TV/large-screen behavior; all three are required target platforms.
 - UI navigation must be mouse-, touch-, keyboard-, and TV/remote-friendly, with visible focus and no hover-only actions.
+- Keep search scenarios distinct: "Мой список" searches only the user's library; in the target architecture, "Поиск" is the global film/series catalog outside the list. Do not duplicate these flows.
 - Do not change unrelated features.
 - Do not remove user data or existing functionality without explicit approval.
 
