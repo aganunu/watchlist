@@ -758,10 +758,19 @@ function openRandomDetails(excludeId=''){
   openDetails(idFor(source[Math.floor(Math.random()*source.length)]),{random:true});
 }
 function randomPick(){openRandomDetails()}
-async function tmdbSearch(q){const token=localStorage.getItem(TOKEN_KEY);if(!token)throw new Error('Сначала нужен TMDB Token. Он берётся из стабильной версии автоматически, если уже сохранён.');const r=await fetch('https://api.themoviedb.org/3/search/multi?query='+encodeURIComponent(q)+'&language=ru-RU&include_adult=false',{headers:{Authorization:'Bearer '+token,accept:'application/json'}});if(!r.ok)throw new Error('TMDB '+r.status);return r.json()}
+async function tmdbEdgeRequest(body){
+  const stored=cloudSession||loadCloudSession();if(!stored)return null;
+  const session=await ensureCloudSession();
+  return supabaseJSON('/functions/v1/tmdb',{method:'POST',body,token:session.access_token});
+}
+async function tmdbSearch(q){
+  const cloudResult=await tmdbEdgeRequest({operation:'search/multi',query:q});if(cloudResult!==null)return cloudResult;
+  const token=localStorage.getItem(TOKEN_KEY);if(!token)throw new Error('Сначала нужен TMDB Token. Он берётся из стабильной версии автоматически, если уже сохранён.');const r=await fetch('https://api.themoviedb.org/3/search/multi?query='+encodeURIComponent(q)+'&language=ru-RU&include_adult=false',{headers:{Authorization:'Bearer '+token,accept:'application/json'}});if(!r.ok)throw new Error('TMDB '+r.status);return r.json()
+}
 async function tmdbDetails(mediaType,id){
-  const token=localStorage.getItem(TOKEN_KEY);if(!token)throw new Error('TMDB Token не найден');
   const kind=mediaType==='tv'?'tv':'movie';
+  const cloudResult=await tmdbEdgeRequest({operation:kind+'/details',id:Number(id)});if(cloudResult!==null){cloudResult.media_type=kind;return cloudResult}
+  const token=localStorage.getItem(TOKEN_KEY);if(!token)throw new Error('TMDB Token не найден');
   const r=await fetch(`https://api.themoviedb.org/3/${kind}/${encodeURIComponent(id)}?language=ru-RU`,{headers:{Authorization:'Bearer '+token,accept:'application/json'}});
   if(!r.ok)throw new Error('TMDB '+r.status);
   const details=await r.json();details.media_type=kind;return details;
