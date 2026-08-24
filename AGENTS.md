@@ -21,6 +21,7 @@
 
 ## Development rules
 - Prefer small changes over broad refactors.
+- Plan architectural or multi-file changes first and do not implement them until the plan is approved; small local fixes may be implemented immediately without a separate plan.
 - Reuse existing functions instead of duplicating logic.
 - Preserve mobile, desktop, and TV/large-screen behavior; all three are required target platforms.
 - UI navigation must be mouse-, touch-, keyboard-, and TV/remote-friendly, with visible focus and no hover-only actions.

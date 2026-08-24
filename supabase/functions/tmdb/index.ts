@@ -8,6 +8,7 @@ type TmdbRequest =
   | { operation: "search/multi"; query: string }
   | { operation: "movie/details"; id: number }
   | { operation: "tv/details"; id: number }
+  | { operation: "tv/season/details"; id: number; season_number: number }
 
 function jsonResponse(body: unknown, status = 200, extraHeaders: HeadersInit = {}) {
   return new Response(JSON.stringify(body), {
@@ -42,6 +43,10 @@ function tmdbPath(payload: TmdbRequest) {
   }
 
   if (!Number.isSafeInteger(payload.id) || payload.id <= 0) return null
+  if (payload.operation === "tv/season/details") {
+    if (!Number.isSafeInteger(payload.season_number) || payload.season_number <= 0) return null
+    return `/3/tv/${payload.id}/season/${payload.season_number}?language=ru-RU`
+  }
   return `/3/${payload.operation === "tv/details" ? "tv" : "movie"}/${payload.id}?language=ru-RU`
 }
 
@@ -53,6 +58,9 @@ function parseRequest(value: unknown): TmdbRequest | null {
   }
   if ((payload.operation === "movie/details" || payload.operation === "tv/details") && typeof payload.id === "number") {
     return { operation: payload.operation, id: payload.id }
+  }
+  if (payload.operation === "tv/season/details" && typeof payload.id === "number" && typeof payload.season_number === "number") {
+    return { operation: payload.operation, id: payload.id, season_number: payload.season_number }
   }
   return null
 }

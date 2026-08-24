@@ -63,6 +63,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
 .quick-action b{display:block;margin-bottom:4px}.quick-action span{color:var(--muted);font-size:12px}
 .tonight-card{display:grid;grid-template-columns:62px 1fr auto;gap:12px;align-items:center;border:1px solid rgba(223,165,47,.35);background:linear-gradient(135deg,rgba(223,165,47,.10),var(--panel));border-radius:17px;padding:10px;margin-top:12px}
 .tonight-poster{width:62px;aspect-ratio:2/3;border-radius:10px;background:#1b2025 center/cover}
+.tonight-card-main{min-width:0}
+.tonight-selection-line{margin-top:6px;color:var(--gold2);font-size:12px;font-weight:800;line-height:1.35;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .double-result{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 .double-card{border:1px solid var(--line);border-radius:15px;background:var(--panel);padding:10px}
 .double-card .row-poster{width:100%;max-width:110px;margin:0 auto 8px}
@@ -71,6 +73,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(7px);z-index:50;display:flex;align-items:flex-end;justify-content:center;padding:12px}.modal{width:min(650px,100%);max-height:88vh;overflow:auto;background:#10151a;border:1px solid var(--line);border-radius:24px;padding:20px}.modal h2{margin:0 0 14px}.modal input,.modal select{width:100%;background:#0b0f13;color:var(--text);border:1px solid var(--line);border-radius:13px;padding:13px;margin-bottom:9px}.result{display:grid;grid-template-columns:60px 1fr auto;gap:10px;align-items:center;padding:9px;border:1px solid var(--line);border-radius:13px;margin-top:8px}.result-poster{width:60px;aspect-ratio:2/3;background:#222 center/cover;border-radius:8px}.result small{color:var(--muted)}.close{float:right}
 .tmdb-search-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-bottom:12px}.tmdb-search-form input{margin:0}.tmdb-search-results{display:grid;gap:10px}.tmdb-result{display:grid;grid-template-columns:82px minmax(0,1fr) auto;gap:12px;align-items:start;padding:10px;border:1px solid var(--line);border-radius:15px;background:var(--panel);min-width:0}.tmdb-result-poster{width:82px;aspect-ratio:2/3;border:0;border-radius:10px;background:#20262c center/cover;color:var(--muted)}.tmdb-result-body{min-width:0}.tmdb-result-title{display:block;max-width:100%;border:0;background:transparent;color:var(--text);font:inherit;font-weight:800;text-align:left;padding:1px 0;border-radius:5px}.tmdb-result-original{color:var(--muted);font-size:12px;line-height:1.35;margin-top:3px}.tmdb-result-meta{color:var(--gold2);font-size:12px;margin-top:5px}.tmdb-result-overview{color:var(--muted);font-size:12px;line-height:1.4;margin-top:7px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.tmdb-result-actions{display:grid;gap:7px;min-width:112px}.tmdb-result-actions button{width:100%}.tmdb-result-poster:focus-visible,.tmdb-result-title:focus-visible{outline:3px solid var(--gold2);outline-offset:3px}.tmdb-preview{display:grid;grid-template-columns:180px minmax(0,1fr);gap:18px;align-items:start}.tmdb-preview-poster{width:180px;aspect-ratio:2/3;border-radius:14px;background:#20262c center/cover}.tmdb-preview-main{min-width:0}.tmdb-preview-main h2{margin-bottom:5px}.tmdb-preview-original{color:var(--muted);font-size:13px;line-height:1.4}.tmdb-preview-meta{color:var(--gold2);margin-top:10px}.tmdb-preview-genres{color:var(--muted);margin-top:8px;line-height:1.45}.tmdb-preview-overview{grid-column:1/-1;line-height:1.55;margin:0;white-space:pre-wrap}.tmdb-preview-actions{grid-column:1/-1;display:flex;gap:9px;justify-content:flex-end}.tmdb-preview-actions button{min-height:42px}.tmdb-preview-loading{color:var(--muted);padding:24px 0;text-align:center}
 .global-search-results{margin-top:14px}.global-search-hint{margin-top:14px}
+.detail-page-header{display:flex;align-items:center;gap:12px;margin:2px 0 20px}.detail-page-back{min-height:44px;white-space:nowrap}.detail-page-status{color:var(--muted);font-size:13px}
+.detail-page-shell{display:grid;grid-template-columns:minmax(210px,300px) minmax(0,1fr);gap:clamp(22px,4vw,54px);align-items:start}.detail-page-poster{width:100%;aspect-ratio:2/3;border:1px solid var(--line);border-radius:22px;background:linear-gradient(145deg,#2e3339,#101317) center/cover;box-shadow:0 24px 60px rgba(0,0,0,.3)}
+.detail-page-main{min-width:0}.detail-page-main h1{font-size:clamp(34px,5vw,58px);line-height:1.04;margin:0 0 8px}.detail-page-original{color:var(--muted);font-size:clamp(14px,2vw,18px);line-height:1.4;margin-bottom:12px}.detail-page-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:var(--gold2);font-weight:750;margin:12px 0}.detail-page-facts{display:grid;gap:7px;color:var(--muted);line-height:1.5;margin:14px 0}.detail-page-overview{font-size:16px;line-height:1.7;white-space:pre-wrap;margin:20px 0;color:var(--text);max-width:900px}.detail-page-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:22px}.detail-page-actions .small-btn,.detail-page-actions a{min-height:44px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}.detail-page-actions button:disabled{cursor:not-allowed;opacity:.52}.detail-page-note{width:100%;color:var(--muted);font-size:12px;line-height:1.45}.detail-page-loading,.detail-page-error{padding:42px 18px;text-align:center;border:1px dashed var(--line);border-radius:18px;color:var(--muted)}.detail-page .season-list{max-width:620px}.detail-page .season-list-body{max-height:320px;overflow:auto}.detail-page .identity-status{margin-left:0}.tonight-selection-note{max-width:620px;margin:12px 0;padding:10px 12px;border:1px solid rgba(243,188,76,.45);border-radius:12px;background:rgba(243,188,76,.08);color:var(--gold2)}
+@media(max-width:720px){.detail-page-shell{grid-template-columns:1fr;gap:20px}.detail-page-poster{width:min(58vw,230px);margin:auto}.detail-page-main h1{font-size:34px}.detail-page-overview{font-size:15px;line-height:1.6}.detail-page-actions{display:grid;grid-template-columns:1fr 1fr}.detail-page-actions .small-btn,.detail-page-actions a{width:100%}.detail-page-note{grid-column:1/-1}}
+@media(max-width:420px){.detail-page-actions{grid-template-columns:1fr}.detail-page-note{grid-column:auto}}
+@media(min-width:1700px){.detail-page-shell{grid-template-columns:340px minmax(0,1fr)}.detail-page-main h1{font-size:64px}.detail-page-overview{font-size:21px}.detail-page-actions .small-btn,.detail-page-actions a{font-size:19px;min-height:54px;padding:14px 18px}}
 @media(hover:hover) and (pointer:fine){.tmdb-result-poster,.tmdb-result-title{cursor:pointer;transition:filter .16s ease,transform .16s ease,color .16s ease}.tmdb-result-poster:hover{filter:brightness(1.09);transform:translateY(-2px)}.tmdb-result-title:hover{color:var(--gold2);text-decoration:underline;text-underline-offset:3px}}
 .desktop-side{display:none}
 @media(max-width:720px){
@@ -99,7 +107,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
 .action-sheet button,.action-sheet a{width:100%;text-align:left;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:14px;padding:13px 14px;text-decoration:none}
 .action-sheet button.primary{background:var(--gold);border-color:var(--gold);color:#111;font-weight:800}
 .action-sheet button.danger{color:var(--danger)}
-.detail-layout{display:grid;grid-template-columns:110px minmax(0,1fr);gap:15px}.detail-meta{margin:10px 0 0}.detail-genres{margin:7px 0 0;color:var(--muted);line-height:1.4}.detail-extra{margin:8px 0 0;color:var(--muted);font-size:13px;line-height:1.45}.season-list{margin-top:8px;border:1px solid var(--line);border-radius:11px;background:var(--panel);overflow:hidden}.season-list summary{cursor:pointer;padding:9px 11px;color:var(--gold2);font-weight:700}.season-list-body{display:grid;gap:7px;padding:6px 11px 12px;color:var(--muted);font-size:12px}.watch-query{color:var(--muted);margin:0 0 12px}.watch-options{display:grid;gap:8px}
+.detail-layout{display:grid;grid-template-columns:110px minmax(0,1fr);gap:15px}.detail-meta{margin:10px 0 0}.detail-genres{margin:7px 0 0;color:var(--muted);line-height:1.4}.detail-extra{margin:8px 0 0;color:var(--muted);font-size:13px;line-height:1.45}.season-list{margin-top:8px;border:1px solid var(--line);border-radius:11px;background:var(--panel);overflow:hidden}.season-list summary{cursor:pointer;padding:9px 11px;color:var(--gold2);font-weight:700}.season-list-body{display:grid;gap:7px;padding:6px 11px 12px;color:var(--muted);font-size:12px}.season-tonight-select{width:100%;border:1px solid transparent;border-radius:9px;background:transparent;color:inherit;padding:8px 10px;text-align:left}.season-tonight-select.on{border-color:rgba(243,188,76,.55);background:rgba(243,188,76,.1);color:var(--gold2)}.tonight-selector{display:grid;gap:9px}.tonight-selector .small-btn{min-height:44px;text-align:left}.tonight-selector .small-btn.on{border-color:var(--gold2);color:var(--gold2)}.episode-choice-main{display:block;font-weight:800}.episode-choice-meta{display:block;margin-top:3px;color:var(--muted);font-size:12px;font-weight:400}.watch-query{color:var(--muted);margin:0 0 12px}.watch-options{display:grid;gap:8px}
 .search-hit{background:rgba(243,188,76,.28);color:#fff3cf;border-bottom:1px solid var(--gold2);border-radius:3px;padding:0 .08em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
 @media(max-width:420px){.detail-layout{grid-template-columns:88px minmax(0,1fr);gap:12px}.detail-layout .row-poster{width:88px!important}}
 .match-list{display:grid;gap:10px;margin-top:12px}.manual-search-box{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0}.manual-search-box input{margin:0}.search-hint{color:var(--muted);font-size:12px;line-height:1.4;margin-top:6px}.match-badge{display:inline-block;margin-top:4px;padding:3px 7px;border-radius:999px;background:rgba(223,165,47,.10);color:var(--gold2);font-size:11px}.match-original{color:var(--muted);font-size:12px;margin-top:3px}.match-overview{color:var(--muted);font-size:11px;line-height:1.35;margin-top:5px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.update-history{display:grid;gap:8px;margin-top:12px}.update-history-item{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--panel)}.warning-box{border:1px solid rgba(220,113,104,.45);background:rgba(220,113,104,.08);border-radius:14px;padding:12px;color:var(--text);margin:10px 0}
@@ -189,6 +197,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
   <div class="tmdb-search-results global-search-results" id="searchResults"></div>
 </section>
 
+<section class="view detail-page" id="view-detail" aria-live="polite">
+  <div class="detail-page-header"><button type="button" class="small-btn detail-page-back" id="detailBack">← Назад</button><span class="detail-page-status" id="detailPageStatus"></span></div>
+  <div id="detailPageContent"></div>
+</section>
+
 <section class="view" id="view-profile">
   <h1 class="page-title">Профиль</h1><div class="page-sub">Ваш список, настройки и данные.</div>
   <div class="profile-card"><b>🎬 Моя библиотека</b><p id="profileListCount" style="color:var(--muted)"></p></div>
@@ -231,7 +244,9 @@ let addSearchState={query:'',results:[],scrollTop:0,searchRequest:0};
 let globalSearchState={results:[],status:'idle',error:'',request:0,timer:0};
 let addPreviewRequest=0;
 let detailLoadRequest=0;
-const addDetailsCache=new Map();
+let detailNavState=null,activeDetailDescriptor=null,activeDetailRandom=false,activeDetailDetails=null,activeDetailRevealTonight=false;
+let tonightSelectorRequest=0;
+const addDetailsCache=new Map(),seasonDetailsCache=new Map();
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const norm=s=>String(s||'').toLocaleLowerCase('ru-RU').replace(/ё/g,'е').normalize('NFKC');
@@ -331,8 +346,22 @@ function highlightSearchText(root,query,rowSelector,fieldSelector){
 function highlightLibrarySearch(root,query){highlightSearchText(root,query,'.row','.detail-title,.original-line,.row-desc,.row-genres')}
 function highlightTmdbSearch(root,query){highlightSearchText(root,query,'.tmdb-result','.tmdb-result-title,.tmdb-result-original,.tmdb-result-overview')}
 
-function loadState(){try{state=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch(e){state={}};state.watched=state.watched||[];state.pins=state.pins||[];state.addedItems=state.addedItems||[];state.tmdbMeta=state.tmdbMeta||{};state.ratings=state.ratings||{};state.notes=state.notes||{};ensureIdentityState();ensureBatchState()}
-function saveState(){ensureIdentityState();ensureBatchState();localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
+function normalizeTonightSelection(target=state){
+  if(!isPlainObject(target))return null;
+  const selection=target.tonightSelection,tonightId=target.tonightId;
+  const season=Number(selection&&selection.seasonNumber),episode=Number(selection&&selection.episodeNumber),kind=selection&&selection.kind;
+  const validBase=!!tonightId&&isPlainObject(selection)&&selection.libraryId===tonightId&&(kind==='season'||kind==='episode')&&Number.isSafeInteger(season)&&season>0;
+  const validEpisode=kind!=='episode'||Number.isSafeInteger(episode)&&episode>0;
+  if(!validBase||!validEpisode){delete target.tonightSelection;return null}
+  const normalized={libraryId:tonightId,kind,seasonNumber:season};
+  if(kind==='episode'){
+    normalized.episodeNumber=episode;
+    if(typeof selection.episodeTitle==='string'&&selection.episodeTitle.trim())normalized.episodeTitle=selection.episodeTitle.trim();
+  }
+  target.tonightSelection=normalized;return normalized;
+}
+function loadState(){try{state=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch(e){state={}};state.watched=state.watched||[];state.pins=state.pins||[];state.addedItems=state.addedItems||[];state.tmdbMeta=state.tmdbMeta||{};state.ratings=state.ratings||{};state.notes=state.notes||{};normalizeTonightSelection(state);ensureIdentityState();ensureBatchState()}
+function saveState(){normalizeTonightSelection(state);ensureIdentityState();ensureBatchState();localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
 function readStoredJSON(key){try{return JSON.parse(localStorage.getItem(key)||'null')}catch(e){return null}}
 function normalizeCloudSession(value){
   if(!isPlainObject(value)||!value.access_token||!value.refresh_token||!isPlainObject(value.user))return null;
@@ -480,13 +509,13 @@ async function uploadCloudState(expectedRevision){
 function savePreCloudPullSnapshot(){localStorage.setItem(CLOUD_PULL_UNDO_KEY,JSON.stringify({at:new Date().toISOString(),state:cloneJSON(state)}))}
 function applyCloudRecord(record){
   if(!record||!isPlainObject(record.state))throw new Error('Облачное состояние имеет неверный формат');
-  savePreCloudPullSnapshot();state=cloneJSON(record.state);ensureIdentityState();ensureBatchState();saveState();rebuild();storeSyncedMeta(record,cloudPayload());cloudUiStatus=`Получена облачная копия · revision ${record.revision}`;renderSyncCard();
+  savePreCloudPullSnapshot();state=cloneJSON(record.state);normalizeTonightSelection(state);ensureIdentityState();ensureBatchState();saveState();rebuild();storeSyncedMeta(record,cloudPayload());cloudUiStatus=`Получена облачная копия · revision ${record.revision}`;renderSyncCard();
 }
 function undoLastCloudPull(){
   try{
     const snapshot=readStoredJSON(CLOUD_PULL_UNDO_KEY);if(!isPlainObject(snapshot)||!isPlainObject(snapshot.state))throw new Error('снимок отсутствует или повреждён');
     if(!confirm('Вернуть локальные данные к состоянию до получения облачной копии?'))return;
-    state=cloneJSON(snapshot.state);ensureIdentityState();ensureBatchState();saveState();localStorage.removeItem(CLOUD_PULL_UNDO_KEY);rebuild();cloudUiStatus='Получение из облака отменено; локальные данные изменены';renderSyncCard();
+    state=cloneJSON(snapshot.state);normalizeTonightSelection(state);ensureIdentityState();ensureBatchState();saveState();localStorage.removeItem(CLOUD_PULL_UNDO_KEY);rebuild();cloudUiStatus='Получение из облака отменено; локальные данные изменены';renderSyncCard();
   }catch(err){alert('Не удалось отменить получение: '+err.message)}
 }
 function syncSummaryHTML(label,value){
@@ -539,7 +568,14 @@ function mergedItem(it){
   if(ident.original_title)x.original_title=ident.original_title;
   return x
 }
-function rebuild(){items=[...BASE.movies,...BASE.series,...state.addedItems].map(mergedItem);const seen=new Set();items=items.filter(it=>{const id=idFor(it);if(seen.has(id))return false;seen.add(id);return true});applyFilters();updateStats();renderCarousels();renderSearch();updateProfile();renderTonightSlot()}
+function rebuild(){
+  const detailRestore=currentView==='detail'&&detailNavState?{renderLimit:detailNavState.renderLimit,carousels:detailNavState.carouselPositions}:null;
+  items=[...BASE.movies,...BASE.series,...state.addedItems].map(mergedItem);const seen=new Set();items=items.filter(it=>{const id=idFor(it);if(seen.has(id))return false;seen.add(id);return true});
+  applyFilters();
+  if(detailRestore){renderLimit=Math.max(30,Number(detailRestore.renderLimit)||30);renderList()}
+  updateStats();renderCarousels();renderSearch();updateProfile();renderTonightSlot();
+  if(detailRestore)requestAnimationFrame(()=>restoreCarouselPositions(detailRestore.carousels));
+}
 function ratingOf(it){return it.tmdb_rating??it.rating??null}
 function posterOf(it){return it.poster_url||''}
 function isWatched(it){return state.watched.includes(idFor(it))}
@@ -558,16 +594,42 @@ function openListFromStat(mode){
   showView('list');
 }
 
-function showView(name){
+function carouselPositions(){return Object.fromEntries($$('.carousel').filter(x=>x.id).map(x=>[x.id,x.scrollLeft]))}
+function restoreCarouselPositions(positions={}){$$('.carousel').forEach(x=>{if(Object.prototype.hasOwnProperty.call(positions,x.id))x.scrollLeft=Number(positions[x.id])||0;updateCarouselNavigation(x)})}
+function detailTriggerRole(trigger){if(!trigger)return '';if(trigger.classList.contains('detail-poster')||trigger.classList.contains('tmdb-result-poster'))return 'poster';if(trigger.classList.contains('detail-title')||trigger.classList.contains('tmdb-result-title'))return 'title';return trigger.dataset.detailRole||'details'}
+function detailDescriptorKey(descriptor){return descriptor?.kind==='library'?`library:${descriptor.id}`:descriptor?.kind==='tmdb'?`tmdb:${descriptor.mediaType}:${descriptor.tmdbId}`:''}
+function captureDetailNavigation(descriptor,origin={}){
+  if(currentView==='detail'&&detailNavState)return;
+  detailNavState={sourceView:currentView,scrollY:window.scrollY,renderLimit,carouselPositions:carouselPositions(),itemKey:origin.itemKey||detailDescriptorKey(descriptor),triggerRole:origin.triggerRole||detailTriggerRole(origin.trigger),descriptor:Object.assign({},descriptor),randomMode:!!origin.randomMode};
+}
+function findDetailReturnTarget(snapshot){
+  const view=$('#view-'+snapshot.sourceView);if(!view)return null;
+  const role=snapshot.triggerRole,key=snapshot.itemKey||'';
+  if(key.startsWith('control:'))return document.getElementById(key.slice(8))||view.querySelector('h1,button,input,[tabindex]');
+  if(key.startsWith('library:')){
+    const id=key.slice(8),triggers=[...view.querySelectorAll('.detail-trigger')].filter(x=>x.dataset.id===id);
+    return triggers.find(x=>detailTriggerRole(x)===role)||triggers[0]||null;
+  }
+  if(key.startsWith('tmdb:')){
+    const parts=key.split(':'),type=parts[1],id=parts.slice(2).join(':'),row=[...view.querySelectorAll('.tmdb-result')].find(x=>x.dataset.type===type&&x.dataset.id===id);
+    if(row){const triggers=[...row.querySelectorAll('.tmdb-preview-open')];return triggers.find(x=>detailTriggerRole(x)===role)||triggers[0]||null}
+  }
+  return view.querySelector('h1,button,input,[tabindex]');
+}
+function abandonDetailPage(){detailLoadRequest++;detailNavState=null;activeDetailDescriptor=null;activeDetailRandom=false;activeDetailDetails=null;activeDetailRevealTonight=false}
+function showView(name,options={}){
+  const restore=!!options.restore;
+  if(options.explicit&&currentView==='detail'&&name!=='detail')abandonDetailPage();
   currentView=name;
   $$('.view').forEach(v=>v.classList.remove('active'));
   const target=$('#view-'+name); if(target) target.classList.add('active');
-  $$('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
+  const navView=name==='detail'?(detailNavState?.sourceView||''):name;
+  $$('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===navView));
   if(name==='profile') updateProfile();
-  if(name==='list'){ $('#listSearch').value=libraryQuery;applyFilters(); }
-  if(name==='search'){ $('#search').value=globalSearchQuery; setTimeout(()=>$('#search')?.focus(),60); renderSearch(); }
-  if(name==='home')requestAnimationFrame(resetCarouselPositions);
-  scrollTo({top:0,behavior:'smooth'});
+  if(name==='list'){ $('#listSearch').value=libraryQuery;if(!restore)applyFilters(); }
+  if(name==='search'){ $('#search').value=globalSearchQuery;if(!restore){setTimeout(()=>$('#search')?.focus(),60);renderSearch()} }
+  if(name==='home'&&!restore)requestAnimationFrame(resetCarouselPositions);
+  if(!restore&&options.scrollTop!==false)scrollTo({top:0,behavior:options.behavior||'smooth'});
 }
 function updateProfile(){
   const el=$('#profileListCount');
@@ -632,7 +694,7 @@ function bindRowsIn(root){
 
 function bindDetailTriggers(root=document){
   root.querySelectorAll('.detail-trigger').forEach(trigger=>{
-    trigger.onclick=e=>{e.stopPropagation();openDetails(trigger.dataset.id)};
+    trigger.onclick=e=>{e.stopPropagation();openLibraryDetail(trigger.dataset.id,{trigger,itemKey:`library:${trigger.dataset.id}`,triggerRole:detailTriggerRole(trigger),revealTonight:trigger.dataset.revealTonight==='true'})};
   });
 }
 
@@ -685,10 +747,10 @@ function openRowActions(id){
       <button id="actTonight">🌆 На сегодня вечером</button>
       <button id="actTmdb">✨ Найти/исправить данные в TMDB</button>
     </div>`);
-  $('#actOpen').onclick=()=>openDetails(id);
+  $('#actOpen').onclick=()=>openLibraryDetail(id,{itemKey:`library:${id}`,triggerRole:'details'});
   $('#actFav').onclick=()=>{toggleFav(id);closeModal()};
   $('#actWatched').onclick=()=>{toggleWatched(id);closeModal()};
-  $('#actTonight').onclick=()=>{setTonight(id);closeModal()};
+  $('#actTonight').onclick=()=>it.type==='S'?openSeriesTonightSelector(it,{backFn:()=>openRowActions(id)}):(()=>{setTonight(id);closeModal()})();
   $('#actTmdb').onclick=()=>openManualTmdbMatch(id,openRowActions);
 }
 
@@ -714,11 +776,24 @@ function runtimeText(value){
   const hours=Math.floor(minutes/60),rest=minutes%60,long=hours?`${hours} ч${rest?` ${rest} мин.`:''}`:`${minutes} мин.`;
   return `${minutes} мин.${hours?' · '+long:''}`;
 }
-function extendedDetailsHTML(it){
+function tonightSelectionFor(id){const selection=normalizeTonightSelection(state);return state.tonightId===id?selection:null}
+function episodeCode(season,episode=null){return `S${String(season).padStart(2,'0')}${episode==null?'':`E${String(episode).padStart(2,'0')}`}`}
+function tonightSelectionLabel(selection,{long=false}={}){
+  if(!selection)return long?'Весь сериал':'';
+  if(selection.kind==='season')return long?`Сезон ${selection.seasonNumber} · ${episodeCode(selection.seasonNumber)}`:episodeCode(selection.seasonNumber);
+  const code=episodeCode(selection.seasonNumber,selection.episodeNumber);
+  return selection.episodeTitle&&long?`${code} · ${selection.episodeTitle}`:code;
+}
+function extendedDetailsHTML(it,{tonightLibraryId=''}={}){
   if(it.type==='M')return it.runtime?`<div class="detail-extra"><b>Хронометраж:</b> ${esc(runtimeText(it.runtime))}</div>`:'';
   const total=it.number_of_seasons!=null||it.number_of_episodes!=null?`<div class="detail-extra"><b>Сезонов:</b> ${esc(it.number_of_seasons??'—')} · <b>Серий:</b> ${esc(it.number_of_episodes??'—')}</div>`:'';
   const seasons=Array.isArray(it.seasons)?it.seasons.filter(x=>Number(x.season_number)>0):[];
-  const list=seasons.length?`<details class="season-list"><summary>Сезоны и серии</summary><div class="season-list-body">${seasons.map(x=>`<div>${x.season_number===0?'Спецвыпуски':`Сезон ${esc(x.season_number)}`} — ${esc(x.episode_count)} серий</div>`).join('')}</div></details>`:'';
+  const selection=tonightLibraryId?tonightSelectionFor(tonightLibraryId):null,selectedSeason=selection&&selection.seasonNumber;
+  const rows=seasons.map(x=>{
+    const season=Number(x.season_number),label=`Сезон ${esc(season)} — ${esc(x.episode_count)} серий`,selected=season===selectedSeason;
+    return tonightLibraryId?`<button type="button" class="season-tonight-select ${selected?'on':''}" id="detailSeason${season}" data-season="${season}" aria-label="Выбрать сезон ${season} на вечер">${label}${selected?` · ${esc(tonightSelectionLabel(selection,{long:true}))}`:''}</button>`:`<div>${label}</div>`;
+  }).join('');
+  const list=seasons.length?`<details class="season-list" ${selectedSeason?'open':''}><summary>Сезоны и серии</summary><div class="season-list-body">${rows}</div></details>`:'';
   return total+list;
 }
 async function loadExtendedTmdbDetails(it,id,ref,request,randomMode=false){
@@ -741,23 +816,131 @@ function openDetails(id,options={}){
   if(needsLoad)loadExtendedTmdbDetails(it,id,ref,request,randomMode);
 }
 function watchQueryFor(it){return [it.title,it.year||''].filter(Boolean).join(' ').trim()}
-function openWatchPicker(id,randomMode=false){
-  const it=byId(id);if(!it)return;
+function openWatchPickerForItem(it,backFn=closeModal){
+  if(!it)return;
   const q=watchQueryFor(it),encoded=encodeURIComponent(q);
   const services=[
     ['YouTube',`https://www.youtube.com/results?search_query=${encoded}`],
     ['VK Видео',`https://vkvideo.ru/search?q=${encoded}`],
     ['RuTube',`https://rutube.ru/search/?query=${encoded}`]
   ];
-  openSubModal('▶ Смотреть',`<p class="watch-query">Поиск: <b>${esc(q)}</b></p><div class="action-sheet watch-options">${services.map(([name,url])=>`<a target="_blank" rel="noopener noreferrer" href="${esc(url)}">${name} ↗</a>`).join('')}</div>`,()=>openDetails(id,{random:randomMode}));
+  openSubModal('▶ Смотреть',`<p class="watch-query">Поиск: <b>${esc(q)}</b></p><div class="action-sheet watch-options">${services.map(([name,url])=>`<a target="_blank" rel="noopener noreferrer" href="${esc(url)}">${name} ↗</a>`).join('')}</div>`,backFn);
 }
-window.modalFav=(id,randomMode=false)=>{toggleFav(id);openDetails(id,{random:randomMode})};window.modalWatched=(id,randomMode=false)=>{toggleWatched(id);openDetails(id,{random:randomMode})};window.modalTonight=id=>{setTonight(id);closeModal()}
-function openRandomDetails(excludeId=''){
+function openWatchPicker(id,randomMode=false){
+  const it=byId(id);if(!it)return;
+  openWatchPickerForItem(it,()=>openDetails(id,{random:randomMode}));
+}
+window.modalFav=(id,randomMode=false)=>{toggleFav(id);openDetails(id,{random:randomMode})};window.modalWatched=(id,randomMode=false)=>{toggleWatched(id);openDetails(id,{random:randomMode})};window.modalTonight=id=>{const it=byId(id);if(it?.type==='S')openSeriesTonightSelector(it,{backFn:()=>openDetails(id)});else{setTonight(id);closeModal()}}
+function openRandomDetails(excludeId='',origin={}){
   const pool=items.filter(x=>!isWatched(x));if(!pool.length)return;
   const alternatives=pool.filter(x=>idFor(x)!==excludeId),source=alternatives.length?alternatives:pool;
-  openDetails(idFor(source[Math.floor(Math.random()*source.length)]),{random:true});
+  openLibraryDetail(idFor(source[Math.floor(Math.random()*source.length)]),Object.assign({random:true},origin));
 }
-function randomPick(){openRandomDetails()}
+function randomPick(){openRandomDetails('',{itemKey:'control:randomBtn',triggerRole:'random'})}
+function findTmdbLibraryItem(mediaType,tmdbId){
+  const wantedType=mediaType==='tv'?'tv':'movie',wantedId=String(tmdbId);
+  return items.find(it=>{const ident=(state.identities||{})[idFor(it)]||{},savedId=ident.tmdb_id??it.tmdb_id,savedType=ident.tmdb_type||it.tmdb_type||(it.type==='S'?'tv':'movie');return savedId!=null&&String(savedId)===wantedId&&savedType===wantedType})||null;
+}
+function libraryDetailModel(it,details=null){
+  const remote=details?tmdbDetailPresentation(details):null,ident=identityFor(it),extended=Object.assign({},it,details?extendedTmdbFields(details):{});
+  return {kind:'library',libraryItem:it,mediaType:it.type==='S'?'tv':'movie',tmdbId:tmdbReferenceFor(it)?.id??null,title:it.title,original:ident.original_title||it.original_title||remote?.original||'',year:it.year||remote?.year||'',rating:ratingOf(it)??remote?.rating??null,poster:posterOf(it)||remote?.poster||'',genres:(it.genres||[]).filter(Boolean).length?(it.genres||[]).filter(Boolean):(remote?.genres||[]),countries:remote?.countries||[],premiere:remote?.premiere||'',overview:it.desc||remote?.overview||'Описание пока не добавлено.',extendedHtml:extendedDetailsHTML(extended,{tonightLibraryId:idFor(it)}),identityConfirmed:ident.status==='confirmed',kpUrl:it.kp_url||''};
+}
+function globalDetailModel(details){
+  const x=tmdbDetailPresentation(details);
+  return Object.assign({},x,{kind:'tmdb',libraryItem:null,tmdbId:details.id,extendedHtml:extendedDetailsHTML(Object.assign({type:x.mediaType==='tv'?'S':'M'},extendedTmdbFields(details))),identityConfirmed:false,kpUrl:''});
+}
+function renderDetailPageModel(model,{preserveInteraction=false,focusId=''}={}){
+  const host=$('#detailPageContent');if(!host)return;
+  const previousY=preserveInteraction?window.scrollY:0,previousFocus=focusId||(preserveInteraction&&host.contains(document.activeElement)?document.activeElement.id:'');
+  const library=model.libraryItem,id=library?idFor(library):'',isInLibrary=!!library,genres=(model.genres||[]).filter(Boolean);
+  const identityBadge=model.identityConfirmed?'<span class="identity-status">TMDB подтверждено</span>':'';
+  const facts=[genres.length?`<div><b>Жанры:</b> ${genres.map(esc).join(', ')}</div>`:'',model.countries?.length?`<div><b>Страна:</b> ${model.countries.map(esc).join(', ')}</div>`:'',model.premiere?`<div><b>Премьера:</b> ${esc(model.premiere)}</div>`:''].filter(Boolean).join('');
+  const tonightSelection=isInLibrary?tonightSelectionFor(id):null,tonightActive=isInLibrary&&state.tonightId===id;
+  const tonightButtonLabel=tonightActive?(library.type==='S'&&tonightSelection?`🌆 ${tonightSelectionLabel(tonightSelection,{long:true})}`:'🌆 На вечер'):'🌆 Добавить на вечер';
+  const libraryActions=isInLibrary?`${activeDetailRandom?'<button type="button" class="small-btn gold" id="detailRandomAgain">🎲 Ещё вариант</button>':''}<button type="button" class="small-btn ${isFav(library)?'on':''}" id="detailFav">${isFav(library)?'★ В избранном':'☆ В избранное'}</button><button type="button" class="small-btn ${isWatched(library)?'on':''}" id="detailWatched">${isWatched(library)?'✓ Просмотрено':'○ Отметить просмотренным'}</button><button type="button" class="small-btn ${tonightActive?'on':''}" id="detailTonight">${esc(tonightButtonLabel)}</button><button type="button" class="small-btn" disabled>Уже в списке</button>${model.kpUrl?`<a class="small-btn" target="_blank" rel="noopener noreferrer" href="${esc(model.kpUrl)}">Кинопоиск ↗</a>`:''}`:`<button type="button" class="small-btn gold" id="detailAdd">Добавить в мой список</button><button type="button" class="small-btn" disabled>☆ Избранное</button><button type="button" class="small-btn" disabled>○ Просмотрено</button><button type="button" class="small-btn" disabled>🌆 На вечер</button><div class="detail-page-note">Избранное, просмотренное и «На вечер» доступны после добавления позиции в «Мой список».</div>`;
+  const tonightNote=tonightActive&&library.type==='S'?`<div class="tonight-selection-note"><b>Сегодня вечером:</b> ${esc(tonightSelectionLabel(tonightSelection,{long:true}))}</div>`:'';
+  host.innerHTML=`<div class="detail-page-shell"><div class="detail-page-poster" role="img" aria-label="Постер: ${esc(model.title)}" style="${model.poster?`background-image:url('${esc(model.poster)}')`:''}"></div><div class="detail-page-main"><h1 tabindex="-1" id="detailTitle">${esc(model.title)}</h1>${model.original&&norm(model.original)!==norm(model.title)?`<div class="detail-page-original">${esc(model.original)}</div>`:''}<div class="detail-page-meta"><span>${esc(model.year||'Год не указан')} · ${model.mediaType==='tv'?'Сериал':'Фильм'}</span><span>★ ${model.rating!=null?Number(model.rating).toFixed(1):'—'}</span>${identityBadge}</div>${facts?`<div class="detail-page-facts">${facts}</div>`:''}${tonightNote}${model.extendedHtml||''}<p class="detail-page-overview">${esc(model.overview||'Описание пока не добавлено.')}</p><div class="detail-page-actions"><button type="button" class="small-btn gold" id="detailWatch">▶ Смотреть</button>${libraryActions}</div></div></div>`;
+  $('#detailWatch').onclick=()=>openWatchPickerForItem(library||{title:model.title,year:model.year},closeModal);
+  if(isInLibrary){
+    if($('#detailRandomAgain'))$('#detailRandomAgain').onclick=()=>openRandomDetails(id);
+    $('#detailFav').onclick=()=>{toggleFav(id);renderActiveDetail({preserveInteraction:true,focusId:'detailFav'})};
+    $('#detailWatched').onclick=()=>{toggleWatched(id);renderActiveDetail({preserveInteraction:true,focusId:'detailWatched'})};
+    $('#detailTonight').onclick=()=>library.type==='S'?openSeriesTonightSelector(library,{returnFocusId:'detailTonight'}):(()=>{setTonight(state.tonightId===id?null:id);renderActiveDetail({preserveInteraction:true,focusId:'detailTonight'})})();
+    host.querySelectorAll('.season-tonight-select').forEach(button=>button.onclick=()=>openSeasonTonightSelector(library,Number(button.dataset.season),{backFn:()=>closeTonightSelectorToDetail(button.id)}));
+  }else{
+    $('#detailAdd').onclick=()=>addTmdbSelection(model.mediaType,model.tmdbId,$('#detailAdd'),{closeOnSuccess:false,onSuccess:()=>{
+      const added=findTmdbLibraryItem(model.mediaType,model.tmdbId);if(!added)return;
+      activeDetailDescriptor={kind:'library',id:idFor(added)};activeDetailDetails=activeDetailDetails||null;renderActiveDetail({preserveInteraction:true,focusId:'detailWatch'});
+    }});
+  }
+  host.onkeydown=e=>{
+    if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
+    const seasonControls=[...host.querySelectorAll('.season-tonight-select')],seasonIndex=seasonControls.indexOf(document.activeElement);
+    if(seasonIndex>=0&&seasonControls.length>1){e.preventDefault();const step=e.key==='ArrowLeft'||e.key==='ArrowUp'?-1:1;seasonControls[(seasonIndex+step+seasonControls.length)%seasonControls.length].focus();return}
+    const controls=[...host.querySelectorAll('.detail-page-actions button:not([disabled]),.detail-page-actions a')],index=controls.indexOf(document.activeElement);if(index<0||controls.length<2)return;
+    e.preventDefault();const step=e.key==='ArrowLeft'||e.key==='ArrowUp'?-1:1;controls[(index+step+controls.length)%controls.length].focus();
+  };
+  $('#detailBack').onkeydown=e=>{if(e.key!=='ArrowDown'&&e.key!=='ArrowRight')return;const first=host.querySelector('.detail-page-actions button:not([disabled]),.detail-page-actions a');if(first){e.preventDefault();first.focus()}};
+  $('#detailPageStatus').textContent=isInLibrary?'Из вашей библиотеки':'Карточка TMDB';
+  if(preserveInteraction)requestAnimationFrame(()=>{window.scrollTo({top:previousY,behavior:'auto'});const focus=previousFocus?$('#'+previousFocus):null;if(focus)focus.focus({preventScroll:true})});
+  if(activeDetailRevealTonight)requestAnimationFrame(revealTonightSelectionOnDetail);
+}
+function renderActiveDetail(options={}){
+  if(!activeDetailDescriptor)return;
+  if(activeDetailDescriptor.kind==='library'){
+    const it=byId(activeDetailDescriptor.id);if(!it){$('#detailPageContent').innerHTML='<div class="detail-page-error">Позиция больше не найдена в библиотеке.</div>';return}
+    renderDetailPageModel(libraryDetailModel(it,activeDetailDetails),options);
+  }else if(activeDetailDetails)renderDetailPageModel(globalDetailModel(activeDetailDetails),options);
+}
+function revealTonightSelectionOnDetail(){
+  if(!activeDetailRevealTonight||activeDetailDescriptor?.kind!=='library'||state.tonightId!==activeDetailDescriptor.id){activeDetailRevealTonight=false;return}
+  const selection=tonightSelectionFor(activeDetailDescriptor.id),target=selection?$('#detailSeason'+selection.seasonNumber):$('#detailTonight');
+  if(!target)return;
+  const details=target.closest('details');if(details)details.open=true;
+  target.scrollIntoView({block:'center',inline:'nearest'});target.focus({preventScroll:true});activeDetailRevealTonight=false;
+}
+function saveExtendedDetailsForItem(it,details){
+  if(hasExtendedTmdbDetails(it))return;
+  const fields=extendedTmdbFields(details),[key,meta]=metaEntryFor(it);state.tmdbMeta[key]=Object.assign({},meta,fields);Object.assign(it,fields);saveState();
+}
+async function loadActiveDetail(){
+  const descriptor=Object.assign({},activeDetailDescriptor),request=++detailLoadRequest,host=$('#detailPageContent');
+  activeDetailDetails=null;
+  if(descriptor.kind==='library'){
+    const it=byId(descriptor.id);if(!it)return;
+    renderDetailPageModel(libraryDetailModel(it));
+    const ref=tmdbReferenceFor(it);if(!ref)return;
+    try{
+      const details=await getTmdbDetailsCached(ref.type,ref.id);
+      if(request!==detailLoadRequest||currentView!=='detail'||detailDescriptorKey(activeDetailDescriptor)!==detailDescriptorKey(descriptor))return;
+      saveExtendedDetailsForItem(it,details);activeDetailDetails=details;renderActiveDetail({preserveInteraction:true});
+    }catch(err){if(request===detailLoadRequest&&currentView==='detail'&&detailDescriptorKey(activeDetailDescriptor)===detailDescriptorKey(descriptor)){$('#detailPageStatus').textContent='Локальная карточка · дополнительные данные TMDB недоступны';console.warn(err)}}
+    return;
+  }
+  host.innerHTML='<div class="detail-page-loading">Загружаю подробности TMDB…</div>';$('#detailPageStatus').textContent='TMDB';
+  try{
+    const details=await getTmdbDetailsCached(descriptor.mediaType,descriptor.tmdbId);
+    if(request!==detailLoadRequest||currentView!=='detail'||detailDescriptorKey(activeDetailDescriptor)!==detailDescriptorKey(descriptor))return;
+    activeDetailDetails=details;renderActiveDetail();requestAnimationFrame(()=>$('#detailTitle')?.focus({preventScroll:true}));
+  }catch(err){
+    if(request!==detailLoadRequest||currentView!=='detail'||detailDescriptorKey(activeDetailDescriptor)!==detailDescriptorKey(descriptor))return;
+    host.innerHTML=`<div class="detail-page-error"><p>Не удалось загрузить подробности TMDB: ${esc(err.message)}</p><button type="button" class="small-btn gold" id="detailRetry">Повторить</button></div>`;$('#detailRetry').onclick=loadActiveDetail;
+  }
+}
+function openDetailPage(descriptor,options={}){
+  captureDetailNavigation(descriptor,options);activeDetailDescriptor=Object.assign({},descriptor);activeDetailRandom=!!options.random;activeDetailDetails=null;activeDetailRevealTonight=!!options.revealTonight;closeModal();showView('detail',{behavior:'auto'});loadActiveDetail();requestAnimationFrame(()=>$('#detailBack')?.focus({preventScroll:true}));
+}
+function openLibraryDetail(id,options={}){if(byId(id))openDetailPage({kind:'library',id},options);else openDetails(id,options)}
+function openTmdbDetail(mediaType,tmdbId,options={}){
+  const existing=findTmdbLibraryItem(mediaType,tmdbId);
+  if(existing)openDetailPage({kind:'library',id:idFor(existing)},options);else openDetailPage({kind:'tmdb',mediaType:mediaType==='tv'?'tv':'movie',tmdbId:String(tmdbId)},options);
+}
+function backFromDetailPage(){
+  if(currentView!=='detail'||!detailNavState)return;
+  const snapshot=detailNavState;detailLoadRequest++;activeDetailDescriptor=null;activeDetailDetails=null;activeDetailRandom=false;activeDetailRevealTonight=false;
+  renderLimit=Math.max(30,Number(snapshot.renderLimit)||30);showView(snapshot.sourceView,{restore:true,scrollTop:false});
+  requestAnimationFrame(()=>{if(snapshot.sourceView==='list')renderList();restoreCarouselPositions(snapshot.carouselPositions);window.scrollTo({top:snapshot.scrollY,behavior:'auto'});const target=findDetailReturnTarget(snapshot);target?.focus({preventScroll:true});detailNavState=null});
+}
 async function tmdbEdgeRequest(body){
   const stored=cloudSession||loadCloudSession();if(!stored)return null;
   const session=await ensureCloudSession();
@@ -774,6 +957,20 @@ async function tmdbDetails(mediaType,id){
   const r=await fetch(`https://api.themoviedb.org/3/${kind}/${encodeURIComponent(id)}?language=ru-RU`,{headers:{Authorization:'Bearer '+token,accept:'application/json'}});
   if(!r.ok)throw new Error('TMDB '+r.status);
   const details=await r.json();details.media_type=kind;return details;
+}
+async function tmdbSeasonDetails(tvId,seasonNumber){
+  const id=Number(tvId),season=Number(seasonNumber);
+  if(!Number.isSafeInteger(id)||id<=0||!Number.isSafeInteger(season)||season<=0)throw new Error('Некорректный сезон TMDB');
+  const cloudResult=await tmdbEdgeRequest({operation:'tv/season/details',id,season_number:season});if(cloudResult!==null)return cloudResult;
+  const token=localStorage.getItem(TOKEN_KEY);if(!token)throw new Error('Список эпизодов пока недоступен');
+  const r=await fetch(`https://api.themoviedb.org/3/tv/${encodeURIComponent(id)}/season/${encodeURIComponent(season)}?language=ru-RU`,{headers:{Authorization:'Bearer '+token,accept:'application/json'}});
+  if(!r.ok)throw new Error('TMDB '+r.status);return r.json();
+}
+async function getTmdbSeasonDetailsCached(tvId,seasonNumber){
+  const key=`tv:${tvId}:season:${seasonNumber}`;
+  if(seasonDetailsCache.has(key))return seasonDetailsCache.get(key);
+  const request=tmdbSeasonDetails(tvId,seasonNumber);seasonDetailsCache.set(key,request);
+  try{const details=await request;seasonDetailsCache.set(key,details);return details}catch(err){seasonDetailsCache.delete(key);throw err}
 }
 
 function isPlainObject(x){return !!x&&typeof x==='object'&&!Array.isArray(x)}
@@ -852,12 +1049,15 @@ function mergeManualQueue(a,b,identities){
   return {ids,total:ids.length+(Number(a.completed)||0)+(Number(b.completed)||0)+(Number(a.skipped)||0)+(Number(b.skipped)||0),completed:(Number(a.completed)||0)+(Number(b.completed)||0),skipped:(Number(a.skipped)||0)+(Number(b.skipped)||0),createdAt:[a.createdAt,b.createdAt].filter(Boolean).sort()[0]||Date.now()};
 }
 function mergeWatchlistState(current,incoming){
-  const out=mergeGeneric(current,incoming);
+  const out=mergeGeneric(current,incoming),currentTonight=cloneJSON(isPlainObject(current)?current:{}),incomingTonight=cloneJSON(isPlainObject(incoming)?incoming:{});
+  normalizeTonightSelection(currentTonight);normalizeTonightSelection(incomingTonight);
   out.watched=mergeUniqueArray(current.watched,incoming.watched);
   out.pins=mergeUniqueArray(current.pins,incoming.pins);
   out.addedItems=mergeAddedItems(current.addedItems,incoming.addedItems);
   out.identities=mergeIdentities(current.identities,incoming.identities);
-  out.tonightId=current.tonightId||incoming.tonightId||null;
+  out.tonightId=currentTonight.tonightId||incomingTonight.tonightId||null;
+  const refinement=currentTonight.tonightId===out.tonightId&&currentTonight.tonightSelection?currentTonight.tonightSelection:incomingTonight.tonightId===out.tonightId?incomingTonight.tonightSelection:null;
+  if(refinement)out.tonightSelection=cloneJSON(refinement);else delete out.tonightSelection;
   ['identityHistory','batchHistory','tmdbAuditLog','tmdbUpdateHistory'].forEach(k=>out[k]=mergeJournal(current[k],incoming[k]));
   out.tmdbReviewSkipped=mergeUniqueArray(current.tmdbReviewSkipped,incoming.tmdbReviewSkipped);
   out.tmdbUnresolved=mergeUniqueArray(current.tmdbUnresolved,incoming.tmdbUnresolved);
@@ -869,7 +1069,7 @@ function mergeWatchlistState(current,incoming){
     else if(isConfirmedIdentity(fromIncoming)&&(incoming.tmdbMeta||{})[k])meta[k]=cloneJSON(incoming.tmdbMeta[k]);
   });
   out.tmdbMeta=meta;
-  return out;
+  normalizeTonightSelection(out);return out;
 }
 function savePreImportSnapshot(){
   const snapshot={at:new Date().toISOString(),state:cloneJSON(state),tokenPresent:localStorage.getItem(TOKEN_KEY)!==null,tmdbToken:localStorage.getItem(TOKEN_KEY)};
@@ -881,7 +1081,7 @@ function applyBackupImport(mode){
   try{
     savePreImportSnapshot();
     const before=backupCounts(state),source=backupCounts(backup.state);
-    state=mode==='replace'?cloneJSON(backup.state):mergeWatchlistState(state,backup.state);
+    state=mode==='replace'?cloneJSON(backup.state):mergeWatchlistState(state,backup.state);normalizeTonightSelection(state);
     ensureIdentityState();ensureBatchState();
     logTmdbEvent('data_import',null,{mode,exportedAt:backup.exportedAt});
     saveState();
@@ -909,7 +1109,7 @@ function undoLastImport(){
     const raw=localStorage.getItem(IMPORT_UNDO_KEY);if(!raw)return;
     const snapshot=JSON.parse(raw);if(!isPlainObject(snapshot)||!isPlainObject(snapshot.state))throw new Error('снимок повреждён');
     if(!confirm('Вернуть данные к состоянию до последнего импорта?'))return;
-    state=cloneJSON(snapshot.state);ensureIdentityState();ensureBatchState();logTmdbEvent('data_import_rollback',null,{snapshotAt:snapshot.at});saveState();
+    state=cloneJSON(snapshot.state);normalizeTonightSelection(state);ensureIdentityState();ensureBatchState();logTmdbEvent('data_import_rollback',null,{snapshotAt:snapshot.at});saveState();
     if(snapshot.tokenPresent)localStorage.setItem(TOKEN_KEY,snapshot.tmdbToken||'');else localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(IMPORT_UNDO_KEY);rebuild();alert('Последний импорт отменён.');openDataPanel();
   }catch(e){alert('Не удалось отменить импорт: '+(e.message||String(e)))}
@@ -1186,7 +1386,7 @@ async function openManualTmdbMatch(id, backFn=openRowActions, queueMode=false){
             else{
               closeModal();
               setTimeout(()=>{
-                openDetails(id);
+                openLibraryDetail(id,{itemKey:`library:${id}`,triggerRole:'details'});
                 const title=x.title||x.name||it.title;
                 const original=x.original_title||x.original_name||'';
                 alert('Готово: привязка подтверждена.\n'+title+(original&&norm(original)!==norm(title)?' ('+original+')':''));
@@ -1374,13 +1574,7 @@ function addedItemFromTmdb(x){
   return Object.assign({title,original_title:original,year:year?+year:null,type,rating,tmdb_rating:rating,desc:x.overview||'',genres:(x.genres||[]).map(g=>typeof g==='string'?g:g&&g.name).filter(Boolean),poster_url:poster,tmdb_id:x.id,tmdb_type:x.media_type,kp_url:'https://www.kinopoisk.ru/index.php?kp_query='+encodeURIComponent(title)},extendedTmdbFields(x));
 }
 function isTmdbInLibrary(mediaType,tmdbId){
-  const wantedType=mediaType==='tv'?'tv':'movie',wantedId=String(tmdbId);
-  return items.some(it=>{
-    const ident=(state.identities||{})[idFor(it)]||{};
-    const savedId=ident.tmdb_id??it.tmdb_id;
-    const savedType=ident.tmdb_type||it.tmdb_type||(it.type==='S'?'tv':'movie');
-    return savedId!=null&&String(savedId)===wantedId&&savedType===wantedType;
-  });
+  return !!findTmdbLibraryItem(mediaType,tmdbId);
 }
 function saveAddedTmdbItem(it){
   state.addedItems=state.addedItems||[];
@@ -1417,7 +1611,7 @@ function tmdbResultHTML(x,source='add'){
 }
 function bindTmdbResultActions(root,source='add'){
   root.querySelectorAll('.tmdb-result').forEach(row=>{
-    row.querySelectorAll('.tmdb-preview-open').forEach(b=>b.onclick=()=>openTmdbPreview(row.dataset.type,row.dataset.id,source));
+    row.querySelectorAll('.tmdb-preview-open').forEach(b=>b.onclick=()=>source==='global'?openTmdbDetail(row.dataset.type,row.dataset.id,{trigger:b,itemKey:`tmdb:${row.dataset.type}:${row.dataset.id}`,triggerRole:detailTriggerRole(b)}):openTmdbPreview(row.dataset.type,row.dataset.id,source));
     const add=row.querySelector('.tmdb-add');
     if(add&&!add.disabled)add.onclick=()=>addTmdbSelection(row.dataset.type,row.dataset.id,add,{closeOnSuccess:source==='add'});
   });
@@ -1463,18 +1657,20 @@ function renderAddSearchModal(restoreScroll=false){
   });
 }
 function backFromTmdbPreview(source){if(source==='global')closeModal();else renderAddSearchModal(true)}
-function renderTmdbPreview(details,source='add'){
-  const mediaType=details.media_type==='tv'?'tv':'movie',title=details.title||details.name||'Без названия',original=details.original_title||details.original_name||'';
-  const releaseDate=details.release_date||details.first_air_date||'',year=releaseDate.slice(0,4),poster=details.poster_path?'https://image.tmdb.org/t/p/w500'+details.poster_path:'';
-  const rating=details.vote_average!=null&&Number(details.vote_average)>0?Number(details.vote_average).toFixed(1):'—',genres=(details.genres||[]).map(g=>g&&g.name).filter(Boolean);
+function tmdbDetailPresentation(details){
+  const mediaType=details.media_type==='tv'?'tv':'movie',title=details.title||details.name||'Без названия',original=details.original_title||details.original_name||'',releaseDate=details.release_date||details.first_air_date||'',year=releaseDate.slice(0,4),poster=details.poster_path?'https://image.tmdb.org/t/p/w500'+details.poster_path:'',rating=details.vote_average!=null&&Number(details.vote_average)>0?Number(details.vote_average):null,genres=(details.genres||[]).map(g=>g&&g.name).filter(Boolean);
   let countryNames=null;try{if(typeof Intl.DisplayNames==='function')countryNames=new Intl.DisplayNames(['ru'],{type:'region'})}catch(e){}
   const countries=(details.production_countries||[]).map(x=>{if(!x)return '';try{const code=x.iso_3166_1||'',localized=countryNames&&code?countryNames.of(code):'';return localized&&localized!==code?localized:(x.name||localized)}catch(e){return x.name||''}}).filter(Boolean),premiere=/^\d{4}-\d{2}-\d{2}$/.test(releaseDate)?new Date(releaseDate+'T00:00:00Z').toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}):releaseDate;
+  return {mediaType,title,original,releaseDate,year,poster,rating,genres,countries,premiere,overview:details.overview||'Описание пока не добавлено.'};
+}
+function renderTmdbPreview(details,source='add'){
+  const model=tmdbDetailPresentation(details),{mediaType,title,original,year,poster,genres,countries,premiere}=model,rating=model.rating!=null?model.rating.toFixed(1):'—';
   const extended=extendedDetailsHTML(Object.assign({type:mediaType==='tv'?'S':'M'},extendedTmdbFields(details))),already=isTmdbInLibrary(mediaType,details.id),backLabel=source==='global'?'← Назад к поиску':'← Назад к результатам';
   openModal(`<div class="modal-nav"><button type="button" class="modal-back tmdb-preview-back">${backLabel}</button></div>
     <div class="tmdb-preview">
       <div class="tmdb-preview-poster" style="${poster?`background-image:url('${esc(poster)}')`:''}"></div>
       <div class="tmdb-preview-main"><h2>${esc(title)}</h2>${original?`<div class="tmdb-preview-original">${esc(original)}</div>`:''}<div class="tmdb-preview-meta">${year||'—'} · ${mediaType==='tv'?'Сериал':'Фильм'} · ★ ${rating}</div>${genres.length?`<div class="tmdb-preview-genres">Жанры: ${esc(genres.join(', '))}</div>`:''}${countries.length?`<div class="tmdb-preview-genres">Страна: ${esc(countries.join(', '))}</div>`:''}${premiere?`<div class="tmdb-preview-genres">Премьера: ${esc(premiere)}</div>`:''}${extended}</div>
-      <p class="tmdb-preview-overview">${esc(details.overview||'Описание пока не добавлено.')}</p>
+      <p class="tmdb-preview-overview">${esc(model.overview)}</p>
       <div class="tmdb-preview-actions"><button type="button" class="small-btn tmdb-preview-back">${backLabel}</button><button type="button" class="small-btn gold" id="tmdbPreviewAdd" ${already?'disabled':''}>${already?'Уже в списке':source==='global'?'Добавить в мой список':'Добавить в список'}</button></div>
     </div>`);
   $('#modal').scrollTop=0;
@@ -1512,36 +1708,88 @@ function openAdd(){
   renderAddSearchModal();
 }
 
-function setTonight(id){
+function setTonight(id,selection=null){
   state.tonightId=id||null;
-  saveState();
-  updateStats();
-  renderTonightSlot();
+  if(id&&selection)state.tonightSelection=cloneJSON(selection);else delete state.tonightSelection;
+  normalizeTonightSelection(state);saveState();updateStats();renderTonightSlot();
+}
+function bindTonightSelectorNavigation(root){
+  root.onkeydown=e=>{
+    if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))return;
+    const controls=[...root.querySelectorAll('button:not([disabled])')],index=controls.indexOf(document.activeElement);if(index<0||controls.length<2)return;
+    e.preventDefault();const step=e.key==='ArrowUp'||e.key==='ArrowLeft'?-1:1;controls[(index+step+controls.length)%controls.length].focus();
+  };
+}
+function closeTonightSelectorToDetail(focusId='detailTonight'){
+  tonightSelectorRequest++;closeModal();
+  if(currentView==='detail')requestAnimationFrame(()=>$('#'+focusId)?.focus({preventScroll:true}));
+}
+function finishTonightSelection(it,selection,focusId='detailTonight'){
+  setTonight(idFor(it),selection);tonightSelectorRequest++;closeModal();
+  if(currentView==='detail'&&activeDetailDescriptor?.kind==='library'&&activeDetailDescriptor.id===idFor(it))renderActiveDetail({preserveInteraction:true,focusId});
+}
+function seriesTonightSeasons(it){
+  const source=Array.isArray(it.seasons)&&it.seasons.length?it.seasons:activeDetailDetails&&activeDetailDescriptor?.kind==='library'&&activeDetailDescriptor.id===idFor(it)?extendedTmdbFields(activeDetailDetails).seasons:[];
+  return source.filter(x=>Number.isSafeInteger(Number(x.season_number))&&Number(x.season_number)>0).sort((a,b)=>Number(a.season_number)-Number(b.season_number));
+}
+function openSeriesTonightSelector(it,{returnFocusId='detailTonight',backFn=null,initialFocusId=''}={}){
+  if(!it||it.type!=='S')return;
+  const id=idFor(it),selection=tonightSelectionFor(id),active=state.tonightId===id,seasons=seriesTonightSeasons(it);
+  const current=active?tonightSelectionLabel(selection,{long:true}):'Не выбрано';
+  const seasonButtons=seasons.map(x=>{const season=Number(x.season_number),selected=selection?.seasonNumber===season;return `<button type="button" class="small-btn ${selected?'on':''} tonight-season-choice" id="tonightSeason${season}" data-season="${season}"><span class="episode-choice-main">Сезон ${season}</span><span class="episode-choice-meta">${esc(x.episode_count)} серий · выбрать сезон или эпизод</span></button>`}).join('');
+  openSubModal('🌆 Сегодня вечером',`<p class="watch-query"><b>${esc(it.title)}</b><br>Текущий выбор: ${esc(current)}</p><div class="tonight-selector" id="seriesTonightOptions"><button type="button" class="small-btn gold ${active&&!selection?'on':''}" id="wholeSeriesTonight">Весь сериал</button>${seasonButtons||'<div class="empty">Список сезонов пока недоступен. Можно выбрать весь сериал.</div>'}${active?'<button type="button" class="small-btn danger" id="clearSeriesTonight">Очистить выбор</button>':''}</div>`,backFn||(()=>closeTonightSelectorToDetail(returnFocusId)));
+  $('#wholeSeriesTonight').onclick=()=>finishTonightSelection(it,null,returnFocusId);
+  $$('#seriesTonightOptions .tonight-season-choice').forEach(button=>button.onclick=()=>{const season=Number(button.dataset.season);openSeasonTonightSelector(it,season,{backFn:()=>openSeriesTonightSelector(it,{returnFocusId,backFn,initialFocusId:button.id}),returnFocusId})});
+  if($('#clearSeriesTonight'))$('#clearSeriesTonight').onclick=()=>{setTonight(null);tonightSelectorRequest++;closeModal();if(currentView==='detail')renderActiveDetail({preserveInteraction:true,focusId:returnFocusId})};
+  bindTonightSelectorNavigation($('#seriesTonightOptions'));
+  requestAnimationFrame(()=>{const focus=initialFocusId&&$('#'+initialFocusId)||$('#wholeSeriesTonight');focus?.focus()});
+}
+async function openSeasonTonightSelector(it,seasonNumber,{backFn=null,returnFocusId='detailTonight'}={}){
+  const season=Number(seasonNumber);if(!it||it.type!=='S'||!Number.isSafeInteger(season)||season<=0)return;
+  const id=idFor(it),selection=tonightSelectionFor(id),seasonSelected=state.tonightId===id&&selection?.kind==='season'&&selection.seasonNumber===season,selectorKey=`${id}:${season}`,request=++tonightSelectorRequest;
+  openSubModal(`Сезон ${season}`,`<p class="watch-query"><b>${esc(it.title)}</b> · ${episodeCode(season)}</p><div class="tonight-selector" id="seasonTonightOptions"><button type="button" class="small-btn gold ${seasonSelected?'on':''}" id="wholeSeasonTonight">Выбрать весь сезон</button><div id="tonightEpisodeResults" data-selector-key="${esc(selectorKey)}"><div class="tmdb-preview-loading">Загружаю список эпизодов…</div></div></div>`,backFn||(()=>closeTonightSelectorToDetail(returnFocusId)));
+  $('#wholeSeasonTonight').onclick=()=>finishTonightSelection(it,{libraryId:id,kind:'season',seasonNumber:season},returnFocusId);
+  bindTonightSelectorNavigation($('#seasonTonightOptions'));
+  $('#wholeSeasonTonight').focus();
+  const ref=tmdbReferenceFor(it),host=$('#tonightEpisodeResults');
+  if(!ref||ref.type!=='tv'){host.innerHTML='<div class="empty">Эпизоды недоступны без TMDB-привязки. Весь сезон выбрать можно.</div>';return}
+  try{
+    const details=await getTmdbSeasonDetailsCached(ref.id,season);
+    if(request!==tonightSelectorRequest||$('#modalBg').classList.contains('hidden'))return;
+    const current=$('#tonightEpisodeResults');if(!current||current.dataset.selectorKey!==selectorKey)return;
+    const episodes=(details.episodes||[]).filter(x=>Number.isSafeInteger(Number(x.episode_number))&&Number(x.episode_number)>0).sort((a,b)=>Number(a.episode_number)-Number(b.episode_number));
+    current.innerHTML=episodes.map(x=>{const episode=Number(x.episode_number),title=typeof x.name==='string'?x.name.trim():'',selected=selection?.kind==='episode'&&selection.seasonNumber===season&&selection.episodeNumber===episode;return `<button type="button" class="small-btn ${selected?'on':''} tonight-episode-choice" data-episode="${episode}" data-title="${esc(title)}"><span class="episode-choice-main">${episodeCode(season,episode)}${title?' · '+esc(title):''}</span>${x.air_date?`<span class="episode-choice-meta">${esc(x.air_date)}</span>`:''}</button>`}).join('')||'<div class="empty">TMDB не вернул список эпизодов.</div>';
+    current.querySelectorAll('.tonight-episode-choice').forEach(button=>button.onclick=()=>{const episode=Number(button.dataset.episode),episodeTitle=button.dataset.title||'';finishTonightSelection(it,{libraryId:id,kind:'episode',seasonNumber:season,episodeNumber:episode,episodeTitle},returnFocusId)});
+    bindTonightSelectorNavigation($('#seasonTonightOptions'));
+  }catch(err){
+    if(request!==tonightSelectorRequest||$('#modalBg').classList.contains('hidden'))return;
+    const current=$('#tonightEpisodeResults');if(current&&current.dataset.selectorKey===selectorKey)current.innerHTML=`<div class="empty">Список эпизодов пока недоступен: ${esc(err.message)}. Весь сезон выбрать можно.</div>`;
+  }
 }
 function renderTonightSlot(){
   const host=$('#tonightSlot'); if(!host)return;
   const it=state.tonightId?byId(state.tonightId):null;
-  $('#tonightActionText').textContent=it?it.title:'Выбрать фильм или сериал';
-  if(!it){host.innerHTML='';return;}
-  const p=posterOf(it),r=ratingOf(it);
+  if(!it){$('#tonightActionText').textContent='Выбрать фильм или сериал';host.innerHTML='';return;}
+  const p=posterOf(it),r=ratingOf(it),selection=it.type==='S'?tonightSelectionFor(idFor(it)):null,selectionText=selection?tonightSelectionLabel(selection,{long:true}):'';
+  $('#tonightActionText').textContent=selection?`${it.title} · ${tonightSelectionLabel(selection)}`:it.title;
   host.innerHTML=`<div class="tonight-card" data-id="${esc(idFor(it))}">
-    <button type="button" class="tonight-poster detail-trigger detail-poster" data-id="${esc(idFor(it))}" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}"></button>
-    <div><b><button type="button" class="detail-trigger detail-title" data-id="${esc(idFor(it))}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></b><div class="row-meta">${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}${r!=null?' · ★ '+Number(r).toFixed(1):''}</div><div class="row-desc">Запланировано на сегодня вечером</div></div>
+    <button type="button" class="tonight-poster detail-trigger detail-poster" data-id="${esc(idFor(it))}" data-reveal-tonight="true" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}"></button>
+    <div class="tonight-card-main"><b><button type="button" class="detail-trigger detail-title" data-id="${esc(idFor(it))}" data-reveal-tonight="true" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></b><div class="row-meta">${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}${r!=null?' · ★ '+Number(r).toFixed(1):''}</div>${selectionText?`<div class="tonight-selection-line">${esc(selectionText)}</div>`:''}<div class="row-desc">Запланировано на сегодня вечером</div></div>
     <div class="row-actions"><button class="small-btn gold tonight-open">Открыть</button><button class="small-btn tonight-clear">✕</button></div>
   </div>`;
   bindDetailTriggers(host);
-  host.querySelector('.tonight-open').onclick=()=>openDetails(idFor(it));
+  host.querySelector('.tonight-open').onclick=()=>openLibraryDetail(idFor(it),{itemKey:`library:${idFor(it)}`,triggerRole:'details',revealTonight:true});
   host.querySelector('.tonight-clear').onclick=()=>setTonight(null);
 }
 function openTonightPicker(){
-  const pool=items.filter(x=>!isWatched(x)).slice().sort((a,b)=>(ratingOf(b)||0)-(ratingOf(a)||0)).slice(0,60);
+  const pool=[...items].sort(ratingCompare);
   openModal(`<h2>🌆 Сегодня вечером</h2>
     <p style="color:var(--muted)">Выберите фильм или сериал. Он появится отдельной карточкой на главной.</p>
     <input id="tonightSearch" placeholder="Поиск по списку">
     <div id="tonightResults"></div>`);
   const draw=()=>{
     const n=norm($('#tonightSearch').value);
-    const arr=pool.filter(it=>!n||norm([it.title,it.desc||'',...(it.genres||[])].join(' ')).includes(n)).slice(0,24);
+    const arr=pool.filter(it=>!n||searchableText(it).includes(n)||norm(it.original_title||'').includes(n)).slice(0,n?60:24);
     $('#tonightResults').innerHTML=arr.map(it=>{
       const p=posterOf(it),r=ratingOf(it);
       return `<div class="result">
@@ -1569,7 +1817,7 @@ function openDoubleSession(){
     <div class="double-result">${card(movie)}${card(seriesItem)}</div>
     <button class="small-btn" id="rerollDouble" style="width:100%;margin-top:12px">🎲 Другой вариант</button>`);
   bindDetailTriggers($('#modal'));
-  $$('.dbl-open').forEach(b=>b.onclick=()=>openDetails(b.closest('.double-card').dataset.id));
+  $$('.dbl-open').forEach(b=>b.onclick=()=>{const id=b.closest('.double-card').dataset.id;openLibraryDetail(id,{itemKey:`library:${id}`,triggerRole:'details'})});
   $('#rerollDouble').onclick=openDoubleSession;
 }
 
@@ -1852,13 +2100,20 @@ $('#randomBtn').onclick=randomPick;$('#tonightAction').onclick=openTonightPicker
 $('#addBtn').onclick=openAdd;$('#deskAdd').onclick=openAdd;$('#profileAdd').onclick=openAdd;$('#profileData').onclick=openDataPanel;$('#profileTech').onclick=openTechPanel;$('#profileSafeRepair').onclick=openSafeRepairPanel;$('#profileAbout').onclick=openAboutPanel;
 $('#sentinel').onclick=()=>{renderLimit+=30;renderList()};
 $('#sentinel').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.currentTarget.click()}};
+$('#detailBack').onclick=backFromDetailPage;
+document.addEventListener('keydown',e=>{
+  if(currentView!=='detail'||!$('#modalBg').classList.contains('hidden'))return;
+  const target=e.target,editable=target?.matches?.('input,textarea,select,[contenteditable="true"]')||target?.isContentEditable;
+  if(editable||!['Escape','Backspace','BrowserBack','GoBack'].includes(e.key))return;
+  e.preventDefault();backFromDetailPage();
+});
 $$('#homeStats .stat').forEach(b=>b.addEventListener('click',()=>openListFromStat(b.dataset.statGo)));
 $('#homeStats').addEventListener('keydown',e=>{
   if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
   const cards=$$('#homeStats .stat'),index=cards.indexOf(document.activeElement);if(index<0)return;
   e.preventDefault();const direction=e.key==='ArrowRight'||e.key==='ArrowDown'?1:-1;cards[(index+direction+cards.length)%cards.length].focus();
 });
-$$('[data-view]').forEach(b=>b.addEventListener('click',()=>{const view=b.dataset.view;if(view)showView(view)}));
+$$('[data-view]').forEach(b=>b.addEventListener('click',()=>{const view=b.dataset.view;if(view)showView(view,{explicit:true})}));
 $$('[data-type]').forEach(b=>b.onclick=()=>{$$('[data-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active');typeFilter=b.dataset.type;applyFilters()});
 $$('[data-state]').forEach(b=>b.onclick=()=>{const was=b.classList.contains('active');$$('[data-state]').forEach(x=>x.classList.remove('active'));stateFilter=was?'all':b.dataset.state;if(!was)b.classList.add('active');applyFilters()});
 $$('[data-search-type]').forEach(b=>b.onclick=()=>{$$('[data-search-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active');searchType=b.dataset.searchType;renderSearch()});
