@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07090c">
 <title>Кино-менеджер v6 Beta 15</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vidstack@1.15.6/player/styles/base.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vidstack@1.15.6/player/styles/default/theme.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vidstack@1.15.6/player/styles/default/layouts/video.css">
+<script type="module" id="vidstackRuntime" src="https://cdn.jsdelivr.net/npm/vidstack@1.15.6/cdn/with-layouts/vidstack.js"></script>
 
 <style>
 :root{
@@ -76,9 +80,20 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
 .detail-page-header{display:flex;align-items:center;gap:12px;margin:2px 0 20px}.detail-page-back{min-height:44px;white-space:nowrap}.detail-page-status{color:var(--muted);font-size:13px}
 .detail-page-shell{display:grid;grid-template-columns:minmax(210px,300px) minmax(0,1fr);gap:clamp(22px,4vw,54px);align-items:start}.detail-page-poster{width:100%;aspect-ratio:2/3;border:1px solid var(--line);border-radius:22px;background:linear-gradient(145deg,#2e3339,#101317) center/cover;box-shadow:0 24px 60px rgba(0,0,0,.3)}
 .detail-page-main{min-width:0}.detail-page-main h1{font-size:clamp(34px,5vw,58px);line-height:1.04;margin:0 0 8px}.detail-page-original{color:var(--muted);font-size:clamp(14px,2vw,18px);line-height:1.4;margin-bottom:12px}.detail-page-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:var(--gold2);font-weight:750;margin:12px 0}.detail-page-facts{display:grid;gap:7px;color:var(--muted);line-height:1.5;margin:14px 0}.detail-page-overview{font-size:16px;line-height:1.7;white-space:pre-wrap;margin:20px 0;color:var(--text);max-width:900px}.detail-page-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:22px}.detail-page-actions .small-btn,.detail-page-actions a{min-height:44px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}.detail-page-actions button:disabled{cursor:not-allowed;opacity:.52}.detail-page-note{width:100%;color:var(--muted);font-size:12px;line-height:1.45}.detail-page-loading,.detail-page-error{padding:42px 18px;text-align:center;border:1px dashed var(--line);border-radius:18px;color:var(--muted)}.detail-page .season-list{max-width:620px}.detail-page .season-list-body{max-height:320px;overflow:auto}.detail-page .identity-status{margin-left:0}.tonight-selection-note{max-width:620px;margin:12px 0;padding:10px 12px;border:1px solid rgba(243,188,76,.45);border-radius:12px;background:rgba(243,188,76,.08);color:var(--gold2)}
+.player-active{padding-left:0!important;overflow-x:hidden}.player-active .desktop-side,.player-active .nav,.player-active .top{display:none!important}.player-active .app{max-width:none;min-height:100vh;padding:0;background:#000}.player-view{min-height:100vh;background:#000;color:#fff}.player-shell{min-height:100vh;display:grid;grid-template-rows:auto minmax(0,1fr);padding:calc(env(safe-area-inset-top) + 10px) max(14px,env(safe-area-inset-right)) calc(env(safe-area-inset-bottom) + 14px) max(14px,env(safe-area-inset-left));gap:12px}.player-header{display:flex;align-items:center;gap:10px;min-width:0}.player-header-main{min-width:0;flex:1}.player-title{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(16px,2.5vw,24px)}.player-subtitle{display:block;color:#aab1ba;font-size:12px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.player-header .small-btn{min-height:44px;background:#151a20}.player-stage{position:relative;min-width:0;min-height:0;display:grid;place-items:center;border:1px solid #252c34;border-radius:18px;overflow:hidden;background:#050607}.player-media-host{width:min(100%,1600px);min-width:0}.player-media-host media-player,.player-media-host>.native-local-video{width:100%;aspect-ratio:16/9;background:#000;border-radius:14px;overflow:hidden;outline:none}.player-media-host media-player:focus-visible,.player-media-host>.native-local-video:focus-visible{outline:4px solid var(--gold2);outline-offset:4px}.player-media-host media-player :focus-visible{outline:3px solid var(--gold2)!important;outline-offset:2px}.native-local-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.native-local-status{margin:8px 0 0;padding:8px 10px;border:1px solid #51431e;border-radius:8px;background:#211c0d;color:#f5d98b;font-size:12px;line-height:1.4;overflow-wrap:anywhere}.native-local-status.hidden{display:none}.player-state{width:min(680px,100%);padding:30px 18px;text-align:center}.player-state h1{font-size:clamp(24px,4vw,42px);margin:0 0 12px}.player-state p{color:#aab1ba;line-height:1.55}.player-state-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:18px}.player-state-actions .small-btn{min-height:48px}.playback-source-form{display:grid;gap:10px}.playback-source-form label{display:grid;gap:6px;color:var(--muted);font-size:12px}.playback-source-form input,.playback-source-form select{margin:0}.playback-source-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}.playback-source-actions .small-btn{min-height:46px}.player-episode-list{display:grid;gap:8px;max-height:52vh;overflow:auto;padding:3px}.player-episode-list .small-btn{min-height:46px;text-align:left}.player-episode-list .episode-choice-main{overflow-wrap:anywhere}.player-load-note{color:var(--muted);font-size:12px;line-height:1.45}.player-view button:focus-visible,.player-view [tabindex]:focus-visible,.playback-source-form button:focus-visible,.playback-source-form input:focus-visible,.playback-source-form select:focus-visible{outline:3px solid var(--gold2);outline-offset:3px}
+.native-local-frame{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:14px;background:#000}.native-local-frame>.native-local-video{display:block;width:100%;height:100%;object-fit:contain;background:#000;outline:none}.native-local-frame>.native-local-video:focus-visible{outline:4px solid var(--gold2);outline-offset:-5px}.native-local-controls{position:absolute;inset:auto 0 0;display:grid;gap:8px;padding:clamp(10px,2vw,18px);background:linear-gradient(transparent,rgba(0,0,0,.92));transition:opacity .18s ease;z-index:2}.native-local-controls.controls-hidden{opacity:0;pointer-events:none}.native-local-progress-row{display:grid;grid-template-columns:auto minmax(80px,1fr) auto;align-items:center;gap:8px}.native-local-progress-row span{min-width:40px;color:#fff;font:600 12px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;text-align:center}.native-local-controls-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.native-local-control{min-width:46px;min-height:46px;padding:8px 11px;border:1px solid rgba(255,255,255,.28);border-radius:11px;background:rgba(15,18,22,.88);color:#fff;font-weight:750;cursor:pointer}.native-local-control:focus-visible,.native-local-range:focus-visible{outline:3px solid var(--gold2);outline-offset:2px}.native-local-range{accent-color:var(--gold2);min-height:32px;cursor:pointer}.native-local-progress{width:100%;min-width:0}.native-local-volume{width:min(140px,25vw)}.native-local-time-spacer{flex:1}.native-local-frame.native-local-pseudo-fullscreen{position:fixed;inset:0;z-index:10020;width:100vw;height:100dvh;aspect-ratio:auto;border-radius:0;background:#000}.native-local-frame:fullscreen{width:100%;height:100%;aspect-ratio:auto;border-radius:0}.native-local-frame:-webkit-full-screen{width:100%;height:100%;aspect-ratio:auto;border-radius:0}
+.player-content-panel{display:none}.player-panel-inner{display:grid;gap:13px;min-width:0}.player-panel-title{margin:0;font-size:20px;line-height:1.2}.player-panel-episode-label{color:var(--gold2);font-weight:800}.player-panel-overview{margin:0;color:#c6ccd3;font-size:13px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}.player-panel-section-title{margin:2px 0 0;font-size:13px;color:#c6ccd3}.player-panel-seasons{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 7px;scroll-snap-type:x proximity;overscroll-behavior-x:contain}.player-panel-season{flex:0 0 auto;min-height:42px;padding:9px 14px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:#171c22;color:#fff;scroll-snap-align:start;cursor:pointer}.player-panel-season.current{border-color:var(--gold2);background:rgba(223,165,47,.16);color:var(--gold2)}.player-panel-episodes{display:grid;gap:7px;padding:2px}.player-panel-episode{display:grid;gap:3px;width:100%;min-height:48px;padding:9px 11px;border:1px solid rgba(255,255,255,.13);border-radius:12px;background:#14191f;color:#fff;text-align:left;cursor:pointer}.player-panel-episode.current{border-color:var(--gold2);background:rgba(223,165,47,.14);box-shadow:inset 3px 0 var(--gold2)}.player-panel-episode-code{font-weight:800;line-height:1.3;overflow-wrap:anywhere}.player-panel-episode-meta{color:#98a1ab;font-size:11px}.player-panel-loading,.player-panel-empty{padding:12px;border:1px dashed rgba(255,255,255,.17);border-radius:12px;color:#98a1ab;font-size:12px;line-height:1.45}.player-panel-movie{display:grid;grid-template-columns:74px minmax(0,1fr);gap:12px;align-items:start}.player-panel-poster{width:74px;aspect-ratio:2/3;border-radius:10px;background:#20262c center/cover}.player-panel-original{color:#98a1ab;font-size:12px;line-height:1.4;margin-top:3px}.player-panel-facts{color:var(--gold2);font-size:12px;line-height:1.5;margin-top:7px;overflow-wrap:anywhere}.player-theater-active .player-content-panel{display:none!important}
 @media(max-width:720px){.detail-page-shell{grid-template-columns:1fr;gap:20px}.detail-page-poster{width:min(58vw,230px);margin:auto}.detail-page-main h1{font-size:34px}.detail-page-overview{font-size:15px;line-height:1.6}.detail-page-actions{display:grid;grid-template-columns:1fr 1fr}.detail-page-actions .small-btn,.detail-page-actions a{width:100%}.detail-page-note{grid-column:1/-1}}
+@media(max-width:720px){.player-shell{padding-left:max(8px,env(safe-area-inset-left));padding-right:max(8px,env(safe-area-inset-right));gap:8px}.player-header{display:grid;grid-template-columns:auto minmax(0,1fr) auto}.player-header .small-btn{padding:9px}.player-stage{border-radius:12px;align-self:start}.player-media-host media-player,.native-local-frame{border-radius:10px}.native-local-controls{padding:8px;gap:5px}.native-local-progress-row{gap:4px}.native-local-control{min-width:44px;min-height:44px;padding:7px 9px}.native-local-play,.native-local-mute,.native-local-fullscreen{width:44px;flex:0 0 44px;font-size:0}.native-local-play::before,.native-local-mute::before,.native-local-fullscreen::before{content:attr(data-icon);font-size:18px}.native-local-volume{width:82px}.native-local-time-spacer{display:none}.playback-source-actions{grid-template-columns:1fr}.player-state{padding:24px 12px}}
+@media(max-width:720px) and (orientation:portrait){.player-shell{height:100dvh;min-height:100dvh;grid-template-rows:auto auto minmax(0,1fr);overflow:hidden;padding-bottom:0}.player-stage{width:100%;aspect-ratio:16/9}.player-content-panel{display:block;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-gutter:stable;border-top:1px solid #252c34;background:linear-gradient(180deg,#0d1116,#090c10)}.player-panel-inner{padding:13px 5px max(24px,env(safe-area-inset-bottom))}.player-panel-seasons{margin-right:-5px}.player-panel-episode{min-height:50px}.player-panel-season.selected{border-color:var(--gold2);background:rgba(223,165,47,.16);color:var(--gold2)}.player-panel-season.current{box-shadow:inset 0 0 0 1px var(--gold2)}}
 @media(max-width:420px){.detail-page-actions{grid-template-columns:1fr}.detail-page-note{grid-column:auto}}
 @media(min-width:1700px){.detail-page-shell{grid-template-columns:340px minmax(0,1fr)}.detail-page-main h1{font-size:64px}.detail-page-overview{font-size:21px}.detail-page-actions .small-btn,.detail-page-actions a{font-size:19px;min-height:54px;padding:14px 18px}}
+.native-local-controls{inset:0;display:block;padding:0;background:linear-gradient(180deg,rgba(0,0,0,.12),transparent 35%,transparent 55%,rgba(0,0,0,.78));pointer-events:none}.native-local-controls.controls-hidden{opacity:0}.native-local-controls.controls-hidden .native-local-transport,.native-local-controls.controls-hidden .native-local-bottom{pointer-events:none}.native-local-transport{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;gap:clamp(12px,2.4vw,24px);pointer-events:auto}.native-local-bottom{position:absolute;left:clamp(12px,2vw,24px);right:clamp(12px,2vw,24px);bottom:clamp(8px,1.4vw,18px);display:grid;gap:4px;min-width:0;pointer-events:auto}.native-local-progress-row{grid-template-columns:auto minmax(70px,1fr) auto;gap:8px}.native-local-bottom-row{display:flex;align-items:center;gap:8px;min-width:0}.native-local-control{display:inline-grid;place-items:center;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border:1px solid rgba(255,255,255,.24);border-radius:50%;background:rgba(30,37,45,.42);box-shadow:0 5px 18px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.12);backdrop-filter:blur(12px) saturate(1.2);color:#fff;font-size:17px;line-height:1}.native-local-control:active{background:rgba(48,57,68,.6);transform:scale(.96)}.native-local-play,.native-local-mute,.native-local-fullscreen{font-size:17px}.native-local-play::before,.native-local-mute::before,.native-local-fullscreen::before{content:none}.native-local-play{width:54px;height:54px;min-width:54px;min-height:54px}.native-local-play-icon{position:relative;display:block;width:19px;height:22px}.native-local-play-icon::before{content:"";position:absolute;left:50%;top:50%;transform:translate(-43%,-50%);border-top:11px solid transparent;border-bottom:11px solid transparent;border-left:17px solid currentColor}.native-local-play.is-playing .native-local-play-icon::before{width:18px;height:20px;border:0;background:linear-gradient(90deg,currentColor 0 6px,transparent 6px 12px,currentColor 12px 18px);transform:translate(-50%,-50%)}.native-local-seek{width:48px;min-width:48px}.native-local-seek-icon{display:block;width:29px;height:29px;overflow:visible}.native-local-seek-icon path{fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.native-local-seek-icon text{fill:currentColor;font:800 11px/1 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-anchor:middle}.native-local-volume{width:min(140px,25vw)}.native-local-time-spacer{flex:1}.native-local-controls .native-local-range{pointer-events:auto}.native-local-volume[hidden]{display:none}
+@media(max-width:720px){.native-local-controls{background:linear-gradient(180deg,rgba(0,0,0,.08),transparent 34%,transparent 52%,rgba(0,0,0,.82))}.native-local-transport{gap:11px}.native-local-bottom{left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));bottom:calc(5px + env(safe-area-inset-bottom));gap:2px}.native-local-control{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;font-size:16px;background:rgba(34,42,51,.38)}.native-local-play{width:52px;height:52px;min-width:52px;min-height:52px}.native-local-play-icon{width:18px;height:20px}.native-local-play-icon::before{border-top-width:10px;border-bottom-width:10px;border-left-width:16px}.native-local-seek{width:46px;min-width:46px}.native-local-seek-icon{width:27px;height:27px}.native-local-progress-row{gap:5px}.native-local-progress-row span{min-width:34px;font-size:11px}.native-local-range{min-height:24px}.native-local-volume{width:78px}.native-local-time-spacer{display:block}}
+@media(orientation:landscape){.player-media-host{width:min(100%,1600px,calc((100dvh - 88px)*16/9))}}
+@media(orientation:landscape) and (max-height:520px){.player-shell{height:100dvh;min-height:100dvh;gap:6px;padding-top:max(4px,env(safe-area-inset-top));padding-bottom:max(4px,env(safe-area-inset-bottom))}.player-header .small-btn{min-height:40px}.player-media-host{width:min(100%,calc((100dvh - 66px)*16/9))}}
+@media(min-width:1700px){.native-local-transport{gap:32px}.native-local-bottom{left:32px;right:32px;bottom:24px;gap:8px}.native-local-control{width:64px;height:64px;min-width:64px;min-height:64px;font-size:23px}.native-local-play{width:82px;height:82px;min-width:82px;min-height:82px}.native-local-play-icon{width:26px;height:30px}.native-local-play-icon::before{border-top-width:15px;border-bottom-width:15px;border-left-width:23px}.native-local-play.is-playing .native-local-play-icon::before{width:24px;height:28px;background:linear-gradient(90deg,currentColor 0 8px,transparent 8px 16px,currentColor 16px 24px)}.native-local-seek{width:72px;min-width:72px}.native-local-seek-icon{width:38px;height:38px}.native-local-seek-icon text{font-size:13px}.native-local-progress-row span{min-width:58px;font-size:16px}.native-local-range{min-height:44px}.native-local-volume{width:190px}}
+@media(display-mode:standalone){body.player-active,.player-active .app,.player-view,.player-shell{min-height:100dvh;height:100dvh}.player-shell{padding-top:max(env(safe-area-inset-top),8px);padding-right:max(env(safe-area-inset-right),8px);padding-bottom:max(env(safe-area-inset-bottom),8px);padding-left:max(env(safe-area-inset-left),8px)}.native-local-frame.native-local-pseudo-fullscreen{height:100dvh}}
 @media(hover:hover) and (pointer:fine){.tmdb-result-poster,.tmdb-result-title{cursor:pointer;transition:filter .16s ease,transform .16s ease,color .16s ease}.tmdb-result-poster:hover{filter:brightness(1.09);transform:translateY(-2px)}.tmdb-result-title:hover{color:var(--gold2);text-decoration:underline;text-underline-offset:3px}}
 .desktop-side{display:none}
 @media(max-width:720px){
@@ -202,6 +217,18 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
   <div id="detailPageContent"></div>
 </section>
 
+<section class="view player-view" id="view-player" aria-live="polite">
+  <div class="player-shell">
+    <div class="player-header">
+      <button type="button" class="small-btn" id="playerBack">← Назад</button>
+      <div class="player-header-main"><b class="player-title" id="playerTitle">Плеер</b><span class="player-subtitle" id="playerSubtitle"></span></div>
+      <button type="button" class="small-btn" id="playerChangeSource">Источник</button>
+    </div>
+    <div class="player-stage" id="playerStage"><div class="player-state"><p>Выберите источник для просмотра.</p></div></div>
+    <aside class="player-content-panel" id="playerContentPanel" aria-label="Информация и выбор эпизода"></aside>
+  </div>
+</section>
+
 <section class="view" id="view-profile">
   <h1 class="page-title">Профиль</h1><div class="page-sub">Ваш список, настройки и данные.</div>
   <div class="profile-card"><b>🎬 Моя библиотека</b><p id="profileListCount" style="color:var(--muted)"></p></div>
@@ -237,6 +264,12 @@ const SUPABASE_URL='https://owiqnzkavzjqbckstegc.supabase.co',SUPABASE_KEY='sb_p
 const CLOUD_SESSION_KEY='watchlist_supabase_session',CLOUD_SYNC_KEY='watchlist_supabase_sync',CLOUD_PULL_UNDO_KEY='watchlist_supabase_pull_undo',CLOUD_DEVICE_KEY='watchlist_device_id';
 const SUPABASE_AUTH_URL_KEYS=['access_token','refresh_token','expires_in','expires_at','token_type','type','provider_token','provider_refresh_token','code','error','error_code','error_description','token_hash'];
 const BACKUP_FORMAT='watchlist-full-backup',BACKUP_VERSION=1;
+const PINNED_HLS_LIBRARY='https://cdn.jsdelivr.net/npm/hls.js@1.7.1/dist/hls.min.js';
+const PLAYER_SEEK_STEP=5;
+const PLAYER_TRANSLATIONS=Object.freeze({
+  'Announcements':'Объявления','Accessibility':'Специальные возможности','AirPlay':'AirPlay','Audio':'Аудио','Auto':'Авто','Boost':'Усиление','Captions':'Субтитры','Caption Styles':'Стиль субтитров','Captions look like this':'Пример субтитров','Chapters':'Главы','Closed-Captions Off':'Субтитры выключены','Closed-Captions On':'Субтитры включены','Connected':'Подключено','Continue':'Продолжить','Connecting':'Подключение','Default':'По умолчанию','Disabled':'Отключено','Disconnected':'Нет подключения','Display Background':'Фон области','Download':'Скачать','Enter Fullscreen':'На весь экран','Enter PiP':'Включить картинку в картинке','Exit Fullscreen':'Выйти из полноэкранного режима','Exit PiP':'Выйти из картинки в картинке','Font':'Шрифт','Family':'Гарнитура','Fullscreen':'Полный экран','Google Cast':'Google Cast','Keyboard Animations':'Анимация клавиатурных действий','LIVE':'ПРЯМОЙ ЭФИР','Loop':'Повтор','Mute':'Выключить звук','Normal':'Обычный','Off':'Выкл.','Pause':'Пауза','Play':'Воспроизвести','Playback':'Воспроизведение','PiP':'Картинка в картинке','Quality':'Качество','Replay':'Повторить','Reset':'Сбросить','Seek Backward':'Назад на','Seek Forward':'Вперёд на','Seek':'Перемотка','Settings':'Настройки','Skip To Live':'К прямому эфиру','Speed':'Скорость','Size':'Размер','Color':'Цвет','Opacity':'Прозрачность','Shadow':'Тень','Text':'Текст','Text Background':'Фон текста','Track':'Дорожка','Unmute':'Включить звук','Volume':'Громкость'
+});
+const PLAYER_REMOTE_STATE_LABELS=Object.freeze({'Connected':'Подключено','Connecting':'Подключение','Disconnected':'Нет подключения'});
 let BASE={movies:[],series:[]},state={},items=[],filtered=[],renderLimit=30,typeFilter='all',stateFilter='all',libraryQuery='',globalSearchQuery='',sortMode='rating',currentView='home',searchType='all';
 let pendingImportBackup=null;
 let cloudSession=null,cloudDeviceId='',cloudSyncBusy=false,cloudUiStatus='Локальный режим';
@@ -246,6 +279,7 @@ let addPreviewRequest=0;
 let detailLoadRequest=0;
 let detailNavState=null,activeDetailDescriptor=null,activeDetailRandom=false,activeDetailDetails=null,activeDetailRevealTonight=false;
 let tonightSelectorRequest=0;
+let playerNavState=null,pendingPlayerOrigin=null,playerRequestToken=0,playerEpisodeRequest=0,playerFullscreenExitedAt=0,activePlaybackTarget=null,activePlaybackSourceRef=null,nativeLocalFileSession=null;
 const addDetailsCache=new Map(),seasonDetailsCache=new Map();
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -616,14 +650,16 @@ function findDetailReturnTarget(snapshot){
   }
   return view.querySelector('h1,button,input,[tabindex]');
 }
-function abandonDetailPage(){detailLoadRequest++;detailNavState=null;activeDetailDescriptor=null;activeDetailRandom=false;activeDetailDetails=null;activeDetailRevealTonight=false}
+function abandonDetailPage(){detailLoadRequest++;detailNavState=null;pendingPlayerOrigin=null;activeDetailDescriptor=null;activeDetailRandom=false;activeDetailDetails=null;activeDetailRevealTonight=false}
 function showView(name,options={}){
   const restore=!!options.restore;
   if(options.explicit&&currentView==='detail'&&name!=='detail')abandonDetailPage();
+  if(currentView==='player'&&name!=='player'&&!options.playerBack)abandonPlayerView();
   currentView=name;
+  document.body.classList.toggle('player-active',name==='player');
   $$('.view').forEach(v=>v.classList.remove('active'));
   const target=$('#view-'+name); if(target) target.classList.add('active');
-  const navView=name==='detail'?(detailNavState?.sourceView||''):name;
+  const navView=name==='detail'||name==='player'?(detailNavState?.sourceView||''):name;
   $$('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===navView));
   if(name==='profile') updateProfile();
   if(name==='list'){ $('#listSearch').value=libraryQuery;if(!restore)applyFilters(); }
@@ -859,7 +895,8 @@ function renderDetailPageModel(model,{preserveInteraction=false,focusId=''}={}){
   const tonightButtonLabel=tonightActive?(library.type==='S'&&tonightSelection?`🌆 ${tonightSelectionLabel(tonightSelection,{long:true})}`:'🌆 На вечер'):'🌆 Добавить на вечер';
   const libraryActions=isInLibrary?`${activeDetailRandom?'<button type="button" class="small-btn gold" id="detailRandomAgain">🎲 Ещё вариант</button>':''}<button type="button" class="small-btn ${isFav(library)?'on':''}" id="detailFav">${isFav(library)?'★ В избранном':'☆ В избранное'}</button><button type="button" class="small-btn ${isWatched(library)?'on':''}" id="detailWatched">${isWatched(library)?'✓ Просмотрено':'○ Отметить просмотренным'}</button><button type="button" class="small-btn ${tonightActive?'on':''}" id="detailTonight">${esc(tonightButtonLabel)}</button><button type="button" class="small-btn" disabled>Уже в списке</button>${model.kpUrl?`<a class="small-btn" target="_blank" rel="noopener noreferrer" href="${esc(model.kpUrl)}">Кинопоиск ↗</a>`:''}`:`<button type="button" class="small-btn gold" id="detailAdd">Добавить в мой список</button><button type="button" class="small-btn" disabled>☆ Избранное</button><button type="button" class="small-btn" disabled>○ Просмотрено</button><button type="button" class="small-btn" disabled>🌆 На вечер</button><div class="detail-page-note">Избранное, просмотренное и «На вечер» доступны после добавления позиции в «Мой список».</div>`;
   const tonightNote=tonightActive&&library.type==='S'?`<div class="tonight-selection-note"><b>Сегодня вечером:</b> ${esc(tonightSelectionLabel(tonightSelection,{long:true}))}</div>`:'';
-  host.innerHTML=`<div class="detail-page-shell"><div class="detail-page-poster" role="img" aria-label="Постер: ${esc(model.title)}" style="${model.poster?`background-image:url('${esc(model.poster)}')`:''}"></div><div class="detail-page-main"><h1 tabindex="-1" id="detailTitle">${esc(model.title)}</h1>${model.original&&norm(model.original)!==norm(model.title)?`<div class="detail-page-original">${esc(model.original)}</div>`:''}<div class="detail-page-meta"><span>${esc(model.year||'Год не указан')} · ${model.mediaType==='tv'?'Сериал':'Фильм'}</span><span>★ ${model.rating!=null?Number(model.rating).toFixed(1):'—'}</span>${identityBadge}</div>${facts?`<div class="detail-page-facts">${facts}</div>`:''}${tonightNote}${model.extendedHtml||''}<p class="detail-page-overview">${esc(model.overview||'Описание пока не добавлено.')}</p><div class="detail-page-actions"><button type="button" class="small-btn gold" id="detailWatch">▶ Смотреть</button>${libraryActions}</div></div></div>`;
+  host.innerHTML=`<div class="detail-page-shell"><div class="detail-page-poster" role="img" aria-label="Постер: ${esc(model.title)}" style="${model.poster?`background-image:url('${esc(model.poster)}')`:''}"></div><div class="detail-page-main"><h1 tabindex="-1" id="detailTitle">${esc(model.title)}</h1>${model.original&&norm(model.original)!==norm(model.title)?`<div class="detail-page-original">${esc(model.original)}</div>`:''}<div class="detail-page-meta"><span>${esc(model.year||'Год не указан')} · ${model.mediaType==='tv'?'Сериал':'Фильм'}</span><span>★ ${model.rating!=null?Number(model.rating).toFixed(1):'—'}</span>${identityBadge}</div>${facts?`<div class="detail-page-facts">${facts}</div>`:''}${tonightNote}${model.extendedHtml||''}<p class="detail-page-overview">${esc(model.overview||'Описание пока не добавлено.')}</p><div class="detail-page-actions"><button type="button" class="small-btn gold" id="detailPlay">▶ Открыть плеер</button><button type="button" class="small-btn" id="detailWatch">Где смотреть ↗</button>${libraryActions}</div></div></div>`;
+  $('#detailPlay').onclick=()=>openPlaybackForDetail(model);
   $('#detailWatch').onclick=()=>openWatchPickerForItem(library||{title:model.title,year:model.year},closeModal);
   if(isInLibrary){
     if($('#detailRandomAgain'))$('#detailRandomAgain').onclick=()=>openRandomDetails(id);
@@ -870,7 +907,7 @@ function renderDetailPageModel(model,{preserveInteraction=false,focusId=''}={}){
   }else{
     $('#detailAdd').onclick=()=>addTmdbSelection(model.mediaType,model.tmdbId,$('#detailAdd'),{closeOnSuccess:false,onSuccess:()=>{
       const added=findTmdbLibraryItem(model.mediaType,model.tmdbId);if(!added)return;
-      activeDetailDescriptor={kind:'library',id:idFor(added)};activeDetailDetails=activeDetailDetails||null;renderActiveDetail({preserveInteraction:true,focusId:'detailWatch'});
+       activeDetailDescriptor={kind:'library',id:idFor(added)};activeDetailDetails=activeDetailDetails||null;renderActiveDetail({preserveInteraction:true,focusId:'detailPlay'});
     }});
   }
   host.onkeydown=e=>{
@@ -937,10 +974,237 @@ function openTmdbDetail(mediaType,tmdbId,options={}){
 }
 function backFromDetailPage(){
   if(currentView!=='detail'||!detailNavState)return;
-  const snapshot=detailNavState;detailLoadRequest++;activeDetailDescriptor=null;activeDetailDetails=null;activeDetailRandom=false;activeDetailRevealTonight=false;
+  const snapshot=detailNavState;detailLoadRequest++;pendingPlayerOrigin=null;activeDetailDescriptor=null;activeDetailDetails=null;activeDetailRandom=false;activeDetailRevealTonight=false;
   renderLimit=Math.max(30,Number(snapshot.renderLimit)||30);showView(snapshot.sourceView,{restore:true,scrollTop:false});
   requestAnimationFrame(()=>{if(snapshot.sourceView==='list')renderList();restoreCarouselPositions(snapshot.carouselPositions);window.scrollTo({top:snapshot.scrollY,behavior:'auto'});const target=findDetailReturnTarget(snapshot);target?.focus({preventScroll:true});detailNavState=null});
 }
+/** @typedef {{kind:'movie'|'episode',identityKey:string,mediaType:'movie'|'tv',title:string,year:string|number,poster?:string,libraryId?:string,tmdbId?:string|number,seasonNumber?:number,episodeNumber?:number,episodeTitle?:string}} PlaybackTarget */
+/** @typedef {{kind:'direct'|'hls'|'user-url'|'local-file'|'home-engine'|'provider',url?:string,format?:string,file?:File,providerId?:string}} PlaybackSourceRef */
+/** @typedef {{kind:'direct'|'hls'|'local-file',src:string,type?:string,cleanup?:Function}} ResolvedPlaybackSource */
+function playbackSafeUrl(value){
+  let parsed;try{parsed=new URL(String(value||'').trim())}catch(_){throw new Error('Введите корректный URL видео.')}
+  if(parsed.protocol!=='http:'&&parsed.protocol!=='https:')throw new Error('Разрешены только HTTP/HTTPS-ссылки.');
+  return parsed.toString();
+}
+function playbackDirectType(url,format='auto'){
+  if(format==='mp4')return 'video/mp4';if(format==='webm')return 'video/webm';
+  const path=new URL(url).pathname.toLowerCase();if(path.endsWith('.webm'))return 'video/webm';return 'video/mp4';
+}
+function localPlaybackType(file){
+  const declared=String(file?.type||'').trim().toLowerCase();if(declared.startsWith('video/'))return declared;
+  const ext=String(file?.name||'').toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]||'';
+  return ({mov:'video/quicktime',qt:'video/quicktime',mp4:'video/mp4',m4v:'video/x-m4v',webm:'video/webm',ogv:'video/ogg',ogg:'video/ogg',mkv:'video/x-matroska',avi:'video/x-msvideo',mpeg:'video/mpeg',mpg:'video/mpeg',ts:'video/mp2t',m2ts:'video/mp2t','3gp':'video/3gpp'})[ext]||'';
+}
+function isAutoplayRestriction(error){return error?.name==='NotAllowedError'||/autoplay|user (gesture|interaction)|not allowed.*play|play.*not allowed/i.test(error?.message||'')}
+function setNativeLocalStatus(session,message=''){if(!session?.status)return;session.status.textContent=message;session.status.classList.toggle('hidden',!message)}
+function playbackClock(value){const seconds=Number(value);if(!Number.isFinite(seconds)||seconds<0)return '0:00';const total=Math.floor(seconds),hours=Math.floor(total/3600),minutes=Math.floor(total%3600/60),rest=String(total%60).padStart(2,'0');return hours?`${hours}:${String(minutes).padStart(2,'0')}:${rest}`:`${minutes}:${rest}`}
+function isIOSPlaybackDevice(){return /iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)}
+function nativeLocalControlElements(session){return session?.controls?[...session.controls.querySelectorAll('button,input')].filter(node=>!node.disabled):[]}
+function setNativeLocalControlsVisible(session,visible,{schedule=false}={}){if(!session?.active)return;clearTimeout(session.controlsTimer);session.controlsTimer=0;session.controls.classList.toggle('controls-hidden',!visible);session.controls.setAttribute('aria-hidden',visible?'false':'true');if('inert'in session.controls)session.controls.inert=!visible;if(visible&&schedule)scheduleNativeLocalControls(session)}
+function scheduleNativeLocalControls(session){if(!session?.active||session.video.paused)return;clearTimeout(session.controlsTimer);session.controlsTimer=setTimeout(()=>{if(session.active&&!session.video.paused&&!session.controls.contains(document.activeElement))setNativeLocalControlsVisible(session,false)},2800)}
+function updateNativeLocalControls(session){
+  if(!session?.active)return;const {video,playButton,muteButton,progress,currentTime,duration,volume,fullscreenButton,frame}=session,total=Number.isFinite(video.duration)?video.duration:0,playLabel=video.paused?'Воспроизвести':'Пауза',muteLabel=video.muted?'Включить звук':'Выключить звук';playButton.classList.toggle('is-playing',!video.paused);playButton.setAttribute('aria-label',playLabel);playButton.title=playLabel;muteButton.textContent=video.muted?'🔇':'🔊';muteButton.setAttribute('aria-label',muteLabel);muteButton.title=muteLabel;progress.max=String(total||0);if(!progress.matches(':active'))progress.value=String(Math.min(total||0,video.currentTime||0));currentTime.textContent=playbackClock(video.currentTime);duration.textContent=playbackClock(total);volume.value=String(video.muted?0:video.volume);const expanded=document.fullscreenElement===frame||frame.classList.contains('native-local-pseudo-fullscreen'),fullscreenLabel=expanded?'Выйти из полноэкранного режима':'На весь экран';fullscreenButton.textContent='⛶';fullscreenButton.setAttribute('aria-label',fullscreenLabel);fullscreenButton.title=fullscreenLabel;
+}
+function seekNativeLocalFile(session,delta){if(!session?.active)return;const duration=Number.isFinite(session.video.duration)?session.video.duration:Infinity;session.video.currentTime=Math.max(0,Math.min(duration,(session.video.currentTime||0)+delta));updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true,{schedule:true})}
+async function playNativeLocalFile(session){
+  if(!session?.active)return;try{await session.video.play();setNativeLocalStatus(session,'');updateNativeLocalControls(session);scheduleNativeLocalControls(session)}catch(error){const rejection={name:String(error?.name||''),message:String(error?.message||'')};setNativeLocalControlsVisible(session,true);if(isAutoplayRestriction(rejection))setNativeLocalStatus(session,'Safari запретил автоматический запуск. Видео оставлено на паузе — нажмите «Воспроизвести» ещё раз.');else setNativeLocalStatus(session,'Не удалось начать воспроизведение. Проверьте выбранный файл и повторите попытку.')}
+}
+function toggleNativeLocalPlayback(session){if(!session?.active)return;if(session.video.paused)playNativeLocalFile(session);else{session.video.pause();updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true)}}
+async function toggleNativeLocalFullscreen(session){
+  if(!session?.active)return;const {frame}=session;if(frame.classList.contains('native-local-pseudo-fullscreen')){frame.classList.remove('native-local-pseudo-fullscreen');document.body.classList.remove('player-theater-active');updateNativeLocalControls(session);return}if(document.fullscreenElement===frame){try{await document.exitFullscreen()}catch(_){}updateNativeLocalControls(session);return}
+  try{if(frame.requestFullscreen){await frame.requestFullscreen();updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true,{schedule:true});return}}catch(_){}
+  frame.classList.add('native-local-pseudo-fullscreen');document.body.classList.add('player-theater-active');updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true,{schedule:true});
+}
+function exitNativeLocalPseudoFullscreen(){const session=nativeLocalFileSession;if(!session?.frame.classList.contains('native-local-pseudo-fullscreen'))return false;session.frame.classList.remove('native-local-pseudo-fullscreen');document.body.classList.remove('player-theater-active');updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true);return true}
+function destroyNativeLocalFileSession(){
+  const session=nativeLocalFileSession;if(!session||!session.active){nativeLocalFileSession=null;document.body.classList.remove('player-theater-active');return}clearTimeout(session.controlsTimer);session.active=false;session.listeners.splice(0).forEach(remove=>{try{remove()}catch(_){} });try{session.video.pause()}catch(_){}session.frame.classList.remove('native-local-pseudo-fullscreen');document.body.classList.remove('player-theater-active');session.frame.remove();URL.revokeObjectURL(session.objectUrl);nativeLocalFileSession=null;
+}
+function destroyActivePlayerMedia(){playerBackend.destroy();destroyNativeLocalFileSession()}
+function startNativeLocalFile(file,request){
+  if(!(file instanceof Blob))throw new Error('Выберите видеофайл.');const objectUrl=URL.createObjectURL(file),host=document.createElement('div'),frame=document.createElement('div'),video=document.createElement('video'),controls=document.createElement('div'),status=document.createElement('div'),listeners=[];
+  host.className='player-media-host';frame.className='native-local-frame';video.className='native-local-video';video.controls=false;video.playsInline=true;video.preload='metadata';video.tabIndex=0;video.setAttribute('playsinline','');video.setAttribute('aria-label','Локальное видео');controls.className='native-local-controls';controls.setAttribute('aria-label','Управление плеером');controls.innerHTML='<div class="native-local-transport"><button type="button" class="native-local-control native-local-seek native-local-back" aria-label="Назад на 5 секунд" title="Назад на 5 секунд"><svg class="native-local-seek-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M10 9H4V3"></path><path d="M4 9a12 12 0 1 1-1.2 14"></path><text x="16" y="20">5</text></svg></button><button type="button" class="native-local-control native-local-play" aria-label="Воспроизвести" title="Воспроизвести"><span class="native-local-play-icon" aria-hidden="true"></span></button><button type="button" class="native-local-control native-local-seek native-local-forward" aria-label="Вперёд на 5 секунд" title="Вперёд на 5 секунд"><svg class="native-local-seek-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M22 9h6V3"></path><path d="M28 9a12 12 0 1 0 1.2 14"></path><text x="16" y="20">5</text></svg></button></div><div class="native-local-bottom"><div class="native-local-bottom-row"><button type="button" class="native-local-control native-local-mute" aria-label="Выключить звук" title="Выключить звук">🔊</button><input class="native-local-range native-local-volume" type="range" min="0" max="1" step="0.05" value="1" aria-label="Громкость"><span class="native-local-time-spacer"></span><button type="button" class="native-local-control native-local-fullscreen" aria-label="На весь экран" title="На весь экран">⛶</button></div><div class="native-local-progress-row"><span class="native-local-current">0:00</span><input class="native-local-range native-local-progress" type="range" min="0" max="0" step="0.1" value="0" aria-label="Позиция воспроизведения"><span class="native-local-duration">0:00</span></div></div>';status.className='native-local-status hidden';status.setAttribute('role','status');frame.append(video,controls);host.append(frame,status);$('#playerStage').replaceChildren(host);
+  const session={active:true,request,host,frame,video,controls,objectUrl,status,listeners,controlsTimer:0,playButton:controls.querySelector('.native-local-play'),muteButton:controls.querySelector('.native-local-mute'),progress:controls.querySelector('.native-local-progress'),currentTime:controls.querySelector('.native-local-current'),duration:controls.querySelector('.native-local-duration'),volume:controls.querySelector('.native-local-volume'),fullscreenButton:controls.querySelector('.native-local-fullscreen')};nativeLocalFileSession=session;if(isIOSPlaybackDevice()){session.volume.hidden=true;session.volume.disabled=true;frame.classList.add('native-local-ios')}const listen=(target,type,handler)=>{target.addEventListener(type,handler);listeners.push(()=>target.removeEventListener(type,handler))};
+  ['loadstart','loadedmetadata','loadeddata','canplay','canplaythrough','playing','pause','stalled','suspend','waiting','emptied'].forEach(type=>listen(video,type,()=>{if(session!==nativeLocalFileSession)return;updateNativeLocalControls(session);if(type==='loadedmetadata'||type==='canplay'||type==='playing')setNativeLocalStatus(session,'');if(type==='playing')scheduleNativeLocalControls(session);if(type==='pause')setNativeLocalControlsVisible(session,true)}));
+  ['timeupdate','durationchange','volumechange','ended'].forEach(type=>listen(video,type,()=>{if(session===nativeLocalFileSession)updateNativeLocalControls(session)}));
+  listen(video,'error',()=>{if(session!==nativeLocalFileSession)return;const code=video.error?.code;setNativeLocalStatus(session,code===4?'Safari/браузер не смог открыть этот видеофайл. Попробуйте другой файл или формат.':code===3?'Safari/браузер не смог декодировать этот видеофайл. Попробуйте другой файл.':'Safari/браузер сообщил об ошибке локального видео. Попробуйте открыть файл снова.')});
+  session.playButton.onclick=()=>toggleNativeLocalPlayback(session);controls.querySelector('.native-local-back').onclick=()=>seekNativeLocalFile(session,-PLAYER_SEEK_STEP);controls.querySelector('.native-local-forward').onclick=()=>seekNativeLocalFile(session,PLAYER_SEEK_STEP);session.muteButton.onclick=()=>{video.muted=!video.muted;updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true,{schedule:true})};session.progress.oninput=()=>{if(Number.isFinite(video.duration))video.currentTime=Math.max(0,Math.min(video.duration,Number(session.progress.value)||0));updateNativeLocalControls(session)};session.volume.oninput=()=>{try{video.muted=false;video.volume=Math.max(0,Math.min(1,Number(session.volume.value)));updateNativeLocalControls(session)}catch(_){session.volume.disabled=true;setNativeLocalStatus(session,'Громкость регулируется аппаратными кнопками устройства.')}};session.fullscreenButton.onclick=()=>toggleNativeLocalFullscreen(session);
+  listen(video,'click',()=>setNativeLocalControlsVisible(session,controls.classList.contains('controls-hidden'),{schedule:true}));listen(controls,'click',event=>{event.stopPropagation();if(event.detail>0&&event.target.closest('button'))requestAnimationFrame(()=>video.focus({preventScroll:true}))});listen(controls,'focusin',()=>setNativeLocalControlsVisible(session,true));listen(controls,'focusout',()=>scheduleNativeLocalControls(session));listen(document,'fullscreenchange',()=>{if(session===nativeLocalFileSession){updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true,{schedule:true})}});
+  video.src=objectUrl;video.load();updateNativeLocalControls(session);requestAnimationFrame(()=>{if(request===playerRequestToken&&session===nativeLocalFileSession)session.playButton.focus({preventScroll:true})});
+}
+const playbackSourceResolvers=new Map([
+  ['direct',async ref=>{const src=playbackSafeUrl(ref.url);return {kind:'direct',src,type:playbackDirectType(src,ref.format)}}],
+  ['hls',async ref=>({kind:'hls',src:playbackSafeUrl(ref.url),type:'application/vnd.apple.mpegurl'})],
+  ['user-url',async ref=>{const src=playbackSafeUrl(ref.url),path=new URL(src).pathname.toLowerCase(),kind=ref.format==='hls'||ref.format!=='mp4'&&ref.format!=='webm'&&path.endsWith('.m3u8')?'hls':'direct';return playbackSourceResolvers.get(kind)(Object.assign({},ref,{kind,url:src}))}],
+  ['local-file',async ref=>{const file=ref.file;if(!(file instanceof Blob))throw new Error('Выберите видеофайл.');const src=URL.createObjectURL(file),type=localPlaybackType(file);return {kind:'local-file',src,type,cleanup:()=>URL.revokeObjectURL(src)}}],
+  ['home-engine',async()=>{throw new Error('Home Engine будет подключён на следующем этапе.')}],
+  ['provider',async()=>{throw new Error('Интеграция с провайдером пока недоступна.')}]
+]);
+async function resolvePlaybackSource(ref,target){
+  const resolver=playbackSourceResolvers.get(ref?.kind);if(!resolver)throw new Error('Неизвестный тип источника.');
+  return resolver(ref,target);
+}
+function waitForVidstack(){
+  if(customElements.get('media-player'))return Promise.resolve();
+  return Promise.race([customElements.whenDefined('media-player'),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Компоненты плеера не загрузились. Проверьте соединение и повторите.')),9000))]);
+}
+class VidstackMediaBackend{
+  constructor(){this.host=null;this.player=null;this.source=null;this.listeners=[];this.lifecycle=0;this.loadTimer=0;this.onError=null;this.layoutObserver=null}
+  listen(target,type,handler,options){target.addEventListener(type,handler,options);this.listeners.push(()=>target.removeEventListener(type,handler,options))}
+  nativeMedia(){const provider=this.player?.querySelector('media-provider');return provider?.querySelector('video')||this.player?.querySelector('video')||provider?.provider?.media||this.player?.provider?.media||null}
+  async create(host,target,{onError}={}){
+    this.destroy();const lifecycle=++this.lifecycle;await waitForVidstack();if(lifecycle!==this.lifecycle)return false;
+    this.host=host;this.onError=onError||null;
+    const player=document.createElement('media-player');player.setAttribute('title',target.title||'Видео');player.setAttribute('playsinline','');player.setAttribute('crossorigin','anonymous');player.setAttribute('tabindex','0');player.setAttribute('load','eager');
+    const provider=document.createElement('media-provider'),layout=document.createElement('media-video-layout');layout.seekStep=PLAYER_SEEK_STEP;layout.translations=PLAYER_TRANSLATIONS;player.append(provider,layout);
+    const updatePlayerLayout=()=>{layout.querySelectorAll('media-gesture[action^="seek:"]').forEach(gesture=>{const amount=Number(gesture.getAttribute('action').slice(5));if(amount&&Math.abs(amount)!==PLAYER_SEEK_STEP)gesture.setAttribute('action',`seek:${Math.sign(amount)*PLAYER_SEEK_STEP}`)});layout.querySelectorAll('[aria-label]').forEach(node=>{const label=node.getAttribute('aria-label')||'',remote=label.match(/^(AirPlay|Google Cast) (Connected|Connecting|Disconnected)$/),seek=label.match(/^(Назад на|Вперёд на) (\d+) sec$/);if(remote)node.setAttribute('aria-label',`${remote[1]} ${PLAYER_REMOTE_STATE_LABELS[remote[2]]}`);else if(seek)node.setAttribute('aria-label',`${seek[1]} ${seek[2]} секунд`)});layout.querySelectorAll('media-seek-button').forEach(button=>{const seconds=Number(button.getAttribute('seconds')),label=seconds?`${seconds<0?'Назад':'Вперёд'} на ${Math.abs(seconds)} секунд`:'';if(label&&button.getAttribute('aria-label')!==label)button.setAttribute('aria-label',label)})};
+    this.layoutObserver=new MutationObserver(updatePlayerLayout);this.layoutObserver.observe(layout,{childList:true,subtree:true,attributes:true,attributeFilter:['action','aria-label']});updatePlayerLayout();
+    this.listen(player,'provider-change',event=>{const mediaProvider=event.detail;if(mediaProvider?.type==='hls')mediaProvider.library=PINNED_HLS_LIBRARY});
+    const fail=event=>{if(this.player!==player)return;const detail=event.detail;if(event.type==='hls-error'&&detail&&!detail.fatal)return;const message=event.type==='hls-lib-load-error'?'HLS-модуль не загрузился.':'Источник видео недоступен или отклонён браузером.';this.onError?.(new Error(message))};
+    const ready=()=>{clearTimeout(this.loadTimer);this.loadTimer=0};
+    this.listen(player,'error',fail);this.listen(player,'play-fail',fail);this.listen(player,'hls-lib-load-error',fail);this.listen(player,'hls-error',fail);
+    this.listen(player,'can-play',ready);this.listen(player,'loaded-metadata',ready);this.listen(player,'playing',ready);
+    host.replaceChildren(player);this.player=player;return true;
+  }
+  attach(source){if(!this.player)throw new Error('Плеер не готов.');this.source=source;this.player.src=source.type?{src:source.src,type:source.type}:source.src;clearTimeout(this.loadTimer);this.loadTimer=setTimeout(()=>this.onError?.(new Error('Источник не ответил вовремя. Проверьте URL и CORS.')),15000)}
+  destroy(){
+    this.lifecycle++;clearTimeout(this.loadTimer);this.loadTimer=0;this.layoutObserver?.disconnect();this.layoutObserver=null;const player=this.player;this.player=null;this.listeners.splice(0).forEach(remove=>{try{remove()}catch(_){}});
+    if(player){try{player.pause?.()}catch(_){}try{player.src=null}catch(_){}player.remove()}
+    if(this.source?.cleanup)try{this.source.cleanup()}catch(_){}this.source=null;if(this.host)this.host.replaceChildren();this.host=null;this.onError=null;
+  }
+}
+const playerBackend=new VidstackMediaBackend();
+function playbackTargetLabel(target){return target.kind==='episode'?`${episodeCode(target.seasonNumber,target.episodeNumber)}${target.episodeTitle?' · '+target.episodeTitle:''}`:`${target.year||'Год не указан'} · Фильм`}
+function playerDetailModelForTarget(target){
+  const library=target.libraryId?byId(target.libraryId):null,detailsId=activeDetailDetails?.id,targetId=target.tmdbId,matchingDetails=activeDetailDetails&&(targetId==null||String(detailsId)===String(targetId))?activeDetailDetails:null;
+  if(library)return libraryDetailModel(library,matchingDetails);
+  if(matchingDetails)return globalDetailModel(matchingDetails);
+  return {kind:'tmdb',libraryItem:null,mediaType:target.mediaType,tmdbId:target.tmdbId??null,title:target.title,original:'',year:target.year||'',rating:null,poster:target.poster||'',genres:[],overview:'Описание пока не добавлено.'};
+}
+function playerPanelEpisodeLabel(target){return target.kind==='episode'?playbackTargetLabel(target):''}
+function renderPlayerPanelSeason(model,target,request,seasonNumber){
+  const panel=$('#playerContentPanel'),host=$('#playerPanelEpisodes'),season=Number(seasonNumber);if(!panel||!host||request!==playerRequestToken||currentView!=='player'||!Number.isSafeInteger(season)||season<=0)return;
+  panel.dataset.season=String(season);panel.querySelectorAll('.player-panel-season').forEach(button=>{const selected=Number(button.dataset.season)===season;button.classList.toggle('selected',selected);button.setAttribute('aria-pressed',selected?'true':'false')});
+  host.innerHTML='<div class="player-panel-loading">Загружаю серии…</div>';
+  if(!model.tmdbId){host.innerHTML='<div class="player-panel-empty">Список серий недоступен без TMDB-привязки.</div>';return}
+  const key=`${request}:${model.tmdbId}:${season}`;host.dataset.key=key;
+  getTmdbSeasonDetailsCached(model.tmdbId,season).then(details=>{
+    if(request!==playerRequestToken||currentView!=='player'||$('#playerContentPanel')!==panel||panel.dataset.season!==String(season)||host.dataset.key!==key)return;
+    const episodes=(details.episodes||[]).filter(x=>Number.isSafeInteger(Number(x.episode_number))&&Number(x.episode_number)>0).sort((a,b)=>Number(a.episode_number)-Number(b.episode_number));
+    host.innerHTML=episodes.map(x=>{const episodeNumber=Number(x.episode_number),title=typeof x.name==='string'?x.name.trim():'',current=target.kind==='episode'&&Number(target.seasonNumber)===season&&Number(target.episodeNumber)===episodeNumber;return `<button type="button" class="player-panel-episode${current?' current':''}" data-episode="${episodeNumber}" data-title="${esc(title)}" ${current?'aria-current="true"':''}><span class="player-panel-episode-code">${episodeCode(season,episodeNumber)}${title?' · '+esc(title):''}</span>${x.air_date?`<span class="player-panel-episode-meta">${esc(x.air_date)}</span>`:''}</button>`}).join('')||'<div class="player-panel-empty">TMDB не вернул список серий.</div>';
+    const currentEpisode=episodes.find(x=>target.kind==='episode'&&Number(target.seasonNumber)===season&&Number(x.episode_number)===Number(target.episodeNumber)),overview=$('#playerPanelOverview');if(currentEpisode?.overview&&overview)overview.textContent=currentEpisode.overview;
+    host.querySelectorAll('.player-panel-episode').forEach(button=>button.onclick=()=>{const episodeNumber=Number(button.dataset.episode),episodeTitle=button.dataset.title||'',nextTarget=playbackTargetFromDetail(model,{seasonNumber:season,episodeNumber,episodeTitle});openPlaybackSourceSetup(nextTarget,{backFn:()=>{closeModal();requestAnimationFrame(()=>button.focus({preventScroll:true}))}})});
+    bindTonightSelectorNavigation(host);
+  }).catch(err=>{if(request===playerRequestToken&&currentView==='player'&&host.dataset.key===key)host.innerHTML=`<div class="player-panel-empty">Серии пока недоступны: ${esc(err.message||String(err))}</div>`});
+}
+function renderPlayerContentPanel(target,request){
+  const panel=$('#playerContentPanel');if(!panel)return;const model=playerDetailModelForTarget(target),genres=(model.genres||[]).filter(Boolean),overview=model.overview||'Описание пока не добавлено.';panel.dataset.request=String(request);
+  if(model.mediaType!=='tv'){
+    const runtime=model.libraryItem?.runtime??activeDetailDetails?.runtime,facts=[model.year||'',model.rating!=null?`★ ${Number(model.rating).toFixed(1)}`:'',genres.length?genres.join(', '):'',runtime?runtimeText(runtime):''].filter(Boolean).map(esc).join(' · ');
+    panel.innerHTML=`<div class="player-panel-inner"><div class="player-panel-movie"><div class="player-panel-poster" role="img" aria-label="Постер: ${esc(model.title)}" style="${model.poster?`background-image:url('${esc(model.poster)}')`:''}"></div><div><h2 class="player-panel-title">${esc(model.title)}</h2>${model.original&&norm(model.original)!==norm(model.title)?`<div class="player-panel-original">${esc(model.original)}</div>`:''}${facts?`<div class="player-panel-facts">${facts}</div>`:''}</div></div><p class="player-panel-overview">${esc(overview)}</p></div>`;return;
+  }
+  const seasons=playbackSeasonsForDetail(model),initialSeason=Number(target.seasonNumber)>0?Number(target.seasonNumber):Number(seasons[0]?.season_number)||0,episodeLabel=playerPanelEpisodeLabel(target);
+  panel.innerHTML=`<div class="player-panel-inner"><h2 class="player-panel-title">${esc(model.title)}</h2>${episodeLabel?`<div class="player-panel-episode-label">${esc(episodeLabel)}</div>`:''}<p class="player-panel-overview" id="playerPanelOverview">${esc(overview)}</p><h3 class="player-panel-section-title">Сезоны</h3><div class="player-panel-seasons" id="playerPanelSeasons">${seasons.map(x=>{const season=Number(x.season_number),current=Number(target.seasonNumber)===season;return `<button type="button" class="player-panel-season${current?' current':''}" data-season="${season}" aria-label="Сезон ${season}${x.episode_count!=null?`, ${x.episode_count} серий`:''}" aria-pressed="false">Сезон ${season}</button>`}).join('')||'<div class="player-panel-empty">Список сезонов пока недоступен.</div>'}</div><h3 class="player-panel-section-title">Серии</h3><div class="player-panel-episodes" id="playerPanelEpisodes"></div></div>`;
+  const seasonRoot=$('#playerPanelSeasons');seasonRoot?.querySelectorAll('.player-panel-season').forEach(button=>button.onclick=()=>renderPlayerPanelSeason(model,target,request,Number(button.dataset.season)));if(seasonRoot)bindTonightSelectorNavigation(seasonRoot);
+  if(initialSeason>0)renderPlayerPanelSeason(model,target,request,initialSeason);else $('#playerPanelEpisodes').innerHTML='<div class="player-panel-empty">Список серий пока недоступен.</div>';
+}
+function playbackTargetFromDetail(model,episode=null){
+  const libraryId=model.libraryItem?idFor(model.libraryItem):'',identityKey=libraryId?`library:${libraryId}`:`tmdb:${model.mediaType}:${model.tmdbId}`;
+  return {kind:episode?'episode':'movie',identityKey,mediaType:model.mediaType,title:model.title,year:model.year||'',poster:model.poster||'',libraryId:libraryId||undefined,tmdbId:model.tmdbId??undefined,seasonNumber:episode?.seasonNumber,episodeNumber:episode?.episodeNumber,episodeTitle:episode?.episodeTitle||''};
+}
+function playbackSeasonsForDetail(model){
+  const source=activeDetailDetails?.seasons||model.libraryItem?.seasons||[];
+  return source.filter(x=>Number.isSafeInteger(Number(x.season_number))&&Number(x.season_number)>0).sort((a,b)=>Number(a.season_number)-Number(b.season_number));
+}
+function openPlaybackSourceSetup(target,{backFn=closeModal}={}){
+  const targetLine=target.kind==='episode'?`${target.title} · ${playbackTargetLabel(target)}`:target.title;
+  openSubModal('Встроенный плеер',`<p class="watch-query"><b>${esc(targetLine)}</b></p><div class="playback-source-form"><label>Ссылка на легальный или пользовательский поток<input type="url" id="playbackUrl" inputmode="url" autocomplete="off" placeholder="https://…/video.mp4"></label><label>Формат<select id="playbackFormat"><option value="auto">Определить автоматически</option><option value="hls">HLS (.m3u8)</option><option value="mp4">MP4</option><option value="webm">WebM</option></select></label><button type="button" class="small-btn gold" id="playbackOpenUrl">Открыть URL</button><div class="player-load-note">URL используется только в памяти этой вкладки и не попадает в список, backup или облачную синхронизацию.</div><label>Или локальный файл<input type="file" id="playbackFile" accept="video/*,.mov,.qt"></label><button type="button" class="small-btn" id="playbackOpenFile">Открыть файл</button><div class="warning-box hidden" id="playbackSetupError" role="alert"></div></div>`,backFn);
+  const report=message=>{const box=$('#playbackSetupError');box.textContent=message;box.classList.remove('hidden')};
+  $('#playbackOpenUrl').onclick=()=>{const url=$('#playbackUrl').value,format=$('#playbackFormat').value;try{playbackSafeUrl(url);startPlayer(target,{kind:'user-url',url,format})}catch(err){report(err.message)}};
+  $('#playbackOpenFile').onclick=()=>{const file=$('#playbackFile').files?.[0];if(!file){report('Сначала выберите видеофайл.');return}startPlayer(target,{kind:'local-file',file})};
+  $('#playbackUrl').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#playbackOpenUrl').click()}};
+  requestAnimationFrame(()=>$('#playbackUrl')?.focus());
+}
+function openPlayerEpisodeSelector(model,{initialFocusId=''}={}){
+  const seasons=playbackSeasonsForDetail(model),buttons=seasons.map(x=>`<button type="button" class="small-btn player-season-choice" id="playerSeason${Number(x.season_number)}" data-season="${Number(x.season_number)}"><span class="episode-choice-main">Сезон ${Number(x.season_number)}</span><span class="episode-choice-meta">${esc(x.episode_count??'—')} серий</span></button>`).join('');
+  openSubModal('Выберите эпизод',`<p class="watch-query"><b>${esc(model.title)}</b></p><div class="player-episode-list" id="playerSeasonList">${buttons||'<div class="empty">Список сезонов пока недоступен.</div>'}</div>`,closeModal);
+  $$('#playerSeasonList .player-season-choice').forEach(button=>button.onclick=()=>openPlayerSeasonEpisodes(model,Number(button.dataset.season),button.id));
+  if($('#playerSeasonList'))bindTonightSelectorNavigation($('#playerSeasonList'));
+  requestAnimationFrame(()=>{const focus=initialFocusId&&$('#'+initialFocusId)||$('#playerSeasonList .player-season-choice');focus?.focus()});
+}
+async function openPlayerSeasonEpisodes(model,seasonNumber,returnFocusId=''){
+  const season=Number(seasonNumber);if(!Number.isSafeInteger(season)||season<=0)return;
+  const request=++playerEpisodeRequest,key=`${model.tmdbId}:${season}`;
+  openSubModal(`Сезон ${season}`,`<p class="watch-query"><b>${esc(model.title)}</b> · ${episodeCode(season)}</p><div class="player-episode-list" id="playerEpisodeList" data-key="${esc(key)}"><div class="tmdb-preview-loading">Загружаю эпизоды…</div></div>`,()=>openPlayerEpisodeSelector(model,{initialFocusId:returnFocusId||`playerSeason${season}`}));
+  if(!model.tmdbId){$('#playerEpisodeList').innerHTML='<div class="empty">Эпизоды недоступны без TMDB-привязки.</div>';return}
+  try{
+    const details=await getTmdbSeasonDetailsCached(model.tmdbId,season);if(request!==playerEpisodeRequest||$('#modalBg').classList.contains('hidden'))return;
+    const host=$('#playerEpisodeList');if(!host||host.dataset.key!==key)return;
+    const episodes=(details.episodes||[]).filter(x=>Number.isSafeInteger(Number(x.episode_number))&&Number(x.episode_number)>0).sort((a,b)=>Number(a.episode_number)-Number(b.episode_number));
+    host.innerHTML=episodes.map(x=>{const episode=Number(x.episode_number),title=typeof x.name==='string'?x.name.trim():'';return `<button type="button" class="small-btn player-episode-choice" data-episode="${episode}" data-title="${esc(title)}"><span class="episode-choice-main">${episodeCode(season,episode)}${title?' · '+esc(title):''}</span>${x.air_date?`<span class="episode-choice-meta">${esc(x.air_date)}</span>`:''}</button>`}).join('')||'<div class="empty">TMDB не вернул список эпизодов.</div>';
+    host.querySelectorAll('.player-episode-choice').forEach(button=>button.onclick=()=>{const episodeNumber=Number(button.dataset.episode),episodeTitle=button.dataset.title||'',target=playbackTargetFromDetail(model,{seasonNumber:season,episodeNumber,episodeTitle});openPlaybackSourceSetup(target,{backFn:()=>openPlayerSeasonEpisodes(model,season,returnFocusId)})});
+    bindTonightSelectorNavigation(host);host.querySelector('.player-episode-choice')?.focus();
+  }catch(err){if(request===playerEpisodeRequest&&$('#playerEpisodeList')?.dataset.key===key)$('#playerEpisodeList').innerHTML=`<div class="empty">Эпизоды пока недоступны: ${esc(err.message)}</div>`}
+}
+function openPlaybackForDetail(model){capturePlayerOrigin();if(model.mediaType==='tv')openPlayerEpisodeSelector(model);else openPlaybackSourceSetup(playbackTargetFromDetail(model))}
+function renderPlayerState(title,message,actions=''){$('#playerStage').innerHTML=`<div class="player-state"><h1>${esc(title)}</h1><p>${esc(message)}</p>${actions?`<div class="player-state-actions">${actions}</div>`:''}</div>`}
+function setPlayerHeader(target){$('#playerTitle').textContent=target.title;$('#playerSubtitle').textContent=playbackTargetLabel(target)}
+function capturePlayerOrigin(){if(currentView!=='detail')return;const focus=document.activeElement;pendingPlayerOrigin={scrollY:window.scrollY,focusId:focus?.id||'detailPlay',descriptor:activeDetailDescriptor?Object.assign({},activeDetailDescriptor):null}}
+function capturePlayerNavigation(){if(playerNavState)return;if(pendingPlayerOrigin){playerNavState=Object.assign({},pendingPlayerOrigin);return}if(currentView==='detail')capturePlayerOrigin();playerNavState=pendingPlayerOrigin?Object.assign({},pendingPlayerOrigin):null}
+async function startPlayer(target,sourceRef){
+  capturePlayerNavigation();const request=++playerRequestToken;destroyActivePlayerMedia();activePlaybackTarget=target;activePlaybackSourceRef=sourceRef;closeModal();showView('player',{restore:true,scrollTop:false});setPlayerHeader(target);renderPlayerState('Подготовка плеера','Загружаю выбранный источник…');renderPlayerContentPanel(target,request);playerRemoteController.activate();
+  try{
+    if(sourceRef?.kind==='local-file'){startNativeLocalFile(sourceRef.file,request);return}
+    const source=await resolvePlaybackSource(sourceRef,target);if(request!==playerRequestToken){source.cleanup?.();return}
+    const host=document.createElement('div');host.className='player-media-host';$('#playerStage').replaceChildren(host);
+    const created=await playerBackend.create(host,target,{onError:error=>handlePlayerBackendError(request,error)});if(request!==playerRequestToken||!created){source.cleanup?.();playerBackend.destroy();return}
+    playerBackend.attach(source);requestAnimationFrame(()=>playerBackend.player?.focus({preventScroll:true}));
+  }catch(err){if(request!==playerRequestToken)return;playerBackend.destroy();renderPlayerFailure(err)}
+}
+function handlePlayerBackendError(request,error){if(request!==playerRequestToken||currentView!=='player')return;playerBackend.destroy();renderPlayerFailure(error||new Error('Видео не удалось воспроизвести. Проверьте URL, CORS и формат потока.'))}
+function renderPlayerFailure(error){
+  const message=error?.message&&!/https?:\/\//i.test(error.message)?error.message:'Источник недоступен. Проверьте адрес, CORS и поддержку формата.';
+  renderPlayerState('Не удалось открыть видео',message,'<button type="button" class="small-btn gold" id="playerRetry">Повторить</button><button type="button" class="small-btn" id="playerPickAgain">Другой источник</button>');
+  $('#playerRetry').onclick=()=>{if(activePlaybackTarget&&activePlaybackSourceRef)startPlayer(activePlaybackTarget,activePlaybackSourceRef)};$('#playerPickAgain').onclick=()=>openPlaybackSourceSetup(activePlaybackTarget,{backFn:closeModal});requestAnimationFrame(()=>$('#playerRetry')?.focus());
+}
+function abandonPlayerView(){playerRequestToken++;playerEpisodeRequest++;destroyActivePlayerMedia();playerRemoteController.deactivate();playerNavState=null;pendingPlayerOrigin=null;activePlaybackTarget=null;activePlaybackSourceRef=null;document.body.classList.remove('player-active')}
+function backFromPlayer(){
+  if(currentView!=='player')return;const snapshot=playerNavState;playerRequestToken++;destroyActivePlayerMedia();playerRemoteController.deactivate();activePlaybackTarget=null;activePlaybackSourceRef=null;playerNavState=null;pendingPlayerOrigin=null;
+  if(!snapshot){showView('home',{restore:true,scrollTop:false,playerBack:true});return}
+  showView('detail',{restore:true,scrollTop:false,playerBack:true});requestAnimationFrame(()=>{window.scrollTo({top:snapshot.scrollY,behavior:'auto'});const focus=snapshot.focusId&&$('#'+snapshot.focusId)||$('#detailBack');focus?.focus({preventScroll:true})});
+}
+function activePlayerElement(){return nativeLocalFileSession?.video||playerBackend.player}
+function seekPlayerByStep(player,direction){const media=player?.matches?.('video,audio')?player:player?.querySelector('video,audio'),current=Number(media?.currentTime)||0,duration=Number(media?.duration)||Infinity,target=Math.max(0,Math.min(duration,current+Math.sign(direction)*PLAYER_SEEK_STEP));if(media===player)media.currentTime=target;else player?.dispatchEvent(new CustomEvent('media-seek-request',{bubbles:true,composed:true,detail:target}))}
+const playerRemoteController={
+  active:false,handler:null,
+  activate(){if(this.active)return;this.active=true;this.handler=e=>this.onKey(e);document.addEventListener('keydown',this.handler,true)},
+  deactivate(){if(!this.active)return;document.removeEventListener('keydown',this.handler,true);this.handler=null;this.active=false},
+  async onKey(e){
+    if(currentView!=='player')return;const editable=e.target?.matches?.('input,textarea,select,[contenteditable="true"]')||e.target?.isContentEditable,playerRange=e.target?.matches?.('.native-local-range');if(editable&&!playerRange&&!['Escape','BrowserBack','GoBack'].includes(e.key))return;
+    if(['Escape','Backspace','BrowserBack','GoBack'].includes(e.key)){
+      e.preventDefault();e.stopImmediatePropagation();if(!$('#modalBg').classList.contains('hidden')){const modalBack=$('#modalBack');modalBack?modalBack.click():closeModal();return}
+      if(document.fullscreenElement){try{await document.exitFullscreen()}catch(_){}return}
+      if(performance.now()-playerFullscreenExitedAt<350)return;
+      if(exitNativeLocalPseudoFullscreen())return;if(playerBackend.player?.fullscreen){try{await playerBackend.player.exitFullscreen?.()}catch(_){}return}backFromPlayer();return;
+    }
+    if((e.key==='f'||e.key==='F')&&$('#modalBg').classList.contains('hidden')){e.preventDefault();if(nativeLocalFileSession)await toggleNativeLocalFullscreen(nativeLocalFileSession);else try{await playerBackend.player?.requestFullscreen?.()}catch(_){}return}
+    if((e.key==='Enter'||e.key===' ')&&e.target?.matches?.('button:not([disabled])')){e.preventDefault();e.stopImmediatePropagation();e.target.click();return}
+    if(nativeLocalFileSession){
+      const session=nativeLocalFileSession,controls=nativeLocalControlElements(session),target=e.target;setNativeLocalControlsVisible(session,true,{schedule:true});
+      if(target===session.video){if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleNativeLocalPlayback(session);return}if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();seekNativeLocalFile(session,e.key==='ArrowLeft'?-PLAYER_SEEK_STEP:PLAYER_SEEK_STEP);return}if(e.key==='ArrowDown'){e.preventDefault();session.playButton?.focus();return}if(e.key==='ArrowUp'){e.preventDefault();$('#playerBack')?.focus();return}}
+      const index=controls.indexOf(target);if(index>=0&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){if(target.matches('input[type="range"]')&&(e.key==='ArrowLeft'||e.key==='ArrowRight'))return;e.preventDefault();if(e.key==='ArrowUp'){session.video.focus();return}const step=e.key==='ArrowRight'||e.key==='ArrowDown'?1:-1;controls[(index+step+controls.length)%controls.length]?.focus();return}
+    }
+    const player=activePlayerElement(),path=e.composedPath?.()||[],insidePlayer=player&&(e.target===player||path.includes(player)),internalControl=path.find(x=>x!==player&&/^MEDIA-(PLAY|MUTE|TIME|VOLUME|MENU|FULLSCREEN|PIP|CAPTION|SEEK|GOOGLE-CAST)-/.test(x?.tagName||''));
+    if(insidePlayer&&!internalControl&&!path.some(x=>x!==player&&['BUTTON','INPUT','SELECT','A'].includes(x?.tagName))){
+      if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopImmediatePropagation();try{if(player.paused&&nativeLocalFileSession)playNativeLocalFile(nativeLocalFileSession);else Promise.resolve(player.paused?player.play():player.pause()).catch(()=>{})}catch(_){}return}
+      if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();e.stopImmediatePropagation();seekPlayerByStep(player,e.key==='ArrowLeft'?-1:1);return}
+      if(e.key==='ArrowUp'){e.preventDefault();e.stopImmediatePropagation();$('#playerBack')?.focus();return}
+      if(e.key==='ArrowDown'){e.preventDefault();e.stopImmediatePropagation();const first=[...player.querySelectorAll('media-play-button,media-mute-button,media-time-slider,media-volume-slider,media-menu-button,media-pip-button,media-fullscreen-button')].find(x=>x.getClientRects().length&&getComputedStyle(x).visibility!=='hidden');(first||$('#playerChangeSource'))?.focus();return}
+    }
+    if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){
+      const controls=[$('#playerBack'),player,$('#playerChangeSource')].filter(Boolean),index=controls.indexOf(document.activeElement);if(index<0)return;e.preventDefault();const step=e.key==='ArrowRight'||e.key==='ArrowDown'?1:-1;controls[(index+step+controls.length)%controls.length].focus();
+    }
+  }
+};
 async function tmdbEdgeRequest(body){
   const stored=cloudSession||loadCloudSession();if(!stored)return null;
   const session=await ensureCloudSession();
@@ -1715,6 +1979,7 @@ function setTonight(id,selection=null){
 }
 function bindTonightSelectorNavigation(root){
   root.onkeydown=e=>{
+    if((e.key==='Enter'||e.key===' ')&&e.target?.matches?.('button:not([disabled])')){e.preventDefault();e.target.click();return}
     if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))return;
     const controls=[...root.querySelectorAll('button:not([disabled])')],index=controls.indexOf(document.activeElement);if(index<0||controls.length<2)return;
     e.preventDefault();const step=e.key==='ArrowUp'||e.key==='ArrowLeft'?-1:1;controls[(index+step+controls.length)%controls.length].focus();
@@ -2101,6 +2366,11 @@ $('#addBtn').onclick=openAdd;$('#deskAdd').onclick=openAdd;$('#profileAdd').oncl
 $('#sentinel').onclick=()=>{renderLimit+=30;renderList()};
 $('#sentinel').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.currentTarget.click()}};
 $('#detailBack').onclick=backFromDetailPage;
+$('#playerBack').onclick=backFromPlayer;
+$('#playerChangeSource').onclick=()=>{if(activePlaybackTarget)openPlaybackSourceSetup(activePlaybackTarget,{backFn:closeModal})};
+document.addEventListener('fullscreenchange',()=>{if(currentView==='player'&&!document.fullscreenElement)playerFullscreenExitedAt=performance.now()});
+window.addEventListener('pagehide',()=>{if(currentView==='player'){playerRequestToken++;destroyActivePlayerMedia();playerRemoteController.deactivate()}});
+window.addEventListener('pageshow',()=>{if(currentView==='player'&&!activePlayerElement()){playerRemoteController.activate();renderPlayerFailure(new Error('Воспроизведение остановлено после выхода со страницы.'))}});
 document.addEventListener('keydown',e=>{
   if(currentView!=='detail'||!$('#modalBg').classList.contains('hidden'))return;
   const target=e.target,editable=target?.matches?.('input,textarea,select,[contenteditable="true"]')||target?.isContentEditable;
