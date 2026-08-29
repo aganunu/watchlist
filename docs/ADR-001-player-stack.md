@@ -1,6 +1,6 @@
 # ADR-001: Player stack for Beta 15
 
-- Status: accepted for PR1 foundation
+- Status: accepted; PR1 foundation implemented, playback-progress extension in progress
 - Date: 2026-08-25
 
 ## Context
@@ -32,6 +32,27 @@ Fullscreen behaviour is platform-specific by design. In a normal Safari browser 
 Vidstack's accessible controls remain the baseline. The application adds a deliberately small TV controller for D-pad focus, play/pause, seek, volume, fullscreen, and Back priority because Phase 0 found that browser/player defaults alone do not provide consistent remote navigation.
 
 All application-owned player controls, labels, status messages, errors, retry actions, and fullscreen affordances are localized in Russian. Native media controls owned by Safari or another browser are not overridden. Seeking uses a single five-second step everywhere: `−5 сек` backward and `+5 сек` forward in layout actions, keyboard shortcuts, and TV/D-pad handling.
+
+## Playback progress state
+
+Playback progress is optional backward-compatible data inside `watchlist_v3`:
+
+```text
+playbackProgress[key] = {
+  kind, identityKey, mediaType,
+  currentTime, duration, updatedAt, completed,
+  libraryId?, tmdbId?, title?, year?, poster?,
+  seasonNumber?, episodeNumber?, episodeTitle?
+}
+```
+
+The stable key is `movie|<identityKey>` for a film and `episode|<identityKey>|<season>|<episode>` for a series episode. A TMDB identity is preferred when it exists so the same title retains progress before and after addition to the local library; a library identity is the fallback for user-only items. Source URLs, Blob URLs, credentials, selected `File` objects, and resolver/backend state are forbidden in this schema and are removed by normalization rather than synced or exported.
+
+The Player resumes automatically when the saved position reaches an adaptive minimum and remains below the completion threshold. Long-form media keeps the ten-second minimum; shorter media uses `min(10 seconds, max(2 seconds, 15% of duration))`, so a 10–20 second clip has a useful resumable interval. Completion means the media `ended` event or at least 95% watched and never relies on a fixed “seconds remaining” rule, which would mark short clips complete too early. Progress writes are throttled to at most once per fifteen seconds during playback and are forced locally on pause, source change, Player Back, `visibilitychange`, `pagehide`, and teardown. Closing a page never depends on a network write.
+
+The Home section “Продолжить просмотр” contains only resumable entries and sorts them by descending `updatedAt`. Completed entries disappear from that section. A completed episode may offer the next TMDB episode as an explicit action after lazy season lookup, but it never autoplays it.
+
+Existing backup and Supabase snapshot sync already carry the complete `watchlist_v3`, so this stage requires no database or RPC change. Backup merge resolves the same stable key by newest valid `updatedAt`; cloud revision conflicts retain the existing explicit source choice and never silently overwrite or merge whole-device state. A separate progress RPC can be considered only if concurrent playback proves whole-snapshot conflicts too coarse.
 
 ## Alternatives
 
