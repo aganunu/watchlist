@@ -61,7 +61,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
 .nav{position:fixed;left:50%;bottom:max(18px,calc(env(safe-area-inset-bottom) + 8px));transform:translateX(-50%);width:min(760px,calc(100% - 16px));height:var(--navh);display:grid;grid-template-columns:repeat(5,1fr);padding:7px;background:rgba(14,18,23,.95);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:22px;z-index:30;box-shadow:0 16px 50px rgba(0,0,0,.42)}
 .nav button{border:0;background:transparent;color:var(--muted);padding:7px 4px;border-radius:14px;display:grid;place-items:center;gap:3px}.nav button.active{color:var(--gold2);background:rgba(223,165,47,.08)}.nav small{font-size:10px}.nav .plus{width:50px;height:50px;margin:-17px auto 0;border-radius:50%;display:grid;place-items:center;background:var(--gold);color:#111;font-size:26px}
 .profile-card{border:1px solid var(--line);background:var(--panel);border-radius:18px;padding:16px;margin-bottom:12px}.profile-grid{display:grid;gap:10px}.profile-link{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:15px;color:var(--text)}.setting-row{display:grid;grid-template-columns:42px 1fr auto;gap:12px;align-items:center;border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:14px;margin-top:10px}.setting-row button{border:0;background:transparent;color:var(--gold2);font-weight:800;padding:8px 4px}.setting-row small{display:block;color:var(--muted);margin-top:3px}.danger{color:var(--danger)!important}
-.sync-card{display:grid;gap:10px}.sync-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.sync-head small,.sync-meta{display:block;color:var(--muted);font-size:12px;line-height:1.45;margin-top:4px}.sync-badge{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:5px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:11px}.sync-badge.on{border-color:rgba(223,165,47,.5);background:rgba(223,165,47,.11);color:var(--gold2)}.sync-actions{display:flex;gap:8px;flex-wrap:wrap}.sync-actions .small-btn{min-height:40px}.sync-form{display:grid;gap:9px}.sync-form input{margin:0}.sync-choice{display:grid;gap:9px;margin-top:12px}.sync-choice .small-btn{width:100%;text-align:left;min-height:44px}
+.sync-card{display:grid;gap:10px}.sync-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.sync-head small,.sync-meta{display:block;color:var(--muted);font-size:12px;line-height:1.45;margin-top:4px}.sync-badge{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:5px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:11px}.sync-badge.on{border-color:rgba(223,165,47,.5);background:rgba(223,165,47,.11);color:var(--gold2)}.sync-actions{display:flex;gap:8px;flex-wrap:wrap}.sync-actions .small-btn{min-height:40px}.sync-form{display:grid;gap:9px}.sync-form input{margin:0}.sync-auth-status{min-height:20px;margin:0;color:var(--muted);font-size:12px;line-height:1.45}.sync-auth-status.error{color:#ffb1a9}.sync-choice{display:grid;gap:9px;margin-top:12px}.sync-choice .small-btn{width:100%;text-align:left;min-height:44px}
 .quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0 8px}
 .quick-action{border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),#0c1014);color:var(--text);border-radius:17px;padding:14px;text-align:left}
 .quick-action b{display:block;margin-bottom:4px}.quick-action span{color:var(--muted);font-size:12px}
@@ -462,11 +462,11 @@ function canonicalSyncState(value){
   return payload;
 }
 function cloudPayload(){return canonicalSyncState(state)}
-async function supabaseJSON(path,{method='GET',body=null,token=''}={}){
+async function supabaseJSON(path,{method='GET',body=null,token='',signal=null}={}){
   const headers={apikey:SUPABASE_KEY,accept:'application/json'};
   if(token)headers.Authorization='Bearer '+token;
   if(body!==null)headers['Content-Type']='application/json';
-  const response=await fetch(SUPABASE_URL+path,{method,headers,body:body===null?undefined:JSON.stringify(body),cache:'no-store'});
+  const response=await fetch(SUPABASE_URL+path,{method,headers,body:body===null?undefined:JSON.stringify(body),cache:'no-store',signal});
   const text=await response.text();let data=null;try{data=text?JSON.parse(text):null}catch(e){data=text}
   if(!response.ok){const error=new Error((data&&typeof data==='object'&&(data.message||data.msg||data.error_description||data.error))||`Supabase ${response.status}`);error.status=response.status;error.payload=data;throw error}
   return data;
@@ -493,19 +493,29 @@ function renderSyncCard(){
   if($('#cloudUndoPull'))$('#cloudUndoPull').onclick=undoLastCloudPull;
 }
 function openCloudAuth(){
-  openModal(`<h2>☁️ Аккаунт и синхронизация</h2><p style="color:var(--muted)">Войдите по email и паролю или создайте аккаунт. До входа все функции остаются локальными.</p><div class="sync-form"><input id="cloudEmail" type="email" inputmode="email" autocomplete="email" placeholder="Email"><input id="cloudPassword" type="password" autocomplete="current-password" placeholder="Пароль"><div class="sync-actions"><button type="button" class="small-btn gold" id="cloudSignIn">Войти</button><button type="button" class="small-btn" id="cloudSignUp">Создать аккаунт</button></div></div>`);
-  $('#cloudSignIn').onclick=()=>performCloudAuth('signin');$('#cloudSignUp').onclick=()=>performCloudAuth('signup');
-  $('#cloudPassword').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();performCloudAuth('signin')}};
+  openModal(`<h2>☁️ Аккаунт и синхронизация</h2><p style="color:var(--muted)">Войдите по email и паролю или создайте аккаунт. До входа все функции остаются локальными.</p><form class="sync-form" id="cloudAuthForm" novalidate><input id="cloudEmail" type="email" inputmode="email" autocomplete="email" placeholder="Email" aria-label="Email"><input id="cloudPassword" type="password" autocomplete="current-password" placeholder="Пароль" aria-label="Пароль"><div class="sync-actions"><button type="submit" class="small-btn gold" id="cloudSignIn">Войти</button><button type="button" class="small-btn" id="cloudSignUp">Создать аккаунт</button></div><p class="sync-auth-status" id="cloudAuthStatus" role="status" aria-live="polite"></p></form>`);
+  $('#cloudAuthForm').onsubmit=e=>{e.preventDefault();performCloudAuth('signin')};
+  $('#cloudSignUp').onclick=e=>{e.preventDefault();performCloudAuth('signup')};
+}
+function cloudAuthErrorText(error){
+  const raw=String(error?.message||'').trim();
+  if(error?.name==='AbortError')return 'Сервер авторизации не ответил вовремя. Проверьте интернет-соединение и повторите попытку.';
+  if(/invalid login credentials|invalid credentials/i.test(raw))return 'Неверный email или пароль.';
+  if(/email not confirmed/i.test(raw))return 'Email ещё не подтверждён. Откройте письмо Supabase и повторите вход.';
+  if(/failed to fetch|networkerror|load failed/i.test(raw))return 'Не удалось связаться с сервером авторизации. Проверьте интернет-соединение и повторите попытку.';
+  return `Ошибка авторизации: ${raw||'неизвестная ошибка'}`;
 }
 async function performCloudAuth(mode){
-  const email=$('#cloudEmail').value.trim(),password=$('#cloudPassword').value;
-  if(!email||!password){alert('Введите email и пароль');return}
-  const buttons=$$('#cloudSignIn,#cloudSignUp');buttons.forEach(button=>button.disabled=true);
+  const email=$('#cloudEmail')?.value.trim()||'',password=$('#cloudPassword')?.value||'',status=$('#cloudAuthStatus'),form=$('#cloudAuthForm');
+  if(!email||!password){if(status){status.textContent='Введите email и пароль.';status.classList.add('error')}return}
+  const buttons=$$('#cloudSignIn,#cloudSignUp');if(buttons.some(button=>button.disabled))return;buttons.forEach(button=>button.disabled=true);form?.setAttribute('aria-busy','true');
+  if(status){status.textContent=mode==='signup'?'Создаю аккаунт…':'Выполняю вход…';status.classList.remove('error')}
+  const controller=typeof AbortController==='function'?new AbortController():null;let timeout=0;
   try{
-    const path=mode==='signup'?'/auth/v1/signup':'/auth/v1/token?grant_type=password',result=await supabaseJSON(path,{method:'POST',body:{email,password}});
+    const path=mode==='signup'?'/auth/v1/signup':'/auth/v1/token?grant_type=password',timeoutPromise=new Promise((_,reject)=>{timeout=setTimeout(()=>{controller?.abort();const error=new Error('Auth request timeout');error.name='AbortError';reject(error)},15000)}),result=await Promise.race([supabaseJSON(path,{method:'POST',body:{email,password},signal:controller?.signal||null}),timeoutPromise]);
     if(!result||!result.access_token){alert('Аккаунт создан. Если подтверждение email включено, откройте письмо и затем войдите.');return}
     storeCloudSession(result);cloudUiStatus='Вход выполнен';await openFirstCloudSync();
-  }catch(err){alert('Supabase Auth: '+err.message)}finally{buttons.forEach(button=>button.disabled=false)}
+  }catch(err){if(status){status.textContent=cloudAuthErrorText(err);status.classList.add('error')}}finally{clearTimeout(timeout);buttons.forEach(button=>button.disabled=false);form?.removeAttribute('aria-busy')}
 }
 async function signOutCloud(){
   const session=cloudSession||loadCloudSession();
