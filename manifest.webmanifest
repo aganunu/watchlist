@@ -2,6 +2,7 @@
   "name": "Мой ватчлист",
   "short_name": "Ватчлист",
   "description": "Личный кино-менеджер фильмов и сериалов",
+  "id": "./?appv=563",
   "start_url": "./?appv=563",
   "scope": "./",
   "display": "standalone",
