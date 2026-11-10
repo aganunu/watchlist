@@ -45,6 +45,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
 .carousel-nav{display:grid;place-items:center;width:38px;height:38px;padding:0;border:1px solid var(--line);border-radius:11px;background:var(--panel);color:var(--gold2);font-size:20px;font-weight:800}.carousel-nav:disabled{opacity:.35}.carousel-nav:focus-visible{outline:3px solid var(--gold2);outline-offset:3px}
 .carousel{display:grid;grid-auto-flow:column;grid-auto-columns:156px;gap:11px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 1px 7px;scrollbar-width:none}.carousel::-webkit-scrollbar{display:none}.carousel.favorites-empty{display:block}.carousel.favorites-empty .empty{max-width:420px}
 .media-card{scroll-snap-align:start;background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;min-width:0;position:relative}
+.continue-section.hidden{display:none}.continue-card .poster{width:100%;border:0;color:var(--text);cursor:pointer}.continue-card .card-info{display:grid;gap:5px}.continue-episode{color:var(--gold2)!important;font-weight:800}.continue-progress{height:6px;border-radius:999px;background:#080b0e;overflow:hidden;margin-top:4px}.continue-progress>span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--gold),var(--gold2))}.continue-time{font-variant-numeric:tabular-nums}.continue-reset{width:100%;min-height:38px;margin-top:5px;font-size:11px}.player-next-prompt{position:absolute;z-index:6;left:50%;bottom:18%;transform:translateX(-50%);display:grid;gap:8px;width:min(420px,calc(100% - 28px));padding:14px;border:1px solid rgba(243,188,76,.55);border-radius:15px;background:rgba(12,16,20,.94);box-shadow:0 16px 50px rgba(0,0,0,.5);text-align:center}.player-next-prompt b{color:var(--gold2)}.player-next-prompt .small-btn{min-height:46px}
 .poster{aspect-ratio:2/3;background:linear-gradient(145deg,#2e3339,#101317) center/cover;position:relative}
 .poster::after{content:"";position:absolute;inset:45% 0 0;background:linear-gradient(180deg,transparent,rgba(0,0,0,.78))}
 .poster-watched-badge{position:absolute;top:8px;right:8px;z-index:2;display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:var(--gold);color:#111;font-size:15px;font-weight:900;box-shadow:0 4px 12px rgba(0,0,0,.42)}
@@ -187,6 +188,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
   </div>
   <div id="tonightSlot"></div>
 
+  <section class="section continue-section hidden" id="continueSection"><div class="section-head"><h2>Продолжить просмотр</h2><div class="section-actions"><button type="button" class="carousel-nav" data-carousel-nav="continueCarousel" data-dir="-1" aria-label="Прокрутить продолжение просмотра влево">←</button><button type="button" class="carousel-nav" data-carousel-nav="continueCarousel" data-dir="1" aria-label="Прокрутить продолжение просмотра вправо">→</button></div></div><div class="carousel-shell"><div class="carousel" id="continueCarousel" aria-label="Продолжить просмотр"></div></div></section>
   <section class="section"><div class="section-head"><h2>Высокий рейтинг</h2><div class="section-actions"><button type="button" class="carousel-nav" data-carousel-nav="topCarousel" data-dir="-1" aria-label="Прокрутить высокий рейтинг влево">←</button><button type="button" class="carousel-nav" data-carousel-nav="topCarousel" data-dir="1" aria-label="Прокрутить высокий рейтинг вправо">→</button><button class="ghost" data-view="list">Все ›</button></div></div><div class="carousel-shell"><div class="carousel" id="topCarousel" aria-label="Высокий рейтинг"></div></div></section>
   <section class="section"><div class="section-head"><h2>В избранном</h2><div class="section-actions"><button type="button" class="carousel-nav" data-carousel-nav="favoritesCarousel" data-dir="-1" aria-label="Прокрутить избранное влево">←</button><button type="button" class="carousel-nav" data-carousel-nav="favoritesCarousel" data-dir="1" aria-label="Прокрутить избранное вправо">→</button><button class="ghost" data-view="list" data-state-go="favorite">Все ›</button></div></div><div class="carousel-shell"><div class="carousel" id="favoritesCarousel" aria-label="Избранное"></div></div></section>
 </section>
@@ -266,6 +268,7 @@ const SUPABASE_AUTH_URL_KEYS=['access_token','refresh_token','expires_in','expir
 const BACKUP_FORMAT='watchlist-full-backup',BACKUP_VERSION=1;
 const PINNED_HLS_LIBRARY='https://cdn.jsdelivr.net/npm/hls.js@1.7.1/dist/hls.min.js';
 const PLAYER_SEEK_STEP=5;
+const PLAYBACK_RESUME_MIN_SECONDS=10,PLAYBACK_SHORT_MIN_SECONDS=2,PLAYBACK_SHORT_MIN_RATIO=.15,PLAYBACK_COMPLETE_RATIO=.95,PLAYBACK_SAVE_THROTTLE_MS=15000,PLAYBACK_PROGRESS_LIMIT=200;
 const PLAYER_TRANSLATIONS=Object.freeze({
   'Announcements':'Объявления','Accessibility':'Специальные возможности','AirPlay':'AirPlay','Audio':'Аудио','Auto':'Авто','Boost':'Усиление','Captions':'Субтитры','Caption Styles':'Стиль субтитров','Captions look like this':'Пример субтитров','Chapters':'Главы','Closed-Captions Off':'Субтитры выключены','Closed-Captions On':'Субтитры включены','Connected':'Подключено','Continue':'Продолжить','Connecting':'Подключение','Default':'По умолчанию','Disabled':'Отключено','Disconnected':'Нет подключения','Display Background':'Фон области','Download':'Скачать','Enter Fullscreen':'На весь экран','Enter PiP':'Включить картинку в картинке','Exit Fullscreen':'Выйти из полноэкранного режима','Exit PiP':'Выйти из картинки в картинке','Font':'Шрифт','Family':'Гарнитура','Fullscreen':'Полный экран','Google Cast':'Google Cast','Keyboard Animations':'Анимация клавиатурных действий','LIVE':'ПРЯМОЙ ЭФИР','Loop':'Повтор','Mute':'Выключить звук','Normal':'Обычный','Off':'Выкл.','Pause':'Пауза','Play':'Воспроизвести','Playback':'Воспроизведение','PiP':'Картинка в картинке','Quality':'Качество','Replay':'Повторить','Reset':'Сбросить','Seek Backward':'Назад на','Seek Forward':'Вперёд на','Seek':'Перемотка','Settings':'Настройки','Skip To Live':'К прямому эфиру','Speed':'Скорость','Size':'Размер','Color':'Цвет','Opacity':'Прозрачность','Shadow':'Тень','Text':'Текст','Text Background':'Фон текста','Track':'Дорожка','Unmute':'Включить звук','Volume':'Громкость'
 });
@@ -279,7 +282,7 @@ let addPreviewRequest=0;
 let detailLoadRequest=0;
 let detailNavState=null,activeDetailDescriptor=null,activeDetailRandom=false,activeDetailDetails=null,activeDetailRevealTonight=false;
 let tonightSelectorRequest=0;
-let playerNavState=null,pendingPlayerOrigin=null,playerRequestToken=0,playerEpisodeRequest=0,playerFullscreenExitedAt=0,activePlaybackTarget=null,activePlaybackSourceRef=null,nativeLocalFileSession=null;
+let playerNavState=null,pendingPlayerOrigin=null,playerRequestToken=0,playerEpisodeRequest=0,playerFullscreenExitedAt=0,activePlaybackTarget=null,activePlaybackSourceRef=null,nativeLocalFileSession=null,playbackProgressSession=null;
 let appRouteReady=false,appRouteApplying=false,activeProfileRouteSection='';
 const addDetailsCache=new Map(),seasonDetailsCache=new Map();
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -395,8 +398,43 @@ function normalizeTonightSelection(target=state){
   }
   target.tonightSelection=normalized;return normalized;
 }
-function loadState(){try{state=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch(e){state={}};state.watched=state.watched||[];state.pins=state.pins||[];state.addedItems=state.addedItems||[];state.tmdbMeta=state.tmdbMeta||{};state.ratings=state.ratings||{};state.notes=state.notes||{};normalizeTonightSelection(state);ensureIdentityState();ensureBatchState()}
-function saveState(){normalizeTonightSelection(state);ensureIdentityState();ensureBatchState();localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
+function playbackProgressKeyFromParts(kind,identityKey,seasonNumber=0,episodeNumber=0){return kind==='episode'?`episode|${identityKey}|${seasonNumber}|${episodeNumber}`:`movie|${identityKey}`}
+function playbackProgressKey(target){
+  if(!target?.identityKey)return '';
+  return playbackProgressKeyFromParts(target.kind,target.identityKey,Number(target.seasonNumber)||0,Number(target.episodeNumber)||0);
+}
+function normalizePlaybackProgress(target=state){
+  if(!isPlainObject(target))return {};
+  const source=isPlainObject(target.playbackProgress)?target.playbackProgress:{},clean={};
+  Object.values(source).forEach(raw=>{
+    if(!isPlainObject(raw))return;
+    const kind=raw.kind==='episode'?'episode':raw.kind==='movie'?'movie':'',identityKey=typeof raw.identityKey==='string'?raw.identityKey.trim():'',mediaType=raw.mediaType==='tv'?'tv':raw.mediaType==='movie'?'movie':'';
+    const currentTime=Number(raw.currentTime),duration=Number(raw.duration),updatedAt=Number(raw.updatedAt),seasonNumber=Number(raw.seasonNumber),episodeNumber=Number(raw.episodeNumber);
+    if(!kind||!identityKey||identityKey.length>700||/^(?:https?|blob|data|javascript):/i.test(identityKey)||!mediaType||!Number.isFinite(currentTime)||currentTime<0||!Number.isFinite(duration)||duration<=0||!Number.isFinite(updatedAt)||updatedAt<=0)return;
+    if(kind==='episode'&&(!Number.isSafeInteger(seasonNumber)||seasonNumber<=0||!Number.isSafeInteger(episodeNumber)||episodeNumber<=0||mediaType!=='tv'))return;
+    const entry={kind,identityKey,mediaType,currentTime:Math.min(currentTime,duration),duration,updatedAt,completed:!!raw.completed};
+    if(typeof raw.libraryId==='string'&&raw.libraryId.trim())entry.libraryId=raw.libraryId.trim();
+    if(raw.tmdbId!=null&&/^\d+$/.test(String(raw.tmdbId)))entry.tmdbId=String(raw.tmdbId);
+    if(typeof raw.title==='string'&&raw.title.trim())entry.title=raw.title.trim().slice(0,400);
+    if(typeof raw.year==='string'||Number.isFinite(Number(raw.year)))entry.year=String(raw.year).slice(0,12);
+    if(typeof raw.poster==='string'&&raw.poster.length<1600)entry.poster=raw.poster;
+    if(kind==='episode'){entry.seasonNumber=seasonNumber;entry.episodeNumber=episodeNumber;if(typeof raw.episodeTitle==='string'&&raw.episodeTitle.trim())entry.episodeTitle=raw.episodeTitle.trim().slice(0,400)}
+    const key=playbackProgressKey(entry),previous=clean[key];if(!previous||entry.updatedAt>previous.updatedAt)clean[key]=entry;
+  });
+  target.playbackProgress=Object.fromEntries(Object.entries(clean).sort((a,b)=>b[1].updatedAt-a[1].updatedAt).slice(0,PLAYBACK_PROGRESS_LIMIT));return target.playbackProgress;
+}
+function playbackProgressForTarget(target){const key=playbackProgressKey(target);return key?normalizePlaybackProgress(state)[key]||null:null}
+function playbackResumeMinimum(duration){
+  const seconds=Number(duration);if(!Number.isFinite(seconds)||seconds<=0)return PLAYBACK_RESUME_MIN_SECONDS;
+  return Math.min(PLAYBACK_RESUME_MIN_SECONDS,Math.max(PLAYBACK_SHORT_MIN_SECONDS,seconds*PLAYBACK_SHORT_MIN_RATIO));
+}
+function isPlaybackProgressComplete(currentTime,duration,{ended=false}={}){const total=Number(duration),position=Number(currentTime);return !!ended||Number.isFinite(total)&&total>0&&Number.isFinite(position)&&position/total>=PLAYBACK_COMPLETE_RATIO}
+function isPlaybackProgressResumable(entry){return !!entry&&!entry.completed&&entry.currentTime>=playbackResumeMinimum(entry.duration)&&!isPlaybackProgressComplete(entry.currentTime,entry.duration)}
+function resumablePlaybackProgress(target){
+  const entry=playbackProgressForTarget(target);return isPlaybackProgressResumable(entry)?entry:null;
+}
+function loadState(){try{state=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch(e){state={}};state.watched=state.watched||[];state.pins=state.pins||[];state.addedItems=state.addedItems||[];state.tmdbMeta=state.tmdbMeta||{};state.ratings=state.ratings||{};state.notes=state.notes||{};normalizeTonightSelection(state);normalizePlaybackProgress(state);ensureIdentityState();ensureBatchState()}
+function saveState(){normalizeTonightSelection(state);normalizePlaybackProgress(state);ensureIdentityState();ensureBatchState();localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
 function readStoredJSON(key){try{return JSON.parse(localStorage.getItem(key)||'null')}catch(e){return null}}
 function normalizeCloudSession(value){
   if(!isPlainObject(value)||!value.access_token||!value.refresh_token||!isPlainObject(value.user))return null;
@@ -772,6 +810,31 @@ function bindDetailTriggers(root=document){
 
 function applyFilters(){const query=norm(libraryQuery.trim());filtered=items.filter(it=>{if(query&&!searchableText(it).includes(query))return false;if(typeFilter!=='all'&&it.type!==typeFilter)return false;if(stateFilter==='watched'&&!isWatched(it))return false;if(stateFilter==='unwatched'&&isWatched(it))return false;if(stateFilter==='favorite'&&!isFav(it))return false;return true});filtered.sort((a,b)=>sortMode==='title'?titleCompare(a,b):sortMode==='year'?(b.year||0)-(a.year||0):ratingCompare(a,b));renderLimit=30;renderList()}
 function cardHTML(it){const p=posterOf(it),r=ratingOf(it),id=esc(idFor(it));return `<article class="media-card" data-id="${id}"><button type="button" class="poster detail-trigger detail-poster" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}">${isWatched(it)?'<span class="poster-watched-badge" aria-hidden="true">✓</span>':''}<span class="poster-title">${esc(it.title)}</span></button><div class="card-info"><b><button type="button" class="detail-trigger detail-title" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></b>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<span class="original-line">${esc(identityFor(it).original_title)}</span>`:''}<span>${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}</span><span class="r">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</span></div></article>`}
+function playbackTargetFromProgressEntry(entry){
+  const library=entry.libraryId?byId(entry.libraryId):null;
+  return {kind:entry.kind,identityKey:entry.identityKey,mediaType:entry.mediaType,title:library?.title||entry.title||'Без названия',year:library?.year||entry.year||'',poster:posterOf(library||{})||entry.poster||'',libraryId:library?idFor(library):entry.libraryId||undefined,tmdbId:entry.tmdbId??undefined,seasonNumber:entry.seasonNumber,episodeNumber:entry.episodeNumber,episodeTitle:entry.episodeTitle||''};
+}
+function continuePlaybackEntries(){
+  const progress=normalizePlaybackProgress(state);
+  return Object.entries(progress).filter(([,entry])=>isPlaybackProgressResumable(entry)&&(entry.tmdbId!=null||entry.libraryId&&byId(entry.libraryId))).sort((a,b)=>b[1].updatedAt-a[1].updatedAt);
+}
+function continueProgressCard(key,entry,index){
+  const target=playbackTargetFromProgressEntry(entry),percent=Math.max(0,Math.min(100,entry.currentTime/entry.duration*100)),remaining=Math.max(0,entry.duration-entry.currentTime),controlId=`continueProgress${index}`,episode=target.kind==='episode'?playbackTargetLabel(target):'';
+  return `<article class="media-card continue-card" data-progress-key="${esc(key)}"><button type="button" class="poster detail-poster continue-open" id="${controlId}" aria-label="Продолжить: ${esc(target.title)}${episode?' · '+esc(episode):''}" style="${target.poster?`background-image:url('${esc(target.poster)}')`:''}"><span class="poster-title">${esc(target.title)}</span></button><div class="card-info"><b><button type="button" class="detail-title continue-open" aria-label="Продолжить: ${esc(target.title)}">${esc(target.title)}</button></b>${episode?`<span class="continue-episode">${esc(episode)}</span>`:''}<div class="continue-progress" role="progressbar" aria-label="Просмотрено ${Math.round(percent)}%" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(percent)}"><span style="width:${percent.toFixed(2)}%"></span></div><span class="continue-time">${esc(playbackClock(entry.currentTime))} из ${esc(playbackClock(entry.duration))} · осталось ${esc(playbackClock(remaining))}</span><button type="button" class="small-btn continue-reset">Сбросить прогресс</button></div></article>`;
+}
+function openContinuePlayback(key,trigger){
+  const entry=normalizePlaybackProgress(state)[key];if(!entry)return;const target=playbackTargetFromProgressEntry(entry),focusId=trigger?.id||'';
+  pendingPlayerOrigin={sourceView:'home',scrollY:window.scrollY,focusId};
+  openPlaybackSourceSetup(target,{backFn:()=>{closeModal();requestAnimationFrame(()=>focusId&&$('#'+focusId)?.focus({preventScroll:true}))}});
+}
+function resetPlaybackProgress(key,focusIndex=0){
+  normalizePlaybackProgress(state);delete state.playbackProgress[key];saveState();renderContinueWatching();requestAnimationFrame(()=>{$(`#continueProgress${focusIndex}`)?.focus({preventScroll:true})||$('[data-carousel-nav="continueCarousel"][data-dir="1"]')?.focus({preventScroll:true})});
+}
+function renderContinueWatching(){
+  const section=$('#continueSection'),carousel=$('#continueCarousel');if(!section||!carousel)return;const entries=continuePlaybackEntries();section.classList.toggle('hidden',!entries.length);carousel.innerHTML=entries.map(([key,entry],index)=>continueProgressCard(key,entry,index)).join('');
+  const keyboardActivate=button=>button.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();button.click()}};
+  carousel.querySelectorAll('.continue-open').forEach(button=>{button.onclick=()=>openContinuePlayback(button.closest('.continue-card').dataset.progressKey,button);keyboardActivate(button)});carousel.querySelectorAll('.continue-reset').forEach((button,index)=>{button.onclick=()=>resetPlaybackProgress(button.closest('.continue-card').dataset.progressKey,Math.min(index,Math.max(0,entries.length-2)));keyboardActivate(button)});bindCarouselNavigation(carousel);
+}
 function updateCarouselNavigation(carousel){
   const shell=carousel.closest('.carousel-shell'),max=Math.max(0,carousel.scrollWidth-carousel.clientWidth),left=carousel.scrollLeft;
   const canLeft=left>4,canRight=left<max-4;
@@ -794,7 +857,7 @@ function bindCarouselNavigation(carousel){
   updateCarouselNavigation(carousel);
 }
 function resetCarouselPositions(){$$('.carousel').forEach(carousel=>{carousel.scrollLeft=0;updateCarouselNavigation(carousel)})}
-function renderCarousels(){const fav=items.filter(isFav).slice(0,12),top=[...items].filter(x=>ratingOf(x)!=null).sort(ratingCompare).slice(0,12);$('#favoritesCarousel').innerHTML=fav.length?fav.map(cardHTML).join(''):'<div class="empty">Пока пусто — добавляйте понравившееся через ⋯ → «В избранное» ⭐</div>';
+function renderCarousels(){const fav=items.filter(isFav).slice(0,12),top=[...items].filter(x=>ratingOf(x)!=null).sort(ratingCompare).slice(0,12);renderContinueWatching();$('#favoritesCarousel').innerHTML=fav.length?fav.map(cardHTML).join(''):'<div class="empty">Пока пусто — добавляйте понравившееся через ⋯ → «В избранное» ⭐</div>';
   $('#favoritesCarousel').classList.toggle('favorites-empty',!fav.length);$('#topCarousel').innerHTML=top.map(cardHTML).join('');bindDetailTriggers($('#favoritesCarousel'));bindDetailTriggers($('#topCarousel'));bindCarouselNavigation($('#favoritesCarousel'));bindCarouselNavigation($('#topCarousel'));resetCarouselPositions()}
 function renderList(){const show=filtered.slice(0,renderLimit),box=$('#list');$('#resultCount').textContent=`Найдено: ${filtered.length}`;box.innerHTML=show.length?show.map(rowHTML).join(''):'<div class="empty">Ничего не найдено</div>';$('#sentinel').textContent=renderLimit<filtered.length?'Показать ещё':'';highlightLibrarySearch(box,libraryQuery);bindRowsIn(box)}
 function bindRows(){}
@@ -1098,10 +1161,52 @@ async function toggleNativeLocalFullscreen(session){
   frame.classList.add('native-local-pseudo-fullscreen');document.body.classList.add('player-theater-active');updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true,{schedule:true});
 }
 function exitNativeLocalPseudoFullscreen(){const session=nativeLocalFileSession;if(!session?.frame.classList.contains('native-local-pseudo-fullscreen'))return false;session.frame.classList.remove('native-local-pseudo-fullscreen');document.body.classList.remove('player-theater-active');updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true);return true}
+function playbackMediaSnapshot(media){
+  const currentTime=Number(media?.currentTime),duration=Number(media?.duration);return {currentTime:Number.isFinite(currentTime)&&currentTime>=0?currentTime:0,duration:Number.isFinite(duration)&&duration>0?duration:0};
+}
+function playbackProgressEntry(target,currentTime,duration,{completed=false}={}){
+  const entry={kind:target.kind,identityKey:target.identityKey,mediaType:target.mediaType,currentTime,duration,updatedAt:Date.now(),completed:!!completed,title:target.title||'',year:target.year||'',poster:target.poster||''};
+  if(target.libraryId)entry.libraryId=target.libraryId;if(target.tmdbId!=null)entry.tmdbId=String(target.tmdbId);
+  if(target.kind==='episode'){entry.seasonNumber=Number(target.seasonNumber);entry.episodeNumber=Number(target.episodeNumber);if(target.episodeTitle)entry.episodeTitle=target.episodeTitle}
+  return entry;
+}
+function persistPlaybackProgress({force=false,ended=false}={}){
+  const session=playbackProgressSession;if(!session||!force&&session.request!==playerRequestToken)return false;const now=Date.now(),snapshot=playbackMediaSnapshot(session.media);
+  if(!snapshot.duration)return false;if(!force&&now-session.lastStoredAt<PLAYBACK_SAVE_THROTTLE_MS)return false;
+  const completed=isPlaybackProgressComplete(snapshot.currentTime,snapshot.duration,{ended}),key=session.key;
+  if(snapshot.currentTime<playbackResumeMinimum(snapshot.duration)&&!completed)return false;
+  const previous=normalizePlaybackProgress(state)[key];if(force&&previous&&Math.abs(previous.currentTime-snapshot.currentTime)<.5&&Math.abs(previous.duration-snapshot.duration)<.5&&previous.completed===completed&&now-previous.updatedAt<1200)return false;
+  state.playbackProgress[key]=playbackProgressEntry(session.target,snapshot.currentTime,snapshot.duration,{completed});session.lastStoredAt=now;session.completed=completed;saveState();renderContinueWatching();return true;
+}
+function applyPlaybackResume(session){
+  if(!session||session!==playbackProgressSession||session.resumeApplied||session.request!==playerRequestToken)return;const resume=session.resumeEntry;if(!resume){session.resumeApplied=true;return}const snapshot=playbackMediaSnapshot(session.media);if(!snapshot.duration)return;if(snapshot.currentTime>1){session.resumeApplied=true;return}
+  const position=Math.min(resume.currentTime,Math.max(0,snapshot.duration-1));try{session.media.currentTime=position;session.resumeApplied=true;setPlayerHeader(session.target)}catch(_){}
+}
+function startPlaybackProgressSession(target,media,request){
+  finishPlaybackProgressSession({flush:true});const key=playbackProgressKey(target);if(!key||!media)return;
+  const session={target:Object.assign({},target),media,request,key,resumeEntry:resumablePlaybackProgress(target),resumeApplied:false,lastStoredAt:0,completed:false,listeners:[],timer:0};playbackProgressSession=session;
+  const listen=(type,handler)=>{media.addEventListener(type,handler);session.listeners.push(()=>media.removeEventListener(type,handler))};
+  ['loadedmetadata','canplay','can-play','durationchange','duration-change'].forEach(type=>listen(type,()=>applyPlaybackResume(session)));
+  ['timeupdate','time-update'].forEach(type=>listen(type,()=>{applyPlaybackResume(session);persistPlaybackProgress()}));
+  listen('pause',()=>persistPlaybackProgress({force:true}));listen('ended',()=>{persistPlaybackProgress({force:true,ended:true});offerNextEpisode(session.target,session.request)});
+  session.timer=setInterval(()=>{applyPlaybackResume(session);persistPlaybackProgress()},5000);setTimeout(()=>applyPlaybackResume(session),0);
+}
+function finishPlaybackProgressSession({flush=true}={}){
+  const session=playbackProgressSession;if(!session)return;if(flush)persistPlaybackProgress({force:true});clearInterval(session.timer);session.listeners.splice(0).forEach(remove=>{try{remove()}catch(_){}});playbackProgressSession=null;
+}
+async function nextEpisodeTarget(target){
+  if(target?.kind!=='episode'||target.tmdbId==null)return null;const season=Number(target.seasonNumber),episode=Number(target.episodeNumber);if(!Number.isSafeInteger(season)||season<=0||!Number.isSafeInteger(episode)||episode<=0)return null;
+  const current=await getTmdbSeasonDetailsCached(target.tmdbId,season),episodes=(current.episodes||[]).filter(x=>Number.isSafeInteger(Number(x.episode_number))&&Number(x.episode_number)>episode).sort((a,b)=>Number(a.episode_number)-Number(b.episode_number));let next=episodes[0],nextSeason=season;
+  if(!next){const model=playerDetailModelForTarget(target),known=playbackSeasonsForDetail(model).map(x=>Number(x.season_number)).filter(x=>x>season),total=Number(activeDetailDetails?.number_of_seasons||model.libraryItem?.number_of_seasons)||0;nextSeason=known.sort((a,b)=>a-b)[0]||(total>season?season+1:0);if(!nextSeason)return null;const details=await getTmdbSeasonDetailsCached(target.tmdbId,nextSeason);next=(details.episodes||[]).filter(x=>Number.isSafeInteger(Number(x.episode_number))&&Number(x.episode_number)>0).sort((a,b)=>Number(a.episode_number)-Number(b.episode_number))[0]}
+  if(!next)return null;return Object.assign({},target,{kind:'episode',seasonNumber:nextSeason,episodeNumber:Number(next.episode_number),episodeTitle:typeof next.name==='string'?next.name.trim():'',identityKey:target.identityKey});
+}
+async function offerNextEpisode(target,request){
+  if(target?.kind!=='episode')return;try{const next=await nextEpisodeTarget(target);if(!next||request!==playerRequestToken||currentView!=='player')return;const stage=$('#playerStage');if(!stage)return;stage.querySelector('.player-next-prompt')?.remove();const prompt=document.createElement('div');prompt.className='player-next-prompt';prompt.innerHTML=`<b>Серия завершена</b><span>Следующая: ${esc(playbackTargetLabel(next))}</span><button type="button" class="small-btn gold">Выбрать источник и продолжить</button>`;prompt.querySelector('button').onclick=()=>openPlaybackSourceSetup(next,{backFn:closeModal});stage.append(prompt);prompt.querySelector('button').focus({preventScroll:true})}catch(_){}
+}
 function destroyNativeLocalFileSession(){
   const session=nativeLocalFileSession;if(!session||!session.active){nativeLocalFileSession=null;document.body.classList.remove('player-theater-active');return}clearTimeout(session.controlsTimer);session.active=false;session.listeners.splice(0).forEach(remove=>{try{remove()}catch(_){} });try{session.video.pause()}catch(_){}session.frame.classList.remove('native-local-pseudo-fullscreen');document.body.classList.remove('player-theater-active');session.frame.remove();URL.revokeObjectURL(session.objectUrl);nativeLocalFileSession=null;
 }
-function destroyActivePlayerMedia(){playerBackend.destroy();destroyNativeLocalFileSession()}
+function destroyActivePlayerMedia(){finishPlaybackProgressSession({flush:true});playerBackend.destroy();destroyNativeLocalFileSession()}
 function startNativeLocalFile(file,request){
   if(!(file instanceof Blob))throw new Error('Выберите видеофайл.');const objectUrl=URL.createObjectURL(file),host=document.createElement('div'),frame=document.createElement('div'),video=document.createElement('video'),controls=document.createElement('div'),status=document.createElement('div'),listeners=[];
   host.className='player-media-host';frame.className='native-local-frame';video.className='native-local-video';video.controls=false;video.playsInline=true;video.preload='metadata';video.tabIndex=0;video.setAttribute('playsinline','');video.setAttribute('aria-label','Локальное видео');controls.className='native-local-controls';controls.setAttribute('aria-label','Управление плеером');controls.innerHTML='<div class="native-local-transport"><button type="button" class="native-local-control native-local-seek native-local-back" aria-label="Назад на 5 секунд" title="Назад на 5 секунд"><svg class="native-local-seek-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M10 9H4V3"></path><path d="M4 9a12 12 0 1 1-1.2 14"></path><text x="16" y="20">5</text></svg></button><button type="button" class="native-local-control native-local-play" aria-label="Воспроизвести" title="Воспроизвести"><span class="native-local-play-icon" aria-hidden="true"></span></button><button type="button" class="native-local-control native-local-seek native-local-forward" aria-label="Вперёд на 5 секунд" title="Вперёд на 5 секунд"><svg class="native-local-seek-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M22 9h6V3"></path><path d="M28 9a12 12 0 1 0 1.2 14"></path><text x="16" y="20">5</text></svg></button></div><div class="native-local-bottom"><div class="native-local-bottom-row"><button type="button" class="native-local-control native-local-mute" aria-label="Выключить звук" title="Выключить звук">🔊</button><input class="native-local-range native-local-volume" type="range" min="0" max="1" step="0.05" value="1" aria-label="Громкость"><span class="native-local-time-spacer"></span><button type="button" class="native-local-control native-local-fullscreen" aria-label="На весь экран" title="На весь экран">⛶</button></div><div class="native-local-progress-row"><span class="native-local-current">0:00</span><input class="native-local-range native-local-progress" type="range" min="0" max="0" step="0.1" value="0" aria-label="Позиция воспроизведения"><span class="native-local-duration">0:00</span></div></div>';status.className='native-local-status hidden';status.setAttribute('role','status');frame.append(video,controls);host.append(frame,status);$('#playerStage').replaceChildren(host);
@@ -1111,7 +1216,7 @@ function startNativeLocalFile(file,request){
   listen(video,'error',()=>{if(session!==nativeLocalFileSession)return;const code=video.error?.code;setNativeLocalStatus(session,code===4?'Safari/браузер не смог открыть этот видеофайл. Попробуйте другой файл или формат.':code===3?'Safari/браузер не смог декодировать этот видеофайл. Попробуйте другой файл.':'Safari/браузер сообщил об ошибке локального видео. Попробуйте открыть файл снова.')});
   session.playButton.onclick=()=>toggleNativeLocalPlayback(session);controls.querySelector('.native-local-back').onclick=()=>seekNativeLocalFile(session,-PLAYER_SEEK_STEP);controls.querySelector('.native-local-forward').onclick=()=>seekNativeLocalFile(session,PLAYER_SEEK_STEP);session.muteButton.onclick=()=>{video.muted=!video.muted;updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true,{schedule:true})};session.progress.oninput=()=>{if(Number.isFinite(video.duration))video.currentTime=Math.max(0,Math.min(video.duration,Number(session.progress.value)||0));updateNativeLocalControls(session)};session.volume.oninput=()=>{try{video.muted=false;video.volume=Math.max(0,Math.min(1,Number(session.volume.value)));updateNativeLocalControls(session)}catch(_){session.volume.disabled=true;setNativeLocalStatus(session,'Громкость регулируется аппаратными кнопками устройства.')}};session.fullscreenButton.onclick=()=>toggleNativeLocalFullscreen(session);
   listen(video,'click',()=>setNativeLocalControlsVisible(session,controls.classList.contains('controls-hidden'),{schedule:true}));listen(controls,'click',event=>{event.stopPropagation();if(event.detail>0&&event.target.closest('button'))requestAnimationFrame(()=>video.focus({preventScroll:true}))});listen(controls,'focusin',()=>setNativeLocalControlsVisible(session,true));listen(controls,'focusout',()=>scheduleNativeLocalControls(session));listen(document,'fullscreenchange',()=>{if(session===nativeLocalFileSession){updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true,{schedule:true})}});
-  video.src=objectUrl;video.load();updateNativeLocalControls(session);requestAnimationFrame(()=>{if(request===playerRequestToken&&session===nativeLocalFileSession)session.playButton.focus({preventScroll:true})});
+  startPlaybackProgressSession(activePlaybackTarget,video,request);video.src=objectUrl;video.load();updateNativeLocalControls(session);requestAnimationFrame(()=>{if(request===playerRequestToken&&session===nativeLocalFileSession)session.playButton.focus({preventScroll:true})});
 }
 const playbackSourceResolvers=new Map([
   ['direct',async ref=>{const src=playbackSafeUrl(ref.url);return {kind:'direct',src,type:playbackDirectType(src,ref.format)}}],
@@ -1190,8 +1295,8 @@ function renderPlayerContentPanel(target,request){
   if(initialSeason>0)renderPlayerPanelSeason(model,target,request,initialSeason);else $('#playerPanelEpisodes').innerHTML='<div class="player-panel-empty">Список серий пока недоступен.</div>';
 }
 function playbackTargetFromDetail(model,episode=null){
-  const libraryId=model.libraryItem?idFor(model.libraryItem):'',identityKey=libraryId?`library:${libraryId}`:`tmdb:${model.mediaType}:${model.tmdbId}`;
-  return {kind:episode?'episode':'movie',identityKey,mediaType:model.mediaType,title:model.title,year:model.year||'',poster:model.poster||'',libraryId:libraryId||undefined,tmdbId:model.tmdbId??undefined,seasonNumber:episode?.seasonNumber,episodeNumber:episode?.episodeNumber,episodeTitle:episode?.episodeTitle||''};
+  const libraryId=model.libraryItem?idFor(model.libraryItem):'',tmdbId=model.tmdbId??tmdbReferenceFor(model.libraryItem||{})?.id,identityKey=tmdbId!=null?`tmdb:${model.mediaType}:${tmdbId}`:`library:${libraryId}`;
+  return {kind:episode?'episode':'movie',identityKey,mediaType:model.mediaType,title:model.title,year:model.year||'',poster:model.poster||'',libraryId:libraryId||undefined,tmdbId:tmdbId??undefined,seasonNumber:episode?.seasonNumber,episodeNumber:episode?.episodeNumber,episodeTitle:episode?.episodeTitle||''};
 }
 function playbackSeasonsForDetail(model){
   const source=activeDetailDetails?.seasons||model.libraryItem?.seasons||[];
@@ -1229,8 +1334,8 @@ async function openPlayerSeasonEpisodes(model,seasonNumber,returnFocusId=''){
 }
 function openPlaybackForDetail(model){capturePlayerOrigin();if(model.mediaType==='tv')openPlayerEpisodeSelector(model);else openPlaybackSourceSetup(playbackTargetFromDetail(model))}
 function renderPlayerState(title,message,actions=''){$('#playerStage').innerHTML=`<div class="player-state"><h1>${esc(title)}</h1><p>${esc(message)}</p>${actions?`<div class="player-state-actions">${actions}</div>`:''}</div>`}
-function setPlayerHeader(target){$('#playerTitle').textContent=target.title;$('#playerSubtitle').textContent=playbackTargetLabel(target)}
-function capturePlayerOrigin(){if(currentView!=='detail')return;const focus=document.activeElement;pendingPlayerOrigin={scrollY:window.scrollY,focusId:focus?.id||'detailPlay',descriptor:activeDetailDescriptor?Object.assign({},activeDetailDescriptor):null}}
+function setPlayerHeader(target){const resume=resumablePlaybackProgress(target);$('#playerTitle').textContent=target.title;$('#playerSubtitle').textContent=`${playbackTargetLabel(target)}${resume?' · Продолжение с '+playbackClock(resume.currentTime):''}`}
+function capturePlayerOrigin(){if(currentView!=='detail')return;const focus=document.activeElement;pendingPlayerOrigin={sourceView:'detail',scrollY:window.scrollY,focusId:focus?.id||'detailPlay',descriptor:activeDetailDescriptor?Object.assign({},activeDetailDescriptor):null}}
 function capturePlayerNavigation(){if(playerNavState)return;if(pendingPlayerOrigin){playerNavState=Object.assign({},pendingPlayerOrigin);return}if(currentView==='detail')capturePlayerOrigin();playerNavState=pendingPlayerOrigin?Object.assign({},pendingPlayerOrigin):null}
 async function startPlayer(target,sourceRef){
   capturePlayerNavigation();const request=++playerRequestToken;destroyActivePlayerMedia();activePlaybackTarget=target;activePlaybackSourceRef=sourceRef;closeModal({route:false});showView('player',{restore:true,scrollTop:false});setPlayerHeader(target);renderPlayerState('Подготовка плеера','Загружаю выбранный источник…');renderPlayerContentPanel(target,request);playerRemoteController.activate();
@@ -1239,10 +1344,10 @@ async function startPlayer(target,sourceRef){
     const source=await resolvePlaybackSource(sourceRef,target);if(request!==playerRequestToken){source.cleanup?.();return}
     const host=document.createElement('div');host.className='player-media-host';$('#playerStage').replaceChildren(host);
     const created=await playerBackend.create(host,target,{onError:error=>handlePlayerBackendError(request,error)});if(request!==playerRequestToken||!created){source.cleanup?.();playerBackend.destroy();return}
-    playerBackend.attach(source);requestAnimationFrame(()=>playerBackend.player?.focus({preventScroll:true}));
-  }catch(err){if(request!==playerRequestToken)return;playerBackend.destroy();renderPlayerFailure(err)}
+    playerBackend.attach(source);startPlaybackProgressSession(target,playerBackend.player,request);requestAnimationFrame(()=>playerBackend.player?.focus({preventScroll:true}));
+  }catch(err){if(request!==playerRequestToken)return;destroyActivePlayerMedia();renderPlayerFailure(err)}
 }
-function handlePlayerBackendError(request,error){if(request!==playerRequestToken||currentView!=='player')return;playerBackend.destroy();renderPlayerFailure(error||new Error('Видео не удалось воспроизвести. Проверьте URL, CORS и формат потока.'))}
+function handlePlayerBackendError(request,error){if(request!==playerRequestToken||currentView!=='player')return;destroyActivePlayerMedia();renderPlayerFailure(error||new Error('Видео не удалось воспроизвести. Проверьте URL, CORS и формат потока.'))}
 function renderPlayerFailure(error){
   const message=error?.message&&!/https?:\/\//i.test(error.message)?error.message:'Источник недоступен. Проверьте адрес, CORS и поддержку формата.';
   renderPlayerState('Не удалось открыть видео',message,'<button type="button" class="small-btn gold" id="playerRetry">Повторить</button><button type="button" class="small-btn" id="playerPickAgain">Другой источник</button>');
@@ -1252,6 +1357,7 @@ function abandonPlayerView(){playerRequestToken++;playerEpisodeRequest++;destroy
 function backFromPlayer(){
   if(currentView!=='player')return;const snapshot=playerNavState;playerRequestToken++;destroyActivePlayerMedia();playerRemoteController.deactivate();activePlaybackTarget=null;activePlaybackSourceRef=null;playerNavState=null;pendingPlayerOrigin=null;
   if(!snapshot){showView('home',{restore:true,scrollTop:false,playerBack:true});return}
+  if(snapshot.sourceView==='home'){showView('home',{restore:true,scrollTop:false,playerBack:true});requestAnimationFrame(()=>{window.scrollTo({top:snapshot.scrollY,behavior:'auto'});const focus=snapshot.focusId&&$('#'+snapshot.focusId)||$('#continueCarousel .continue-open');focus?.focus({preventScroll:true})});return}
   showView('detail',{restore:true,scrollTop:false,playerBack:true});requestAnimationFrame(()=>{window.scrollTo({top:snapshot.scrollY,behavior:'auto'});const focus=snapshot.focusId&&$('#'+snapshot.focusId)||$('#detailBack');focus?.focus({preventScroll:true})});
 }
 function activePlayerElement(){return nativeLocalFileSession?.video||playerBackend.player}
@@ -1394,6 +1500,12 @@ function mergeManualQueue(a,b,identities){
   const ids=mergeUniqueArray(a.ids,b.ids).filter(id=>!isConfirmedIdentity((identities||{})[id]));
   return {ids,total:ids.length+(Number(a.completed)||0)+(Number(b.completed)||0)+(Number(a.skipped)||0)+(Number(b.skipped)||0),completed:(Number(a.completed)||0)+(Number(b.completed)||0),skipped:(Number(a.skipped)||0)+(Number(b.skipped)||0),createdAt:[a.createdAt,b.createdAt].filter(Boolean).sort()[0]||Date.now()};
 }
+function mergePlaybackProgress(a,b){
+  const left={playbackProgress:cloneJSON(isPlainObject(a)?a:{})},right={playbackProgress:cloneJSON(isPlainObject(b)?b:{})};normalizePlaybackProgress(left);normalizePlaybackProgress(right);
+  const merged=Object.assign({},left.playbackProgress);
+  Object.entries(right.playbackProgress).forEach(([key,entry])=>{if(!merged[key]||entry.updatedAt>merged[key].updatedAt)merged[key]=cloneJSON(entry)});
+  const holder={playbackProgress:merged};normalizePlaybackProgress(holder);return holder.playbackProgress;
+}
 function mergeWatchlistState(current,incoming){
   const out=mergeGeneric(current,incoming),currentTonight=cloneJSON(isPlainObject(current)?current:{}),incomingTonight=cloneJSON(isPlainObject(incoming)?incoming:{});
   normalizeTonightSelection(currentTonight);normalizeTonightSelection(incomingTonight);
@@ -1401,6 +1513,7 @@ function mergeWatchlistState(current,incoming){
   out.pins=mergeUniqueArray(current.pins,incoming.pins);
   out.addedItems=mergeAddedItems(current.addedItems,incoming.addedItems);
   out.identities=mergeIdentities(current.identities,incoming.identities);
+  out.playbackProgress=mergePlaybackProgress(current.playbackProgress,incoming.playbackProgress);
   out.tonightId=currentTonight.tonightId||incomingTonight.tonightId||null;
   const refinement=currentTonight.tonightId===out.tonightId&&currentTonight.tonightSelection?currentTonight.tonightSelection:incomingTonight.tonightId===out.tonightId?incomingTonight.tonightSelection:null;
   if(refinement)out.tonightSelection=cloneJSON(refinement);else delete out.tonightSelection;
@@ -1415,7 +1528,7 @@ function mergeWatchlistState(current,incoming){
     else if(isConfirmedIdentity(fromIncoming)&&(incoming.tmdbMeta||{})[k])meta[k]=cloneJSON(incoming.tmdbMeta[k]);
   });
   out.tmdbMeta=meta;
-  normalizeTonightSelection(out);return out;
+  normalizeTonightSelection(out);normalizePlaybackProgress(out);return out;
 }
 function savePreImportSnapshot(){
   const snapshot={at:new Date().toISOString(),state:cloneJSON(state),tokenPresent:localStorage.getItem(TOKEN_KEY)!==null,tmdbToken:localStorage.getItem(TOKEN_KEY)};
@@ -2455,6 +2568,7 @@ $('#playerBack').onclick=backFromPlayer;
 $('#playerChangeSource').onclick=()=>{if(activePlaybackTarget)openPlaybackSourceSetup(activePlaybackTarget,{backFn:closeModal})};
 document.addEventListener('fullscreenchange',()=>{if(currentView==='player'&&!document.fullscreenElement)playerFullscreenExitedAt=performance.now()});
 window.addEventListener('pagehide',()=>{if(currentView==='player'){playerRequestToken++;destroyActivePlayerMedia();playerRemoteController.deactivate()}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&currentView==='player')persistPlaybackProgress({force:true})});
 window.addEventListener('pageshow',()=>{if(currentView==='player'&&!activePlayerElement()){playerRemoteController.activate();renderPlayerFailure(new Error('Воспроизведение остановлено после выхода со страницы.'))}});
 document.addEventListener('keydown',e=>{
   if(currentView!=='detail'||!$('#modalBg').classList.contains('hidden'))return;
