@@ -1,5 +1,7 @@
 const CACHE = 'watchlist-beta15-pwa-1';
 const CACHE_PREFIX = 'watchlist-';
+const BUILD_MARKER = 'beta15-pwa-1';
+const BUILD_META_PATTERN = /<meta\b(?=[^>]*\bname\s*=\s*["']watchlist-build["'])(?=[^>]*\bcontent\s*=\s*["']beta15-pwa-1["'])[^>]*>/i;
 const ROOT_URL = new URL('./', self.location.href).href;
 const INDEX_URL = new URL('./index.html', self.location.href).href;
 const ROOT_PATH = new URL(ROOT_URL).pathname;
@@ -22,11 +24,26 @@ async function fetchFresh(url) {
   return response;
 }
 
+async function responseHasCurrentBuild(response) {
+  try {
+    return BUILD_META_PATTERN.test(await response.clone().text());
+  } catch (error) {
+    return false;
+  }
+}
+
 self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil((async () => {
+    const canonical = await fetchFresh(INDEX_URL);
+    if (!(await responseHasCurrentBuild(canonical))) {
+      throw new Error(`Canonical shell is missing build marker ${BUILD_MARKER}`);
+    }
     const cache = await caches.open(CACHE);
-    await Promise.all(CORE_URLS.map(async url => cache.put(url, await fetchFresh(url))));
+    await cache.put(INDEX_URL, canonical);
+    await Promise.all(CORE_URLS
+      .filter(url => url !== INDEX_URL)
+      .map(async url => cache.put(url, await fetchFresh(url))));
     await Promise.allSettled([...BASE_URLS].map(async url => {
       const response = await fetchFresh(url);
       await cache.put(url, response);
@@ -54,7 +71,7 @@ self.addEventListener('fetch', event => {
       try {
         const response = await fetch(request, {cache: 'no-store'});
         const isCanonical = url.pathname === ROOT_PATH || url.pathname === INDEX_PATH;
-        if (response.ok && isCanonical) {
+        if (response.ok && isCanonical && await responseHasCurrentBuild(response)) {
           const cache = await caches.open(CACHE);
           await cache.put(INDEX_URL, response.clone());
         }

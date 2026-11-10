@@ -14,6 +14,7 @@ Accepted for the first Beta 15 root rollout.
 ## Service worker and cache policy
 
 - The rollout build marker is `beta15-pwa-1`; its application cache is `watchlist-beta15-pwa-1`.
+- The canonical offline shell is written only after its `watchlist-build` meta marker matches the current build; a stale CDN response fails worker installation instead of replacing a valid shell.
 - Each behavior-changing service-worker release must use a new build marker and cache name. A rollback is also a new forward release with a new cache name; an old cache name must not be reused.
 - Installation fetches the canonical application shell, manifest, and icons freshly. The two immutable, commit-pinned base-list URLs may be cached best-effort, but their failure never blocks installation or activation.
 - Activation claims clients and deletes older application caches whose names start with `watchlist-`, including `watchlist-v5-6-3`, while leaving Local Storage and IndexedDB untouched.
