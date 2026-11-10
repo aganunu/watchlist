@@ -280,6 +280,7 @@ let detailLoadRequest=0;
 let detailNavState=null,activeDetailDescriptor=null,activeDetailRandom=false,activeDetailDetails=null,activeDetailRevealTonight=false;
 let tonightSelectorRequest=0;
 let playerNavState=null,pendingPlayerOrigin=null,playerRequestToken=0,playerEpisodeRequest=0,playerFullscreenExitedAt=0,activePlaybackTarget=null,activePlaybackSourceRef=null,nativeLocalFileSession=null;
+let appRouteReady=false,appRouteApplying=false,activeProfileRouteSection='';
 const addDetailsCache=new Map(),seasonDetailsCache=new Map();
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -642,6 +643,30 @@ function carouselPositions(){return Object.fromEntries($$('.carousel').filter(x=
 function restoreCarouselPositions(positions={}){$$('.carousel').forEach(x=>{if(Object.prototype.hasOwnProperty.call(positions,x.id))x.scrollLeft=Number(positions[x.id])||0;updateCarouselNavigation(x)})}
 function detailTriggerRole(trigger){if(!trigger)return '';if(trigger.classList.contains('detail-poster')||trigger.classList.contains('tmdb-result-poster'))return 'poster';if(trigger.classList.contains('detail-title')||trigger.classList.contains('tmdb-result-title'))return 'title';return trigger.dataset.detailRole||'details'}
 function detailDescriptorKey(descriptor){return descriptor?.kind==='library'?`library:${descriptor.id}`:descriptor?.kind==='tmdb'?`tmdb:${descriptor.mediaType}:${descriptor.tmdbId}`:''}
+function appRouteHash(view=currentView,options={}){
+  if(view==='detail'){
+    const descriptor=options.descriptor||activeDetailDescriptor;
+    if(descriptor?.kind==='library'&&descriptor.id)return '#detail/library/'+encodeURIComponent(descriptor.id);
+    if(descriptor?.kind==='tmdb'&&(descriptor.mediaType==='movie'||descriptor.mediaType==='tv')&&/^\d+$/.test(String(descriptor.tmdbId||'')))return `#detail/tmdb/${descriptor.mediaType}/${descriptor.tmdbId}`;
+    return '#home';
+  }
+  if(view==='profile'&&options.section&&['settings','data','about'].includes(options.section))return '#profile/'+options.section;
+  return ['home','list','search','profile'].includes(view)?'#'+view:'#home';
+}
+function parseAppRoute(hash=location.hash){
+  const raw=String(hash||'').replace(/^#/,'');if(!raw)return {view:'home'};
+  if(['home','list','search','profile'].includes(raw))return {view:raw};
+  const profile=raw.match(/^profile\/(settings|data|about)$/);if(profile)return {view:'profile',section:profile[1]};
+  const library=raw.match(/^detail\/library\/(.+)$/);if(library){try{return {view:'detail',descriptor:{kind:'library',id:decodeURIComponent(library[1])}}}catch(_){return null}}
+  const tmdb=raw.match(/^detail\/tmdb\/(movie|tv)\/(\d+)$/);if(tmdb&&Number(tmdb[2])>0)return {view:'detail',descriptor:{kind:'tmdb',mediaType:tmdb[1],tmdbId:tmdb[2]}};
+  return null;
+}
+function writeAppRoute(hash,{replace=false,force=false}={}){
+  if((!appRouteReady||appRouteApplying)&&!force)return;const target=hash.startsWith('#')?hash:'#'+hash,current=location.hash||'';
+  if(current===target){if(replace)history.replaceState(Object.assign({},history.state,{watchlistRoute:target}),'',target);return}
+  const routeState={watchlistRoute:target,parentRoute:current||'#home'};(replace?history.replaceState:history.pushState).call(history,routeState,'',target);
+}
+function markProfileRouteSection(section,{route=true}={}){activeProfileRouteSection=section;if(route)writeAppRoute(appRouteHash('profile',{section}))}
 function captureDetailNavigation(descriptor,origin={}){
   if(currentView==='detail'&&detailNavState)return;
   detailNavState={sourceView:currentView,scrollY:window.scrollY,renderLimit,carouselPositions:carouselPositions(),itemKey:origin.itemKey||detailDescriptorKey(descriptor),triggerRole:origin.triggerRole||detailTriggerRole(origin.trigger),descriptor:Object.assign({},descriptor),randomMode:!!origin.randomMode};
@@ -676,6 +701,7 @@ function showView(name,options={}){
   if(name==='search'){ $('#search').value=globalSearchQuery;if(!restore){setTimeout(()=>$('#search')?.focus(),60);renderSearch()} }
   if(name==='home'&&!restore)requestAnimationFrame(resetCarouselPositions);
   if(!restore&&options.scrollTop!==false)scrollTo({top:0,behavior:options.behavior||'smooth'});
+  if(options.route!==false&&name!=='player')writeAppRoute(appRouteHash(name));
 }
 function updateProfile(){
   const el=$('#profileListCount');
@@ -777,7 +803,13 @@ function byId(id){return items.find(x=>idFor(x)===id)}
 function toggleFav(id){state.pins=state.pins||[];state.pins=state.pins.includes(id)?state.pins.filter(x=>x!==id):[...state.pins,id];saveState();rebuild()}
 function toggleWatched(id){state.watched=state.watched||[];state.watched=state.watched.includes(id)?state.watched.filter(x=>x!==id):[...state.watched,id];saveState();rebuild()}
 function openModal(html){$('#modal').innerHTML=`<button class="small-btn close" onclick="closeModal()">✕</button>${html}`;$('#modalBg').classList.remove('hidden')}
-function closeModal(){$('#modalBg').classList.add('hidden')}window.closeModal=closeModal;$('#modalBg').onclick=e=>{if(e.target===$('#modalBg'))closeModal()}
+function closeModal(options={}){
+  $('#modalBg').classList.add('hidden');const profileSection=activeProfileRouteSection;activeProfileRouteSection='';
+  if(!profileSection||options.route===false||appRouteApplying||!appRouteReady)return;
+  if(history.state?.watchlistRoute===appRouteHash('profile',{section:profileSection})&&history.state?.parentRoute==='#profile')history.back();
+  else{showView('profile',{restore:true,scrollTop:false,route:false});writeAppRoute('#profile',{replace:true})}
+}
+window.closeModal=closeModal;$('#modalBg').onclick=e=>{if(e.target===$('#modalBg'))closeModal()}
 
 function openSubModal(title, bodyHtml, backFn){
   openModal(`<div class="modal-nav"><button class="modal-back" id="modalBack">← Назад</button></div><h2>${title}</h2>${bodyHtml}`);
@@ -975,19 +1007,59 @@ async function loadActiveDetail(){
   }
 }
 function openDetailPage(descriptor,options={}){
-  captureDetailNavigation(descriptor,options);activeDetailDescriptor=Object.assign({},descriptor);activeDetailRandom=!!options.random;activeDetailDetails=null;activeDetailRevealTonight=!!options.revealTonight;closeModal();showView('detail',{behavior:'auto'});loadActiveDetail();requestAnimationFrame(()=>$('#detailBack')?.focus({preventScroll:true}));
+  captureDetailNavigation(descriptor,options);activeDetailDescriptor=Object.assign({},descriptor);activeDetailRandom=!!options.random;activeDetailDetails=null;activeDetailRevealTonight=!!options.revealTonight;closeModal({route:false});activeProfileRouteSection='';showView('detail',{behavior:'auto',route:options.route!==false});loadActiveDetail();requestAnimationFrame(()=>$('#detailBack')?.focus({preventScroll:true}));
 }
 function openLibraryDetail(id,options={}){if(byId(id))openDetailPage({kind:'library',id},options);else openDetails(id,options)}
 function openTmdbDetail(mediaType,tmdbId,options={}){
   const existing=findTmdbLibraryItem(mediaType,tmdbId);
   if(existing)openDetailPage({kind:'library',id:idFor(existing)},options);else openDetailPage({kind:'tmdb',mediaType:mediaType==='tv'?'tv':'movie',tmdbId:String(tmdbId)},options);
 }
+function restoreDetailNavigation(snapshot=detailNavState){
+  if(!snapshot)return false;detailLoadRequest++;pendingPlayerOrigin=null;activeDetailDescriptor=null;activeDetailDetails=null;activeDetailRandom=false;activeDetailRevealTonight=false;
+  renderLimit=Math.max(30,Number(snapshot.renderLimit)||30);showView(snapshot.sourceView,{restore:true,scrollTop:false,route:false});
+  requestAnimationFrame(()=>{if(snapshot.sourceView==='list')renderList();restoreCarouselPositions(snapshot.carouselPositions);window.scrollTo({top:snapshot.scrollY,behavior:'auto'});const target=findDetailReturnTarget(snapshot);target?.focus({preventScroll:true});detailNavState=null});return true;
+}
 function backFromDetailPage(){
   if(currentView!=='detail'||!detailNavState)return;
-  const snapshot=detailNavState;detailLoadRequest++;pendingPlayerOrigin=null;activeDetailDescriptor=null;activeDetailDetails=null;activeDetailRandom=false;activeDetailRevealTonight=false;
-  renderLimit=Math.max(30,Number(snapshot.renderLimit)||30);showView(snapshot.sourceView,{restore:true,scrollTop:false});
-  requestAnimationFrame(()=>{if(snapshot.sourceView==='list')renderList();restoreCarouselPositions(snapshot.carouselPositions);window.scrollTo({top:snapshot.scrollY,behavior:'auto'});const target=findDetailReturnTarget(snapshot);target?.focus({preventScroll:true});detailNavState=null});
+  if(history.state?.watchlistRoute===location.hash&&history.state?.parentRoute){history.back();return}
+  const source=detailNavState.sourceView||'home';restoreDetailNavigation();writeAppRoute(appRouteHash(source),{replace:true});
 }
+function sameDetailDescriptor(a,b){return detailDescriptorKey(a)!==''&&detailDescriptorKey(a)===detailDescriptorKey(b)}
+function canonicalAppRoute(route){return route?.view==='detail'?appRouteHash('detail',{descriptor:route.descriptor}):appRouteHash(route?.view||'home',{section:route?.section})}
+function applyAppRoute({initial=false}={}){
+  let route=parseAppRoute(),canonical='#home';appRouteApplying=true;
+  try{
+    closeModal({route:false});activeProfileRouteSection='';
+    if(currentView==='player')abandonPlayerView();
+    if(route?.view==='detail'&&route.descriptor?.kind==='library'&&!byId(route.descriptor.id))route=null;
+    if(!route){if(currentView==='detail')abandonDetailPage();showView('home',{explicit:true,restore:true,scrollTop:false,route:false});canonical='#home';return}
+    canonical=canonicalAppRoute(route);
+    if(route.view==='detail'){
+      if(currentView==='detail'&&sameDetailDescriptor(activeDetailDescriptor,route.descriptor))return;
+      openDetailPage(route.descriptor,{route:false,itemKey:detailDescriptorKey(route.descriptor),triggerRole:'details'});return;
+    }
+    if(currentView==='detail'){
+      const snapshot=detailNavState;
+      if(snapshot&&route.view===snapshot.sourceView){restoreDetailNavigation(snapshot);return}
+      abandonDetailPage();
+    }
+    showView(route.view,{explicit:true,restore:route.view==='profile',scrollTop:false,route:false});
+    if(route.view==='profile'&&route.section){
+      if(route.section==='settings')openTechPanel({route:false});
+      else if(route.section==='data')openDataPanel({route:false});
+      else if(route.section==='about')openAboutPanel({route:false});
+    }
+  }finally{
+    appRouteApplying=false;
+    const current=location.hash||'';
+    if(initial||current!==canonical||history.state?.watchlistRoute!==canonical){
+      const previousParent=history.state?.parentRoute||'';
+      history.replaceState({watchlistRoute:canonical,parentRoute:previousParent},'',canonical);
+    }
+  }
+}
+let appRouteApplyScheduled=false;
+function scheduleAppRouteApply(){if(!appRouteReady||appRouteApplyScheduled)return;appRouteApplyScheduled=true;queueMicrotask(()=>{appRouteApplyScheduled=false;applyAppRoute()})}
 /** @typedef {{kind:'movie'|'episode',identityKey:string,mediaType:'movie'|'tv',title:string,year:string|number,poster?:string,libraryId?:string,tmdbId?:string|number,seasonNumber?:number,episodeNumber?:number,episodeTitle?:string}} PlaybackTarget */
 /** @typedef {{kind:'direct'|'hls'|'user-url'|'local-file'|'home-engine'|'provider',url?:string,format?:string,file?:File,providerId?:string}} PlaybackSourceRef */
 /** @typedef {{kind:'direct'|'hls'|'local-file',src:string,type?:string,cleanup?:Function}} ResolvedPlaybackSource */
@@ -1161,7 +1233,7 @@ function setPlayerHeader(target){$('#playerTitle').textContent=target.title;$('#
 function capturePlayerOrigin(){if(currentView!=='detail')return;const focus=document.activeElement;pendingPlayerOrigin={scrollY:window.scrollY,focusId:focus?.id||'detailPlay',descriptor:activeDetailDescriptor?Object.assign({},activeDetailDescriptor):null}}
 function capturePlayerNavigation(){if(playerNavState)return;if(pendingPlayerOrigin){playerNavState=Object.assign({},pendingPlayerOrigin);return}if(currentView==='detail')capturePlayerOrigin();playerNavState=pendingPlayerOrigin?Object.assign({},pendingPlayerOrigin):null}
 async function startPlayer(target,sourceRef){
-  capturePlayerNavigation();const request=++playerRequestToken;destroyActivePlayerMedia();activePlaybackTarget=target;activePlaybackSourceRef=sourceRef;closeModal();showView('player',{restore:true,scrollTop:false});setPlayerHeader(target);renderPlayerState('Подготовка плеера','Загружаю выбранный источник…');renderPlayerContentPanel(target,request);playerRemoteController.activate();
+  capturePlayerNavigation();const request=++playerRequestToken;destroyActivePlayerMedia();activePlaybackTarget=target;activePlaybackSourceRef=sourceRef;closeModal({route:false});showView('player',{restore:true,scrollTop:false});setPlayerHeader(target);renderPlayerState('Подготовка плеера','Загружаю выбранный источник…');renderPlayerContentPanel(target,request);playerRemoteController.activate();
   try{
     if(sourceRef?.kind==='local-file'){startNativeLocalFile(sourceRef.file,request);return}
     const source=await resolvePlaybackSource(sourceRef,target);if(request!==playerRequestToken){source.cleanup?.();return}
@@ -1388,7 +1460,8 @@ function undoLastImport(){
     localStorage.removeItem(IMPORT_UNDO_KEY);rebuild();alert('Последний импорт отменён.');openDataPanel();
   }catch(e){alert('Не удалось отменить импорт: '+(e.message||String(e)))}
 }
-function openDataPanel(){
+function openDataPanel(options={}){
+  markProfileRouteSection('data',{route:options.route!==false});
   const hasUndo=!!localStorage.getItem(IMPORT_UNDO_KEY);
   openModal(`<h2>💾 Данные и резервная копия</h2><p style="color:var(--muted)">Полная переносимая копия всех пользовательских данных из ${STORAGE_KEY}.</p><div class="result"><div>🎬</div><div><b>${items.length}</b><br><small>позиций в библиотеке</small></div></div><div class="result"><div>✨</div><div><b>${Object.keys(state.tmdbMeta||{}).length}</b><br><small>карточек TMDB в локальном кэше</small></div></div><label class="identity-note warn" style="display:flex;gap:10px;align-items:flex-start"><input id="backupIncludeToken" type="checkbox" checked style="width:auto;margin:2px 0 0"><span><b>Включить TMDB Token в резервную копию</b><br>Файл будет содержать приватный токен. Не публикуйте и не передавайте его посторонним.</span></label><div class="batch-actions"><button class="small-btn gold" id="exportFullBackup">Экспорт полной копии JSON</button><button class="small-btn" id="chooseBackupFile">Импорт JSON</button>${hasUndo?'<button class="small-btn danger" id="undoLastImport">↶ Отменить последний импорт</button>':''}</div><input id="backupFileInput" type="file" accept="application/json,.json" class="hidden">`);
   $('#exportFullBackup').onclick=()=>{const include=$('#backupIncludeToken').checked;if(include&&!confirm('Файл будет содержать приватный TMDB Token. Сохранить полную копию и не публиковать её?'))return;downloadJSON(makeFullBackup(include),`watchlist-beta15-${safeFileDate()}.json`)};
@@ -1818,7 +1891,8 @@ function openCacheManager(){
   renderUnresolvedTmdb();
   renderLastUpdateHistory();
 }
-function openTechPanel(){
+function openTechPanel(options={}){
+  markProfileRouteSection('settings',{route:options.route!==false});
   const hasToken=!!localStorage.getItem(TOKEN_KEY);
   openModal(`<h2>⚙️ Настройки и TMDB</h2>
     <div class="setting-row">
@@ -1837,7 +1911,8 @@ function openTechPanel(){
   $('#tmdbCacheManage').onclick=openCacheManager;
   $('#safeRepairTech').onclick=openSafeRepairPanel;
 }
-function openAboutPanel(){
+function openAboutPanel(options={}){
+  markProfileRouteSection('about',{route:options.route!==false});
   openModal(`<h2>ℹ️ О приложении</h2><p>Кино-менеджер v6 Beta 15</p><p style="color:var(--muted)">Тестовая версия нового интерфейса. Работает поверх тех же локальных данных, что и стабильная версия.</p>`);
 }
 
@@ -2387,6 +2462,8 @@ document.addEventListener('keydown',e=>{
   if(editable||!['Escape','Backspace','BrowserBack','GoBack'].includes(e.key))return;
   e.preventDefault();backFromDetailPage();
 });
+window.addEventListener('popstate',scheduleAppRouteApply);
+window.addEventListener('hashchange',scheduleAppRouteApply);
 $$('#homeStats .stat').forEach(b=>b.addEventListener('click',()=>openListFromStat(b.dataset.statGo)));
 $('#homeStats').addEventListener('keydown',e=>{
   if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
@@ -2398,7 +2475,7 @@ $$('[data-type]').forEach(b=>b.onclick=()=>{$$('[data-type]').forEach(x=>x.class
 $$('[data-state]').forEach(b=>b.onclick=()=>{const was=b.classList.contains('active');$$('[data-state]').forEach(x=>x.classList.remove('active'));stateFilter=was?'all':b.dataset.state;if(!was)b.classList.add('active');applyFilters()});
 $$('[data-search-type]').forEach(b=>b.onclick=()=>{$$('[data-search-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active');searchType=b.dataset.searchType;renderSearch()});
 $$('[data-state-go]').forEach(b=>b.addEventListener('click',()=>{stateFilter=b.dataset.stateGo||'all';showView('list');$$('[data-state]').forEach(x=>x.classList.toggle('active',x.dataset.state===stateFilter));applyFilters()}));
-;(async()=>{try{loadState();cloudSession=await restoreCloudSession();cloudDeviceId=loadCloudDeviceId();BASE=await fetchBase();rebuild();showView('home')}catch(e){$('#heroCount').textContent='Ошибка загрузки';$('#list').innerHTML='<div class="empty">'+esc(e.message)+'</div>'}})()
+;(async()=>{try{loadState();cloudSession=await restoreCloudSession();cloudDeviceId=loadCloudDeviceId();BASE=await fetchBase();rebuild();appRouteReady=true;applyAppRoute({initial:true})}catch(e){$('#heroCount').textContent='Ошибка загрузки';$('#list').innerHTML='<div class="empty">'+esc(e.message)+'</div>'}})()
 </script>
 </body>
 </html>
