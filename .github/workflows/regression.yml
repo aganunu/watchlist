@@ -16,7 +16,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -33,16 +33,30 @@ jobs:
 
       - name: Repository sanity and whitespace
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          PUSH_AFTER_SHA: ${{ github.sha }}
         run: |
           test -f index.html
           test -f manifest.webmanifest
           test -f sw.js
           test -f tools/serve_local.py
           test -f v6-beta15.html
-          git diff --check HEAD^ HEAD
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            git diff --check "$PR_BASE_SHA...$PR_HEAD_SHA"
+          elif [[ "$PUSH_BEFORE_SHA" =~ ^0+$ ]]; then
+            empty_tree="$(git hash-object -t tree /dev/null)"
+            git diff --check "$empty_tree" "$PUSH_AFTER_SHA"
+          else
+            git diff --check "$PUSH_BEFORE_SHA" "$PUSH_AFTER_SHA"
+          fi
 
       - name: Syntax checks
         run: |
+          node --check sw.js
           node --check tests/browser-regression.cjs
           node --check tests/static-regression.test.cjs
           python -m py_compile tools/serve_local.py tests/test_local_server.py

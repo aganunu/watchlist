@@ -128,7 +128,15 @@ async function main() {
     page.on('console', message => {if (message.type() === 'error') errors.push(message.text())});
     await page.goto(origin + pathName, {waitUntil: 'domcontentloaded'});
     await page.waitForFunction(() => !document.querySelector('#heroCount')?.textContent.includes('Загрузка'), null, {timeout: 10000});
-    return {context, page, errors, counters, close: () => context.close()};
+    const close = async ({expectedConsoleErrors = []} = {}) => {
+      await page.waitForTimeout(0);
+      const captured = [...errors];
+      await context.close();
+      const unexpected = captured.filter(message => !expectedConsoleErrors.some(pattern => pattern instanceof RegExp ? pattern.test(message) : message.includes(String(pattern))));
+      if (unexpected.length) assert.fail(`Unexpected browser console/page errors:\n${unexpected.join('\n')}`);
+      return captured;
+    };
+    return {context, page, errors, counters, close};
   }
 
   try {
@@ -162,7 +170,7 @@ async function main() {
       const app = await openApp({auth: {passwordStatus: 400}});await app.page.evaluate(() => openCloudAuth());
       await app.page.locator('#cloudEmail').fill('nobody@example.test');await app.page.locator('#cloudPassword').fill('wrong-password');
       await app.page.locator('#cloudSignIn').click();await app.page.getByText('Неверный email или пароль.').waitFor();
-      assert.equal(app.counters.passwordGrant, 1);assert.equal(await app.page.evaluate(key => localStorage.getItem(key), SESSION_KEY), null);await app.close();
+      assert.equal(app.counters.passwordGrant, 1);assert.equal(await app.page.evaluate(key => localStorage.getItem(key), SESSION_KEY), null);await app.close({expectedConsoleErrors:[/status of 400/]});
     });
 
     await run('sign-up uses the mocked Auth endpoint and stores its returned session', async () => {
@@ -174,12 +182,12 @@ async function main() {
 
     await run('recovery request is non-enumerating for a mocked unknown account', async () => {
       const app = await openApp({auth:{recoverStatus:404}});await app.page.evaluate(() => openCloudRecoveryRequest());await app.page.locator('#cloudRecoveryEmail').fill('unknown@example.test');await app.page.locator('#cloudRecoverySend').click();
-      await app.page.getByText('Письмо отправлено. Если аккаунт существует, ссылка придёт на указанный email.').waitFor();assert.equal(app.counters.recover,1);await app.close();
+      await app.page.getByText('Письмо отправлено. Если аккаунт существует, ссылка придёт на указанный email.').waitFor();assert.equal(app.counters.recover,1);await app.close({expectedConsoleErrors:[/status of 404/]});
     });
 
     await run('recovery request surfaces a localized mocked network failure', async () => {
       const app = await openApp({auth:{recoverNetwork:true}});await app.page.evaluate(() => openCloudRecoveryRequest());await app.page.locator('#cloudRecoveryEmail').fill('user@example.test');await app.page.locator('#cloudRecoverySend').click();
-      await app.page.getByText(/Не удалось связаться|Сервер не ответил/).waitFor();assert.equal(app.counters.recover,1);await app.close();
+      await app.page.getByText(/Не удалось связаться|Сервер не ответил/).waitFor();assert.equal(app.counters.recover,1);await app.close({expectedConsoleErrors:[/ERR_FAILED/]});
     });
 
     await run('direct library detail route renders the requested item', async () => {
@@ -209,7 +217,7 @@ async function main() {
 
     await run('retryable recovery callback failure preserves callback URL for retry', async () => {
       const app = await openApp({pathName: '/#access_token=recovery-access&refresh_token=recovery-refresh&expires_in=3600&type=recovery',auth:{userStatus:503}});
-      await app.page.getByText('Не удалось проверить recovery-ссылку').waitFor();assert.match(app.page.url(),/access_token=recovery-access/);assert.equal(await app.page.evaluate(key => localStorage.getItem(key), SESSION_KEY),null);await app.close();
+      await app.page.getByText('Не удалось проверить recovery-ссылку').waitFor();assert.match(app.page.url(),/access_token=recovery-access/);assert.equal(await app.page.evaluate(key => localStorage.getItem(key), SESSION_KEY),null);await app.close({expectedConsoleErrors:[/status of 503/]});
     });
 
     await run('cloud sync stays blocked while recovery is pending', async () => {
@@ -249,7 +257,7 @@ async function main() {
     await run('fresh login failure still completes password recovery safely', async () => {
       const app = await openApp({pathName: '/#access_token=recovery-access&refresh_token=recovery-refresh&expires_in=3600&type=recovery', auth: {freshLoginFails: true}});
       await app.page.locator('#cloudNewPassword').fill('validpass1');await app.page.locator('#cloudRepeatPassword').fill('validpass1');await app.page.locator('#cloudPasswordSave').click();await app.page.getByText('Пароль изменён. Войдите с новым паролем.').waitFor();
-      assert.equal(await app.page.evaluate(key => sessionStorage.getItem(key), RECOVERY_KEY), null);assert.equal(await app.page.evaluate(key => localStorage.getItem(key), SESSION_KEY), null);await app.close();
+      assert.equal(await app.page.evaluate(key => sessionStorage.getItem(key), RECOVERY_KEY), null);assert.equal(await app.page.evaluate(key => localStorage.getItem(key), SESSION_KEY), null);await app.close({expectedConsoleErrors:[/status of 503/]});
     });
 
     await run('different-user session conflict requires an explicit choice', async () => {
