@@ -5,7 +5,7 @@ title Кино-менеджер — локальный сервер
 
 cd /d "%~dp0"
 set "SERVER_SCRIPT=%~dp0tools\serve_local.py"
-set "LOCAL_URL=http://127.0.0.1:8765/v6-beta15.html"
+set "LOCAL_URL=http://127.0.0.1:8765/"
 set "PYTHON_EXE="
 set "PYTHON_ARGS="
 
@@ -36,7 +36,7 @@ if not defined PYTHON_EXE (
 )
 
 for /f "delims=" %%U in ('""%PYTHON_EXE%" %PYTHON_ARGS% "%SERVER_SCRIPT%" --lan-url"') do set "LAN_URL=%%U"
-if not defined LAN_URL set "LAN_URL=http://127.0.0.1:8765/v6-beta15.html"
+if not defined LAN_URL set "LAN_URL=http://127.0.0.1:8765/"
 
 "%PYTHON_EXE%" %PYTHON_ARGS% "%SERVER_SCRIPT%" --check >nul 2>&1
 if not errorlevel 1 (

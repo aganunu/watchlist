@@ -23,12 +23,12 @@ from urllib.request import Request, urlopen
 HOST = "0.0.0.0"
 PORT = 8765
 ROOT = Path(__file__).resolve().parents[1]
-START_PAGE = "v6-beta15.html"
 SERVER_MARKER = "watchlist-local-v1"
 MARKER_PATH = "/__watchlist_server__"
 
 # Deliberately small public surface: application entry point and its PWA assets.
 PUBLIC_FILES = {
+    "index.html",
     "v6-beta15.html",
     "manifest.webmanifest",
     "icon-180.png",
@@ -83,11 +83,11 @@ def lan_ipv4() -> str:
 
 
 def local_url() -> str:
-    return f"http://127.0.0.1:{PORT}/{START_PAGE}"
+    return f"http://127.0.0.1:{PORT}/"
 
 
 def lan_url() -> str:
-    return f"http://{lan_ipv4()}:{PORT}/{START_PAGE}"
+    return f"http://{lan_ipv4()}:{PORT}/"
 
 
 def is_our_running_server() -> bool:
@@ -141,16 +141,13 @@ class WatchlistHandler(SimpleHTTPRequestHandler):
     def _send_public_file(self, include_body: bool) -> None:
         path_only = urlsplit(self.path).path
         if path_only == "/":
-            self.send_response(HTTPStatus.FOUND)
-            self.send_header("Location", f"/{START_PAGE}")
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            return
+            name = "index.html"
+        else:
+            name = self._clean_public_name()
         if path_only == MARKER_PATH:
             self._send_marker(include_body)
             return
 
-        name = self._clean_public_name()
         if not name:
             self.send_error(HTTPStatus.NOT_FOUND, "Not found")
             return
