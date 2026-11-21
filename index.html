@@ -269,6 +269,7 @@ const BASE_URLS=[
 const STORAGE_KEY='watchlist_v3',TOKEN_KEY='watchlist_tmdb_key',IMPORT_UNDO_KEY='watchlist_v3_import_undo';
 const SUPABASE_URL='https://owiqnzkavzjqbckstegc.supabase.co',SUPABASE_KEY='sb_publishable_PE807IeLQs8bng9MMI2Rhg_Ey2WPEYt';
 const CLOUD_SESSION_KEY='watchlist_supabase_session',CLOUD_SYNC_KEY='watchlist_supabase_sync',CLOUD_PULL_UNDO_KEY='watchlist_supabase_pull_undo',CLOUD_DEVICE_KEY='watchlist_device_id';
+const CLOUD_RECOVERY_SESSION_KEY='watchlist_supabase_recovery_session',CLOUD_RECOVERY_REDIRECT='https://aganunu.github.io/watchlist/',CLOUD_RECOVERY_TTL_MS=30*60*1000,CLOUD_AUTH_TIMEOUT_MS=15000,CLOUD_PASSWORD_MIN_LENGTH=8;
 const SUPABASE_AUTH_URL_KEYS=['access_token','refresh_token','expires_in','expires_at','token_type','type','provider_token','provider_refresh_token','code','error','error_code','error_description','token_hash'];
 const BACKUP_FORMAT='watchlist-full-backup',BACKUP_VERSION=1;
 const PINNED_HLS_LIBRARY='https://cdn.jsdelivr.net/npm/hls.js@1.7.1/dist/hls.min.js';
@@ -281,6 +282,7 @@ const PLAYER_REMOTE_STATE_LABELS=Object.freeze({'Connected':'Подключен�
 let BASE={movies:[],series:[]},state={},items=[],filtered=[],renderLimit=30,typeFilter='all',stateFilter='all',libraryQuery='',globalSearchQuery='',sortMode='rating',currentView='home',searchType='all';
 let pendingImportBackup=null;
 let cloudSession=null,cloudDeviceId='',cloudSyncBusy=false,cloudUiStatus='Локальный режим';
+let cloudAuthRouteBlocked=false,cloudAuthStartupNotice=null,modalDismissible=true;
 let addSearchState={query:'',results:[],scrollTop:0,searchRequest:0};
 let globalSearchState={results:[],status:'idle',error:'',request:0,timer:0};
 let addPreviewRequest=0;
@@ -448,6 +450,23 @@ function normalizeCloudSession(value){
   return session;
 }
 function loadCloudSession(){return normalizeCloudSession(readStoredJSON(CLOUD_SESSION_KEY))}
+function normalizeCloudRecoverySession(value){
+  if(!isPlainObject(value)||!['password','account-choice'].includes(value.phase)||!Number.isFinite(Number(value.startedAt)))return null;
+  if(Number(value.startedAt)>Date.now()+60000||Date.now()-Number(value.startedAt)>CLOUD_RECOVERY_TTL_MS)return null;
+  const session=normalizeCloudSession(value.session);if(!session||!session.user?.id||value.userId!==session.user.id)return null;
+  return {phase:value.phase,session,userId:value.userId,startedAt:Number(value.startedAt),existingUserId:value.existingUserId||null};
+}
+function loadCloudRecoverySession(){
+  const raw=sessionStorage.getItem(CLOUD_RECOVERY_SESSION_KEY);let value=null;try{value=JSON.parse(raw||'null')}catch(_){value=null}
+  const normalized=normalizeCloudRecoverySession(value);if(!normalized&&raw)sessionStorage.removeItem(CLOUD_RECOVERY_SESSION_KEY);return normalized;
+}
+function storeCloudRecoverySession(value){const normalized=normalizeCloudRecoverySession(value);if(!normalized)throw new Error('Некорректная recovery-сессия');sessionStorage.setItem(CLOUD_RECOVERY_SESSION_KEY,JSON.stringify(normalized));renderSyncCard();return normalized}
+function clearCloudRecoverySession(){sessionStorage.removeItem(CLOUD_RECOVERY_SESSION_KEY);renderSyncCard()}
+function authRequest(path,options={}){
+  const controller=typeof AbortController==='function'?new AbortController():null;let timeout=0;
+  const timeoutPromise=new Promise((_,reject)=>{timeout=setTimeout(()=>{controller?.abort();const error=new Error('Auth request timeout');error.name='AbortError';reject(error)},CLOUD_AUTH_TIMEOUT_MS)});
+  return Promise.race([supabaseJSON(path,Object.assign({},options,{signal:controller?.signal||null})),timeoutPromise]).finally(()=>clearTimeout(timeout));
+}
 function parseCloudAuthURL(href=location.href){
   const url=new URL(href),rawHash=url.hash.slice(1);let hashKind='route',hashRoute=rawHash,hashParams=null;
   const questionAt=rawHash.indexOf('?');
@@ -457,17 +476,35 @@ function parseCloudAuthURL(href=location.href){
   SUPABASE_AUTH_URL_KEYS.forEach(key=>{if(url.searchParams.has(key))values[key]=url.searchParams.get(key);if(hashParams&&hashParams.has(key))values[key]=hashParams.get(key)});
   return {url,values,hashKind,hashRoute,hashParams};
 }
-function clearCloudAuthURL(parsed){
+function clearCloudAuthURL(parsed,{hash=null}={}){
   const {url,hashKind,hashRoute,hashParams}=parsed;
   SUPABASE_AUTH_URL_KEYS.forEach(key=>url.searchParams.delete(key));
   if(hashParams){
     SUPABASE_AUTH_URL_KEYS.forEach(key=>hashParams.delete(key));const rest=hashParams.toString();
     if(hashKind==='route-query')url.hash=hashRoute+(rest?'?'+rest:'');else url.hash=rest;
   }
-  history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+  if(hash!==null)url.hash=hash;history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+}
+function isRetryableCloudAuthError(error){return error?.name==='AbortError'||!error?.status||Number(error.status)>=500}
+function invalidRecoveryMessage(){return 'Ссылка для восстановления недействительна или устарела. Запросите новое письмо.'}
+async function restoreCloudRecoveryCallback(stored,parsed){
+  const params=parsed.values;
+  if(params.error||!params.access_token||!params.refresh_token){clearCloudRecoverySession();clearCloudAuthURL(parsed,{hash:'#home'});cloudAuthStartupNotice={kind:'invalid',message:invalidRecoveryMessage()};return stored}
+  try{
+    const userResult=await authRequest('/auth/v1/user',{token:params.access_token}),user=isPlainObject(userResult?.user)?userResult.user:userResult;
+    if(!isPlainObject(user)||!user.id)throw Object.assign(new Error('Recovery user missing'),{status:401});
+    const recovery={access_token:params.access_token,refresh_token:params.refresh_token,token_type:params.token_type||'bearer',user},expiresIn=Number(params.expires_in),expiresAt=Number(params.expires_at);
+    if(Number.isFinite(expiresIn))recovery.expires_in=expiresIn;if(Number.isFinite(expiresAt))recovery.expires_at=expiresAt;
+    storeCloudRecoverySession({phase:'password',session:recovery,userId:user.id,startedAt:Date.now(),existingUserId:stored?.user?.id||null});
+    clearCloudAuthURL(parsed,{hash:'#recovery'});cloudUiStatus='Завершите смену пароля';return stored;
+  }catch(error){
+    if(isRetryableCloudAuthError(error)){cloudAuthRouteBlocked=true;cloudAuthStartupNotice={kind:'retry',message:cloudAuthErrorText(error)};return stored}
+    clearCloudRecoverySession();clearCloudAuthURL(parsed,{hash:'#home'});cloudAuthStartupNotice={kind:'invalid',message:invalidRecoveryMessage()};return stored;
+  }
 }
 async function restoreCloudSession(){
   const stored=loadCloudSession(),parsed=parseCloudAuthURL(),params=parsed.values;
+  if(params.type==='recovery')return restoreCloudRecoveryCallback(stored,parsed);
   if(!params.access_token||!params.refresh_token)return stored;
   try{
     const userResult=await supabaseJSON('/auth/v1/user',{token:params.access_token}),user=isPlainObject(userResult&&userResult.user)?userResult.user:userResult;
@@ -523,9 +560,20 @@ async function ensureCloudSession(){
     storeCloudSession(refreshed);return cloudSession;
   }catch(err){storeCloudSession(null);cloudUiStatus='Сессия истекла';throw new Error('Сессия истекла. Войдите снова.')}
 }
+async function ensureCloudRecoverySession(){
+  let recovery=loadCloudRecoverySession();if(!recovery)throw new Error(invalidRecoveryMessage());
+  if(!recovery.session.expires_at||Number(recovery.session.expires_at)>Math.floor(Date.now()/1000)+60)return recovery;
+  try{
+    const refreshed=await authRequest('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:recovery.session.refresh_token}}),session=normalizeCloudSession(refreshed);
+    if(!session||session.user.id!==recovery.userId)throw new Error('Recovery user mismatch');
+    recovery=storeCloudRecoverySession(Object.assign({},recovery,{session}));return recovery;
+  }catch(error){clearCloudRecoverySession();throw new Error(invalidRecoveryMessage())}
+}
 function syncTimeText(value){if(!value)return 'ещё не выполнялась';const date=new Date(value);return Number.isNaN(date.getTime())?'ещё не выполнялась':date.toLocaleString('ru-RU')}
 function renderSyncCard(){
   const host=$('#syncCard');if(!host)return;
+  const recovery=loadCloudRecoverySession();
+  if(recovery){host.innerHTML=`<div class="sync-head"><div><b>🔐 Завершите смену пароля</b><small>Облачная синхронизация приостановлена до завершения восстановления.</small></div><span class="sync-badge">Recovery</span></div><div class="sync-actions"><button type="button" class="small-btn gold" id="cloudResumeRecovery">Продолжить</button></div>`;$('#cloudResumeRecovery').onclick=()=>openCloudPasswordRecovery();return}
   const session=cloudSession||loadCloudSession(),user=session&&session.user,meta=loadCloudMeta(),hasUndo=!!localStorage.getItem(CLOUD_PULL_UNDO_KEY);
   if(!user){
     host.innerHTML=`<div class="sync-head"><div><b>☁️ Аккаунт и синхронизация</b><small>Приложение полностью работает локально. Вход нужен только для облачной копии.</small></div><span class="sync-badge">Локально</span></div><div class="sync-actions"><button type="button" class="small-btn gold" id="cloudOpenAuth">Войти / создать аккаунт</button></div>`;
@@ -536,10 +584,12 @@ function renderSyncCard(){
   $('#cloudSyncNow').onclick=syncCloudNow;$('#cloudSignOut').onclick=signOutCloud;
   if($('#cloudUndoPull'))$('#cloudUndoPull').onclick=undoLastCloudPull;
 }
-function openCloudAuth(){
-  openModal(`<h2>☁️ Аккаунт и синхронизация</h2><p style="color:var(--muted)">Войдите по email и паролю или создайте аккаунт. До входа все функции остаются локальными.</p><form class="sync-form" id="cloudAuthForm" novalidate><input id="cloudEmail" type="email" inputmode="email" autocomplete="email" placeholder="Email" aria-label="Email"><input id="cloudPassword" type="password" autocomplete="current-password" placeholder="Пароль" aria-label="Пароль"><div class="sync-actions"><button type="submit" class="small-btn gold" id="cloudSignIn">Войти</button><button type="button" class="small-btn" id="cloudSignUp">Создать аккаунт</button></div><p class="sync-auth-status" id="cloudAuthStatus" role="status" aria-live="polite"></p></form>`);
+function openCloudAuth(prefillEmail=''){
+  openModal(`<h2>☁️ Аккаунт и синхронизация</h2><p style="color:var(--muted)">Войдите по email и паролю или создайте аккаунт. До входа все функции остаются локальными.</p><form class="sync-form" id="cloudAuthForm" novalidate><input id="cloudEmail" type="email" inputmode="email" autocomplete="email" placeholder="Email" aria-label="Email" value="${esc(prefillEmail)}"><input id="cloudPassword" type="password" autocomplete="current-password" placeholder="Пароль" aria-label="Пароль"><div class="sync-actions"><button type="submit" class="small-btn gold" id="cloudSignIn">Войти</button><button type="button" class="small-btn" id="cloudSignUp">Создать аккаунт</button><button type="button" class="small-btn" id="cloudForgotPassword">Забыл пароль?</button></div><p class="sync-auth-status" id="cloudAuthStatus" role="status" aria-live="polite"></p></form>`);
   $('#cloudAuthForm').onsubmit=e=>{e.preventDefault();performCloudAuth('signin')};
   $('#cloudSignUp').onclick=e=>{e.preventDefault();performCloudAuth('signup')};
+  $('#cloudForgotPassword').onclick=e=>{e.preventDefault();openCloudRecoveryRequest($('#cloudEmail')?.value.trim()||'')};
+  requestAnimationFrame(()=>$('#cloudEmail')?.focus());
 }
 function cloudAuthErrorText(error){
   const raw=String(error?.message||'').trim();
@@ -560,6 +610,90 @@ async function performCloudAuth(mode){
     if(!result||!result.access_token){alert('Аккаунт создан. Если подтверждение email включено, откройте письмо и затем войдите.');return}
     storeCloudSession(result);cloudUiStatus='Вход выполнен';await openFirstCloudSync();
   }catch(err){if(status){status.textContent=cloudAuthErrorText(err);status.classList.add('error')}}finally{clearTimeout(timeout);buttons.forEach(button=>button.disabled=false);form?.removeAttribute('aria-busy')}
+}
+function cloudRecoveryErrorText(error){
+  const raw=String(error?.message||'');
+  if(error?.name==='AbortError')return 'Сервер не ответил вовремя. Проверьте интернет-соединение и повторите попытку.';
+  if(/weak|password.*(short|length)|at least/i.test(raw))return `Пароль должен содержать не менее ${CLOUD_PASSWORD_MIN_LENGTH} символов.`;
+  if(/same password|different from the old|new password.*same/i.test(raw))return 'Новый пароль должен отличаться от прежнего.';
+  if(/reauth|current password|recent login/i.test(raw))return 'Supabase требует повторного входа. Запросите новую ссылку восстановления.';
+  if(/expired|invalid.*(token|refresh)|session.*missing|already.*used/i.test(raw)||error?.status===401||error?.status===403)return invalidRecoveryMessage();
+  if(/failed to fetch|networkerror|load failed/i.test(raw))return 'Не удалось связаться с сервером. Проверьте интернет-соединение и повторите попытку.';
+  return raw?`Не удалось изменить пароль: ${raw}`:'Не удалось изменить пароль.';
+}
+function openCloudRecoveryRequest(prefillEmail=''){
+  openModal(`<h2>🔐 Восстановление пароля</h2><p style="color:var(--muted)">Введите email аккаунта. Мы отправим письмо со ссылкой для смены пароля.</p><form class="sync-form" id="cloudRecoveryRequestForm" novalidate><input id="cloudRecoveryEmail" type="email" inputmode="email" autocomplete="email" placeholder="Email" aria-label="Email" value="${esc(prefillEmail)}"><div class="sync-actions"><button type="submit" class="small-btn gold" id="cloudRecoverySend">Отправить письмо</button><button type="button" class="small-btn" id="cloudRecoveryBack">← Назад ко входу</button></div><p class="sync-auth-status" id="cloudRecoveryRequestStatus" role="status" aria-live="polite"></p></form>`);
+  $('#cloudRecoveryRequestForm').onsubmit=e=>{e.preventDefault();performCloudRecoveryRequest()};$('#cloudRecoveryBack').onclick=()=>openCloudAuth($('#cloudRecoveryEmail')?.value.trim()||'');
+  requestAnimationFrame(()=>$('#cloudRecoveryEmail')?.focus());
+}
+async function performCloudRecoveryRequest(){
+  const email=$('#cloudRecoveryEmail')?.value.trim()||'',status=$('#cloudRecoveryRequestStatus'),button=$('#cloudRecoverySend');
+  if(!email||!/^\S+@\S+\.\S+$/.test(email)){status.textContent='Введите корректный email.';status.classList.add('error');return}
+  if(button.disabled)return;
+  button.disabled=true;status.textContent='Отправляю письмо…';status.classList.remove('error');
+  try{
+    await authRequest('/auth/v1/recover?redirect_to='+encodeURIComponent(CLOUD_RECOVERY_REDIRECT),{method:'POST',body:{email}});
+    status.textContent='Письмо отправлено. Если аккаунт существует, ссылка придёт на указанный email.';
+  }catch(error){
+    if(error?.status===400||error?.status===404)status.textContent='Письмо отправлено. Если аккаунт существует, ссылка придёт на указанный email.';
+    else{status.textContent=error?.status===429?'Слишком много попыток. Подождите и повторите позже.':cloudRecoveryErrorText(error);status.classList.add('error')}
+  }finally{button.disabled=false}
+}
+function finishCloudRecovery(message,{allowSync=false,email='',keepCurrent=false}={}){
+  clearCloudRecoverySession();closeModal({force:true,route:false});writeAppRoute('#home',{replace:true,force:true});
+  openModal(`<h2>✅ Пароль изменён</h2><p>${esc(message)}</p><div class="sync-actions">${allowSync?'<button type="button" class="small-btn gold" id="cloudRecoveryContinueSync">Продолжить к синхронизации</button>':keepCurrent?'':`<button type="button" class="small-btn gold" id="cloudRecoverySignIn">Войти с новым паролем</button>`}<button type="button" class="small-btn" id="cloudRecoveryDone">Закрыть</button></div>`);
+  if($('#cloudRecoveryContinueSync'))$('#cloudRecoveryContinueSync').onclick=()=>{closeModal();openFirstCloudSync()};
+  if($('#cloudRecoverySignIn'))$('#cloudRecoverySignIn').onclick=()=>openCloudAuth(email);$('#cloudRecoveryDone').onclick=closeModal;
+}
+async function cancelCloudRecovery(){
+  const recovery=loadCloudRecoverySession();try{if(recovery)await authRequest('/auth/v1/logout',{method:'POST',token:recovery.session.access_token})}catch(_){}
+  clearCloudRecoverySession();closeModal({force:true,route:false});writeAppRoute('#home',{replace:true,force:true});showView('home',{restore:true,route:false});
+}
+function openCloudRecoveryAccountChoice(recovery){
+  const current=loadCloudSession(),fresh=recovery.session;
+  openModal(`<h2>Выберите аккаунт</h2><p>Пароль изменён для <b>${esc(fresh.user?.email||'восстановленного аккаунта')}</b>, но приложение уже подключено к другому аккаунту${current?.user?.email?` <b>${esc(current.user.email)}</b>`:''}.</p><p style="color:var(--muted)">До выбора облачная синхронизация не запускается.</p><div class="sync-actions"><button type="button" class="small-btn gold" id="cloudRecoverySwitchAccount">Переключиться</button><button type="button" class="small-btn" id="cloudRecoveryKeepAccount">Оставить текущий</button></div>`,{dismissible:false});
+  $('#cloudRecoverySwitchAccount').onclick=()=>{storeCloudSession(fresh);finishCloudRecovery('Пароль изменён, восстановленный аккаунт подключён.',{allowSync:true})};
+  $('#cloudRecoveryKeepAccount').onclick=async()=>{try{await authRequest('/auth/v1/logout',{method:'POST',token:fresh.access_token})}catch(_){}finishCloudRecovery('Пароль изменён. Текущий подключённый аккаунт сохранён.',{keepCurrent:true})};
+  requestAnimationFrame(()=>$('#cloudRecoverySwitchAccount')?.focus());
+}
+function canonicalizeInvalidRecoveryRoute(){
+  clearCloudRecoverySession();writeAppRoute('#home',{replace:true,force:true});if(currentView==='detail')abandonDetailPage();showView('home',{explicit:true,restore:true,scrollTop:false,route:false});
+}
+function openCloudPasswordRecovery(){
+  const recovery=loadCloudRecoverySession();if(!recovery){canonicalizeInvalidRecoveryRoute();cloudAuthStartupNotice={kind:'invalid',message:invalidRecoveryMessage()};showCloudAuthStartupNotice();return}
+  if(recovery.phase==='account-choice'){openCloudRecoveryAccountChoice(recovery);return}
+  openModal(`<h2>🔐 Новый пароль</h2><p style="color:var(--muted)">Задайте новый пароль для ${esc(recovery.session.user?.email||'аккаунта')}.</p><form class="sync-form" id="cloudPasswordRecoveryForm" novalidate><input id="cloudNewPassword" type="password" autocomplete="new-password" placeholder="Новый пароль" aria-label="Новый пароль"><input id="cloudRepeatPassword" type="password" autocomplete="new-password" placeholder="Повторите пароль" aria-label="Повторите пароль"><div class="sync-actions"><button type="submit" class="small-btn gold" id="cloudPasswordSave">Изменить пароль</button><button type="button" class="small-btn" id="cloudPasswordCancel">Отмена</button></div><p class="sync-auth-status" id="cloudPasswordRecoveryStatus" role="status" aria-live="polite"></p></form>`,{dismissible:false});
+  $('#cloudPasswordRecoveryForm').onsubmit=e=>{e.preventDefault();performCloudPasswordUpdate()};$('#cloudPasswordCancel').onclick=cancelCloudRecovery;requestAnimationFrame(()=>$('#cloudNewPassword')?.focus());
+}
+async function performCloudPasswordUpdate(){
+  let password=$('#cloudNewPassword')?.value||'',repeat=$('#cloudRepeatPassword')?.value||'';const status=$('#cloudPasswordRecoveryStatus'),button=$('#cloudPasswordSave');
+  if(button.disabled)return;
+  if(password.length<CLOUD_PASSWORD_MIN_LENGTH){status.textContent=`Пароль должен содержать не менее ${CLOUD_PASSWORD_MIN_LENGTH} символов.`;status.classList.add('error');return}
+  if(password!==repeat){status.textContent='Пароли не совпадают.';status.classList.add('error');return}
+  button.disabled=true;status.textContent='Изменяю пароль…';status.classList.remove('error');let updated=false,email='';
+  try{
+    const recovery=await ensureCloudRecoverySession(),result=await authRequest('/auth/v1/user',{method:'PUT',token:recovery.session.access_token,body:{password}}),updatedUser=result?.user||result;
+    if(updatedUser?.id&&updatedUser.id!==recovery.userId)throw Object.assign(new Error('Recovery user mismatch'),{status:401});updated=true;email=updatedUser?.email||recovery.session.user?.email||'';
+    let fresh=null;try{fresh=normalizeCloudSession(await authRequest('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password}}))}finally{$('#cloudNewPassword').value='';$('#cloudRepeatPassword').value='';password='';repeat=''}
+    if(fresh?.user?.id!==recovery.userId)throw Object.assign(new Error('Recovery user mismatch'),{status:401});
+    if(!fresh)throw new Error('Fresh sign-in failed');
+    const current=loadCloudSession();
+    if(current?.user?.id&&current.user.id!==fresh.user.id){storeCloudRecoverySession({phase:'account-choice',session:fresh,userId:fresh.user.id,startedAt:recovery.startedAt,existingUserId:current.user.id});openCloudRecoveryAccountChoice(loadCloudRecoverySession());return}
+    storeCloudSession(fresh);finishCloudRecovery('Пароль изменён, аккаунт подключён.',{allowSync:true});
+  }catch(error){
+    if(password||repeat){$('#cloudNewPassword').value='';$('#cloudRepeatPassword').value='';password='';repeat=''}
+    if(updated){clearCloudRecoverySession();finishCloudRecovery('Пароль изменён. Войдите с новым паролем.',{email});return}
+    status.textContent=cloudRecoveryErrorText(error);status.classList.add('error');if(/недействительна|устарела/i.test(status.textContent)){canonicalizeInvalidRecoveryRoute();setTimeout(()=>openCloudRecoveryRequest(email),0)}
+  }finally{button.disabled=false}
+}
+function showCloudAuthStartupNotice(){
+  const notice=cloudAuthStartupNotice;if(!notice)return;cloudAuthStartupNotice=null;
+  if(notice.kind==='retry'){
+    openModal(`<h2>Не удалось проверить recovery-ссылку</h2><p>${esc(notice.message)}</p><p style="color:var(--muted)">Параметры ссылки сохранены в адресе для безопасного повтора.</p><div class="sync-actions"><button type="button" class="small-btn gold" id="cloudRecoveryRetry">Повторить</button><button type="button" class="small-btn" id="cloudRecoveryAbort">Отмена</button></div>`,{dismissible:false});
+    $('#cloudRecoveryRetry').onclick=()=>location.reload();$('#cloudRecoveryAbort').onclick=()=>{clearCloudRecoverySession();clearCloudAuthURL(parseCloudAuthURL(),{hash:'#home'});cloudAuthRouteBlocked=false;closeModal({force:true,route:false});appRouteReady=true;applyAppRoute({initial:true})};return;
+  }
+  openModal(`<h2>Ссылка не подходит</h2><p>${esc(notice.message)}</p><div class="sync-actions"><button type="button" class="small-btn gold" id="cloudRecoveryRequestAgain">Запросить новое письмо</button><button type="button" class="small-btn" id="cloudRecoveryNoticeClose">Закрыть</button></div>`);
+  $('#cloudRecoveryRequestAgain').onclick=()=>openCloudRecoveryRequest();$('#cloudRecoveryNoticeClose').onclick=closeModal;
 }
 async function signOutCloud(){
   const session=cloudSession||loadCloudSession();
@@ -618,11 +752,12 @@ function openCloudSyncChoice(record,{conflict=false}={}){
   if(hasCloud)$('#cloudChooseDownload').onclick=()=>{if(!confirm('Заменить локальный кэш облачной копией? Перед заменой будет создан снимок для отката.'))return;try{applyCloudRecord(record);closeModal()}catch(err){alert('Синхронизация: '+err.message)}};
 }
 async function openFirstCloudSync(){
+  if(loadCloudRecoverySession()){openCloudPasswordRecovery();return}
   cloudSyncBusy=true;renderSyncCard();
   try{openCloudSyncChoice(await fetchCloudRecord())}catch(err){cloudUiStatus='Ошибка: '+err.message;alert('Синхронизация: '+err.message)}finally{cloudSyncBusy=false;renderSyncCard()}
 }
 async function syncCloudNow(){
-  if(cloudSyncBusy)return;cloudSyncBusy=true;cloudUiStatus='Проверяю revision…';renderSyncCard();
+  if(loadCloudRecoverySession()){openCloudPasswordRecovery();return}if(cloudSyncBusy)return;cloudSyncBusy=true;cloudUiStatus='Проверяю revision…';renderSyncCard();
   try{
     const session=await ensureCloudSession();if(!session){openCloudAuth();return}
     const record=await fetchCloudRecord(),meta=loadCloudMeta(),payload=cloudPayload(),localDigest=cloudStateDigest(payload),cloudDigest=record?cloudStateDigest(record.state):'',knownLocalDigest=meta.localDigest||meta.digest||'',knownCloudDigest=meta.cloudDigest||'',localChanged=!knownLocalDigest||knownLocalDigest!==localDigest,first=meta.userId!==session.user.id||meta.revision==null;
@@ -694,11 +829,11 @@ function appRouteHash(view=currentView,options={}){
     return '#home';
   }
   if(view==='profile'&&options.section&&['settings','data','about'].includes(options.section))return '#profile/'+options.section;
-  return ['home','list','search','profile'].includes(view)?'#'+view:'#home';
+  return ['home','list','search','profile','recovery'].includes(view)?'#'+view:'#home';
 }
 function parseAppRoute(hash=location.hash){
   const raw=String(hash||'').replace(/^#/,'');if(!raw)return {view:'home'};
-  if(['home','list','search','profile'].includes(raw))return {view:raw};
+  if(['home','list','search','profile','recovery'].includes(raw))return {view:raw};
   const profile=raw.match(/^profile\/(settings|data|about)$/);if(profile)return {view:'profile',section:profile[1]};
   const library=raw.match(/^detail\/library\/(.+)$/);if(library){try{return {view:'detail',descriptor:{kind:'library',id:decodeURIComponent(library[1])}}}catch(_){return null}}
   const tmdb=raw.match(/^detail\/tmdb\/(movie|tv)\/(\d+)$/);if(tmdb&&Number(tmdb[2])>0)return {view:'detail',descriptor:{kind:'tmdb',mediaType:tmdb[1],tmdbId:tmdb[2]}};
@@ -870,14 +1005,15 @@ function updateStats(){const watched=items.filter(isWatched).length,fav=items.fi
 function byId(id){return items.find(x=>idFor(x)===id)}
 function toggleFav(id){state.pins=state.pins||[];state.pins=state.pins.includes(id)?state.pins.filter(x=>x!==id):[...state.pins,id];saveState();rebuild()}
 function toggleWatched(id){state.watched=state.watched||[];state.watched=state.watched.includes(id)?state.watched.filter(x=>x!==id):[...state.watched,id];saveState();rebuild()}
-function openModal(html){$('#modal').innerHTML=`<button class="small-btn close" onclick="closeModal()">✕</button>${html}`;$('#modalBg').classList.remove('hidden')}
+function openModal(html,options={}){modalDismissible=options.dismissible!==false;$('#modal').innerHTML=`${modalDismissible?'<button class="small-btn close" onclick="closeModal()">✕</button>':''}${html}`;$('#modalBg').classList.remove('hidden')}
 function closeModal(options={}){
+  if(!modalDismissible&&!options.force)return;modalDismissible=true;
   $('#modalBg').classList.add('hidden');const profileSection=activeProfileRouteSection;activeProfileRouteSection='';
   if(!profileSection||options.route===false||appRouteApplying||!appRouteReady)return;
   if(history.state?.watchlistRoute===appRouteHash('profile',{section:profileSection})&&history.state?.parentRoute==='#profile')history.back();
   else{showView('profile',{restore:true,scrollTop:false,route:false});writeAppRoute('#profile',{replace:true})}
 }
-window.closeModal=closeModal;$('#modalBg').onclick=e=>{if(e.target===$('#modalBg'))closeModal()}
+window.closeModal=closeModal;$('#modalBg').onclick=e=>{if(e.target===$('#modalBg')&&modalDismissible)closeModal()}
 
 function openSubModal(title, bodyHtml, backFn){
   openModal(`<div class="modal-nav"><button class="modal-back" id="modalBack">← Назад</button></div><h2>${title}</h2>${bodyHtml}`);
@@ -1095,13 +1231,14 @@ function backFromDetailPage(){
 function sameDetailDescriptor(a,b){return detailDescriptorKey(a)!==''&&detailDescriptorKey(a)===detailDescriptorKey(b)}
 function canonicalAppRoute(route){return route?.view==='detail'?appRouteHash('detail',{descriptor:route.descriptor}):appRouteHash(route?.view||'home',{section:route?.section})}
 function applyAppRoute({initial=false}={}){
-  let route=parseAppRoute(),canonical='#home';appRouteApplying=true;
+  let route=parseAppRoute(),canonical='#home';const recovery=loadCloudRecoverySession();if(recovery)route={view:'recovery'};appRouteApplying=true;
   try{
     closeModal({route:false});activeProfileRouteSection='';
     if(currentView==='player')abandonPlayerView();
     if(route?.view==='detail'&&route.descriptor?.kind==='library'&&!byId(route.descriptor.id))route=null;
-    if(!route){if(currentView==='detail')abandonDetailPage();showView('home',{explicit:true,restore:true,scrollTop:false,route:false});canonical='#home';return}
+    if(!route||route.view==='recovery'&&!recovery){canonical='#home';if(route?.view==='recovery'){canonicalizeInvalidRecoveryRoute();cloudAuthStartupNotice={kind:'invalid',message:invalidRecoveryMessage()};showCloudAuthStartupNotice()}else{if(currentView==='detail')abandonDetailPage();showView('home',{explicit:true,restore:true,scrollTop:false,route:false})}return}
     canonical=canonicalAppRoute(route);
+    if(route.view==='recovery'){showView('home',{restore:true,scrollTop:false,route:false});openCloudPasswordRecovery();return}
     if(route.view==='detail'){
       if(currentView==='detail'&&sameDetailDescriptor(activeDetailDescriptor,route.descriptor))return;
       openDetailPage(route.descriptor,{route:false,itemKey:detailDescriptorKey(route.descriptor),triggerRole:'details'});return;
@@ -2594,7 +2731,7 @@ $$('[data-type]').forEach(b=>b.onclick=()=>{$$('[data-type]').forEach(x=>x.class
 $$('[data-state]').forEach(b=>b.onclick=()=>{const was=b.classList.contains('active');$$('[data-state]').forEach(x=>x.classList.remove('active'));stateFilter=was?'all':b.dataset.state;if(!was)b.classList.add('active');applyFilters()});
 $$('[data-search-type]').forEach(b=>b.onclick=()=>{$$('[data-search-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active');searchType=b.dataset.searchType;renderSearch()});
 $$('[data-state-go]').forEach(b=>b.addEventListener('click',()=>{stateFilter=b.dataset.stateGo||'all';showView('list');$$('[data-state]').forEach(x=>x.classList.toggle('active',x.dataset.state===stateFilter));applyFilters()}));
-;(async()=>{try{loadState();cloudSession=await restoreCloudSession();cloudDeviceId=loadCloudDeviceId();BASE=await fetchBase();rebuild();appRouteReady=true;applyAppRoute({initial:true})}catch(e){$('#heroCount').textContent='Ошибка загрузки';$('#list').innerHTML='<div class="empty">'+esc(e.message)+'</div>'}})()
+;(async()=>{try{loadState();cloudSession=await restoreCloudSession();cloudDeviceId=loadCloudDeviceId();BASE=await fetchBase();rebuild();if(cloudAuthRouteBlocked){showView('home',{restore:true,route:false});showCloudAuthStartupNotice();return}appRouteReady=true;applyAppRoute({initial:true});if(cloudAuthStartupNotice)showCloudAuthStartupNotice()}catch(e){$('#heroCount').textContent='Ошибка загрузки';$('#list').innerHTML='<div class="empty">'+esc(e.message)+'</div>'}})()
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=beta15-pwa-1',{updateViaCache:'none'}).catch(error=>console.warn('Service worker registration failed',error)),{once:true});
 }
