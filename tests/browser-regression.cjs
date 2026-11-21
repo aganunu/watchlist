@@ -79,7 +79,7 @@ async function main() {
   }
 
   async function openApp({pathName = '/', viewport = {width: 1280, height: 720}, stateRaw = JSON.stringify(STATE_FIXTURE), normalSession = null, recoverySession = null, backupValue = null, auth = {}} = {}) {
-    const counters = {recover: 0, update: 0, passwordGrant: 0, rest: 0, logout: 0};
+    const counters = {recover: 0, signup: 0, update: 0, passwordGrant: 0, rest: 0, logout: 0};
     const context = await browser.newContext({viewport, serviceWorkers: 'block'});
     await context.addInitScript(config => {
       if (location.origin !== config.origin) return;
@@ -100,7 +100,8 @@ async function main() {
       if (url.hostname === SUPABASE_HOST) {
         const request = route.request(), method = request.method(), pathname = url.pathname;
         const json = (status, body) => route.fulfill({status, contentType: 'application/json', body: JSON.stringify(body)});
-        if (pathname === '/auth/v1/recover') {counters.recover += 1;await json(auth.recoverStatus || 200, auth.recoverStatus ? {message: 'mock failure'} : {});return;}
+        if (pathname === '/auth/v1/recover') {counters.recover += 1;if (auth.recoverNetwork) {await route.abort();return;}await json(auth.recoverStatus || 200, auth.recoverStatus ? {message: 'mock failure'} : {});return;}
+        if (pathname === '/auth/v1/signup') {counters.signup += 1;await json(auth.signupStatus || 200, auth.signupStatus ? {message: 'mock signup failure'} : session(USERS.normal, 'signup'));return;}
         if (pathname === '/auth/v1/user' && method === 'GET') {
           const token = (request.headers().authorization || '').replace(/^Bearer\s+/i, '');
           const user = token.startsWith('recovery-') ? USERS.recovered : USERS.normal;
@@ -109,6 +110,7 @@ async function main() {
         if (pathname === '/auth/v1/user' && method === 'PUT') {counters.update += 1;await json(auth.updateStatus || 200, auth.updateStatus ? {message: 'mock update failure'} : USERS.recovered);return;}
         if (pathname === '/auth/v1/token' && url.searchParams.get('grant_type') === 'password') {
           counters.passwordGrant += 1;
+          if (auth.passwordStatus) {await json(auth.passwordStatus, {message: auth.passwordMessage || 'Invalid login credentials'});return;}
           if (auth.freshLoginFails) {await json(503, {message: 'temporary sign-in failure'});return;}
           await json(200, session(USERS.recovered));return;
         }
@@ -156,6 +158,30 @@ async function main() {
       await app.close();
     });
 
+    await run('sign-in form submits once and shows a localized mocked Auth error', async () => {
+      const app = await openApp({auth: {passwordStatus: 400}});await app.page.evaluate(() => openCloudAuth());
+      await app.page.locator('#cloudEmail').fill('nobody@example.test');await app.page.locator('#cloudPassword').fill('wrong-password');
+      await app.page.locator('#cloudSignIn').click();await app.page.getByText('Неверный email или пароль.').waitFor();
+      assert.equal(app.counters.passwordGrant, 1);assert.equal(await app.page.evaluate(key => localStorage.getItem(key), SESSION_KEY), null);await app.close();
+    });
+
+    await run('sign-up uses the mocked Auth endpoint and stores its returned session', async () => {
+      const app = await openApp();await app.page.evaluate(() => openCloudAuth());
+      await app.page.locator('#cloudEmail').fill('new@example.test');await app.page.locator('#cloudPassword').fill('validpass1');await app.page.locator('#cloudSignUp').click();
+      await app.page.waitForFunction(key => !!localStorage.getItem(key), SESSION_KEY);const stored=JSON.parse(await app.page.evaluate(key => localStorage.getItem(key), SESSION_KEY));
+      assert.equal(app.counters.signup,1);assert.equal(stored.access_token,'signup-access');await app.close();
+    });
+
+    await run('recovery request is non-enumerating for a mocked unknown account', async () => {
+      const app = await openApp({auth:{recoverStatus:404}});await app.page.evaluate(() => openCloudRecoveryRequest());await app.page.locator('#cloudRecoveryEmail').fill('unknown@example.test');await app.page.locator('#cloudRecoverySend').click();
+      await app.page.getByText('Письмо отправлено. Если аккаунт существует, ссылка придёт на указанный email.').waitFor();assert.equal(app.counters.recover,1);await app.close();
+    });
+
+    await run('recovery request surfaces a localized mocked network failure', async () => {
+      const app = await openApp({auth:{recoverNetwork:true}});await app.page.evaluate(() => openCloudRecoveryRequest());await app.page.locator('#cloudRecoveryEmail').fill('user@example.test');await app.page.locator('#cloudRecoverySend').click();
+      await app.page.getByText(/Не удалось связаться|Сервер не ответил/).waitFor();assert.equal(app.counters.recover,1);await app.close();
+    });
+
     await run('direct library detail route renders the requested item', async () => {
       const id = encodeURIComponent('M::Тестовый фильм::2024'), app = await openApp({pathName: `/#detail/library/${id}`});
       await app.page.locator('#view-detail.active').waitFor();assert.equal(await app.page.locator('#detailTitle').innerText(), 'Тестовый фильм');await app.close();
@@ -174,6 +200,16 @@ async function main() {
       assert.equal(new URL(app.page.url()).hash, '#recovery');assert.match(await app.page.locator('#modal').innerText(), /Новый пароль/);
       const storage = await app.page.evaluate(([key, normal]) => ({recovery: sessionStorage.getItem(key), localRecovery: localStorage.getItem(key), normal: localStorage.getItem(normal)}), [RECOVERY_KEY, SESSION_KEY]);
       assert.ok(storage.recovery);assert.equal(storage.localRecovery, null);assert.equal(storage.normal, null);await app.close();
+    });
+
+    await run('recovery callback without refresh token is rejected without promoting a session', async () => {
+      const app = await openApp({pathName: '/#access_token=recovery-access&type=recovery'});assert.equal(new URL(app.page.url()).hash,'#home');assert.match(await app.page.locator('#modal').innerText(),/Ссылка не подходит/);
+      assert.equal(await app.page.evaluate(key => localStorage.getItem(key), SESSION_KEY),null);assert.equal(await app.page.evaluate(key => sessionStorage.getItem(key), RECOVERY_KEY),null);await app.close();
+    });
+
+    await run('retryable recovery callback failure preserves callback URL for retry', async () => {
+      const app = await openApp({pathName: '/#access_token=recovery-access&refresh_token=recovery-refresh&expires_in=3600&type=recovery',auth:{userStatus:503}});
+      await app.page.getByText('Не удалось проверить recovery-ссылку').waitFor();assert.match(app.page.url(),/access_token=recovery-access/);assert.equal(await app.page.evaluate(key => localStorage.getItem(key), SESSION_KEY),null);await app.close();
     });
 
     await run('cloud sync stays blocked while recovery is pending', async () => {
@@ -234,6 +270,32 @@ async function main() {
 
     await run('unrelated local backup data survives reload', async () => {
       const app = await openApp({backupValue: '{"fixture":true}'});await app.page.reload();await app.page.waitForFunction(() => !document.querySelector('#heroCount')?.textContent.includes('Загрузка'));assert.equal(await app.page.evaluate(() => localStorage.getItem('fixture_backup')), '{"fixture":true}');await app.close();
+    });
+
+    await run('null or malformed watchlist state boots without overwriting stored data', async () => {
+      for (const raw of ['null', JSON.stringify({watched:{},pins:'bad',addedItems:{},tmdbMeta:[],ratings:[],notes:[]}), JSON.stringify({addedItems:[null,{title:'Валидная позиция',year:2024,type:'M',genres:{}}],identities:{'M::Тестовый фильм::2024':{aliases:{}}},titleAliases:{'M::Тестовый фильм::2024':{}},tmdbMeta:{broken:'bad'}})]) {
+        const app = await openApp({stateRaw: raw});
+        assert.doesNotMatch(await app.page.locator('#heroCount').innerText(), /Ошибка загрузки/);
+        assert.equal(await app.page.evaluate(key => localStorage.getItem(key), STATE_KEY), raw);
+        const shape = await app.page.evaluate(() => ({watched:Array.isArray(state.watched),pins:Array.isArray(state.pins),addedItems:Array.isArray(state.addedItems),tmdbMeta:!!state.tmdbMeta&&!Array.isArray(state.tmdbMeta),ratings:!!state.ratings&&!Array.isArray(state.ratings),notes:!!state.notes&&!Array.isArray(state.notes)}));
+        assert.deepEqual(shape, {watched:true,pins:true,addedItems:true,tmdbMeta:true,ratings:true,notes:true});
+        assert.equal(await app.page.evaluate(() => items.every(item => typeof searchableText(item)==='string')),true);
+        assert.deepEqual(app.errors, []);await app.close();
+      }
+    });
+
+    await run('imported titles cannot execute inline handlers and unsafe external URLs are omitted', async () => {
+      const title = "Карточка');globalThis.__watchlistInjected=true;//";
+      const item = {title,year:2024,type:'M',rating:7,desc:'Безопасная проверка',kp_url:'javascript:globalThis.__watchlistInjected=true'};
+      const unsafeYear = '2024<img src=x onerror="globalThis.__watchlistYearInjected=true">';
+      const raw = JSON.stringify(Object.assign({}, STATE_FIXTURE, {addedItems:[item,{title:'Год из импорта',year:unsafeYear,type:'M',rating:6}]})), id = `M::${title}::2024`;
+      const app = await openApp({stateRaw: raw});
+      assert.equal(await app.page.evaluate(() => globalThis.__watchlistYearInjected === true), false);
+      await app.page.evaluate(value => openDetails(value), id);
+      await app.page.locator('#modalFavAction').click();
+      assert.equal(await app.page.evaluate(() => globalThis.__watchlistInjected === true), false);
+      assert.equal(await app.page.locator('#modal a[href^="javascript:"]').count(), 0);
+      await app.close();
     });
 
     await run('390px layout has no horizontal document overflow', async () => {

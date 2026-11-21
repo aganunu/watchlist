@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const {execFileSync} = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
@@ -63,4 +64,21 @@ test('repository contains no service-role key or committed environment file', ()
   for (const name of ['index.html', 'sw.js', 'supabase/functions/tmdb/index.ts']) {
     assert.doesNotMatch(read(name).toLowerCase(), /service[_-]?role|supabase_service/);
   }
+});
+
+test('tracked text files contain no obvious committed secret values', () => {
+  const names = execFileSync('git', ['ls-files', '-z'], {cwd: root, encoding: 'utf8'}).split('\0').filter(Boolean);
+  const textExtensions = new Set(['.html', '.js', '.cjs', '.ts', '.json', '.md', '.py', '.yml', '.yaml', '.bat', '.webmanifest']);
+  for (const name of names.filter(name => textExtensions.has(path.extname(name)))) {
+    const source = read(name);
+    assert.doesNotMatch(source, /sb_secret_[A-Za-z0-9_-]{16,}/, `${name} contains a Supabase secret key`);
+    assert.doesNotMatch(source, /eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/, `${name} contains a JWT-like token`);
+    assert.doesNotMatch(source, /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/, `${name} contains a private key`);
+  }
+});
+
+test('browser harness uses a pinned public dependency without Codex runtime paths', () => {
+  const pkg = JSON.parse(read('package.json')), harness = read('tests/browser-regression.cjs');
+  assert.equal(pkg.devDependencies['playwright-core'], '1.62.1');
+  assert.doesNotMatch(harness, /codex-runtimes|NODE_PATH|\.cache[\\/]codex/i);
 });

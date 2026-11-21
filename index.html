@@ -294,6 +294,7 @@ let appRouteReady=false,appRouteApplying=false,activeProfileRouteSection='';
 const addDetailsCache=new Map(),seasonDetailsCache=new Map();
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function safeExternalUrl(value){try{const url=new URL(String(value||''));return url.protocol==='https:'||url.protocol==='http:'?url.href:''}catch(_){return ''}}
 const norm=s=>String(s||'').toLocaleLowerCase('ru-RU').replace(/ё/g,'е').normalize('NFKC');
 const idFor=it=>(it.type||'M')+'::'+it.title+'::'+(it.year||'');
 
@@ -440,8 +441,18 @@ function isPlaybackProgressResumable(entry){return !!entry&&!entry.completed&&en
 function resumablePlaybackProgress(target){
   const entry=playbackProgressForTarget(target);return isPlaybackProgressResumable(entry)?entry:null;
 }
-function loadState(){try{state=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch(e){state={}};state.watched=state.watched||[];state.pins=state.pins||[];state.addedItems=state.addedItems||[];state.tmdbMeta=state.tmdbMeta||{};state.ratings=state.ratings||{};state.notes=state.notes||{};normalizeTonightSelection(state);normalizePlaybackProgress(state);ensureIdentityState();ensureBatchState()}
-function saveState(){normalizeTonightSelection(state);normalizePlaybackProgress(state);ensureIdentityState();ensureBatchState();localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
+function normalizeWatchlistStateShape(value){
+  const target=isPlainObject(value)?value:{};
+  ['watched','pins','addedItems','identityHistory','batchHistory','tmdbAuditLog','tmdbUpdateHistory','tmdbReviewSkipped','tmdbUnresolved'].forEach(key=>{if(!Array.isArray(target[key]))target[key]=[]});
+  ['tmdbMeta','ratings','notes','identities','titleAliases'].forEach(key=>{if(!isPlainObject(target[key]))target[key]={}});
+  target.addedItems=target.addedItems.filter(item=>isPlainObject(item)&&typeof item.title==='string'&&item.title.trim()).map(item=>{if(!Array.isArray(item.genres))item.genres=[];return item});
+  Object.keys(target.identities).forEach(key=>{const entry=target.identities[key];if(!isPlainObject(entry)){delete target.identities[key];return}if(!Array.isArray(entry.aliases))entry.aliases=[]});
+  Object.keys(target.titleAliases).forEach(key=>{if(!Array.isArray(target.titleAliases[key]))target.titleAliases[key]=[]});
+  Object.keys(target.tmdbMeta).forEach(key=>{if(!isPlainObject(target.tmdbMeta[key]))delete target.tmdbMeta[key]});
+  normalizeTonightSelection(target);normalizePlaybackProgress(target);return target;
+}
+function loadState(){let stored;try{stored=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch(e){stored={}};state=normalizeWatchlistStateShape(stored);ensureIdentityState();ensureBatchState()}
+function saveState(){state=normalizeWatchlistStateShape(state);ensureIdentityState();ensureBatchState();localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
 function readStoredJSON(key){try{return JSON.parse(localStorage.getItem(key)||'null')}catch(e){return null}}
 function normalizeCloudSession(value){
   if(!isPlainObject(value)||!value.access_token||!value.refresh_token||!isPlainObject(value.user))return null;
@@ -731,13 +742,13 @@ async function uploadCloudState(expectedRevision){
 function savePreCloudPullSnapshot(){localStorage.setItem(CLOUD_PULL_UNDO_KEY,JSON.stringify({at:new Date().toISOString(),state:cloneJSON(state)}))}
 function applyCloudRecord(record){
   if(!record||!isPlainObject(record.state))throw new Error('Облачное состояние имеет неверный формат');
-  savePreCloudPullSnapshot();state=cloneJSON(record.state);normalizeTonightSelection(state);ensureIdentityState();ensureBatchState();saveState();rebuild();storeSyncedMeta(record,cloudPayload());cloudUiStatus=`Получена облачная копия · revision ${record.revision}`;renderSyncCard();
+  savePreCloudPullSnapshot();state=normalizeWatchlistStateShape(cloneJSON(record.state));ensureIdentityState();ensureBatchState();saveState();rebuild();storeSyncedMeta(record,cloudPayload());cloudUiStatus=`Получена облачная копия · revision ${record.revision}`;renderSyncCard();
 }
 function undoLastCloudPull(){
   try{
     const snapshot=readStoredJSON(CLOUD_PULL_UNDO_KEY);if(!isPlainObject(snapshot)||!isPlainObject(snapshot.state))throw new Error('снимок отсутствует или повреждён');
     if(!confirm('Вернуть локальные данные к состоянию до получения облачной копии?'))return;
-    state=cloneJSON(snapshot.state);normalizeTonightSelection(state);ensureIdentityState();ensureBatchState();saveState();localStorage.removeItem(CLOUD_PULL_UNDO_KEY);rebuild();cloudUiStatus='Получение из облака отменено; локальные данные изменены';renderSyncCard();
+    state=normalizeWatchlistStateShape(cloneJSON(snapshot.state));ensureIdentityState();ensureBatchState();saveState();localStorage.removeItem(CLOUD_PULL_UNDO_KEY);rebuild();cloudUiStatus='Получение из облака отменено; локальные данные изменены';renderSyncCard();
   }catch(err){alert('Не удалось отменить получение: '+err.message)}
 }
 function syncSummaryHTML(label,value){
@@ -926,7 +937,7 @@ function rowHTML(it){
   const p=posterOf(it),r=ratingOf(it),id=esc(idFor(it)),genres=(it.genres||[]).slice(0,3).filter(Boolean);
   return `<article class="row" data-id="${id}">
     <button type="button" class="row-poster detail-trigger detail-poster" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}"></button>
-    <div><h3><button type="button" class="detail-trigger detail-title" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></h3>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<div class="original-line">${esc(identityFor(it).original_title)}</div>`:''}<div class="row-meta">${it.year||'Год не указан'} · ${it.type==='M'?'Фильм':'Сериал'}${genres.length?` · <span class="row-genres">${genres.map(esc).join(', ')}</span>`:''}</div>${isWatched(it)?'<div class="row-watched-badge">✓ Просмотрено</div>':''}<div class="row-rating-mobile">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</div><div class="row-desc">${esc(it.desc||'Описание пока отсутствует')}</div></div>
+    <div><h3><button type="button" class="detail-trigger detail-title" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></h3>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<div class="original-line">${esc(identityFor(it).original_title)}</div>`:''}<div class="row-meta">${esc(it.year||'Год не указан')} · ${it.type==='M'?'Фильм':'Сериал'}${genres.length?` · <span class="row-genres">${genres.map(esc).join(', ')}</span>`:''}</div>${isWatched(it)?'<div class="row-watched-badge">✓ Просмотрено</div>':''}<div class="row-rating-mobile">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</div><div class="row-desc">${esc(it.desc||'Описание пока отсутствует')}</div></div>
     <div class="row-actions"><span class="rating">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</span>
       <button class="small-btn more-toggle" aria-label="Действия">•••</button>
     </div>
@@ -949,7 +960,7 @@ function bindDetailTriggers(root=document){
 }
 
 function applyFilters(){const query=norm(libraryQuery.trim());filtered=items.filter(it=>{if(query&&!searchableText(it).includes(query))return false;if(typeFilter!=='all'&&it.type!==typeFilter)return false;if(stateFilter==='watched'&&!isWatched(it))return false;if(stateFilter==='unwatched'&&isWatched(it))return false;if(stateFilter==='favorite'&&!isFav(it))return false;return true});filtered.sort((a,b)=>sortMode==='title'?titleCompare(a,b):sortMode==='year'?(b.year||0)-(a.year||0):ratingCompare(a,b));renderLimit=30;renderList()}
-function cardHTML(it){const p=posterOf(it),r=ratingOf(it),id=esc(idFor(it));return `<article class="media-card" data-id="${id}"><button type="button" class="poster detail-trigger detail-poster" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}">${isWatched(it)?'<span class="poster-watched-badge" aria-hidden="true">✓</span>':''}<span class="poster-title">${esc(it.title)}</span></button><div class="card-info"><b><button type="button" class="detail-trigger detail-title" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></b>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<span class="original-line">${esc(identityFor(it).original_title)}</span>`:''}<span>${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}</span><span class="r">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</span></div></article>`}
+function cardHTML(it){const p=posterOf(it),r=ratingOf(it),id=esc(idFor(it));return `<article class="media-card" data-id="${id}"><button type="button" class="poster detail-trigger detail-poster" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}">${isWatched(it)?'<span class="poster-watched-badge" aria-hidden="true">✓</span>':''}<span class="poster-title">${esc(it.title)}</span></button><div class="card-info"><b><button type="button" class="detail-trigger detail-title" data-id="${id}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></b>${identityFor(it).original_title&&norm(identityFor(it).original_title)!==norm(it.title)?`<span class="original-line">${esc(identityFor(it).original_title)}</span>`:''}<span>${esc(it.year||'—')} · ${it.type==='M'?'Фильм':'Сериал'}</span><span class="r">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</span></div></article>`}
 function playbackTargetFromProgressEntry(entry){
   const library=entry.libraryId?byId(entry.libraryId):null;
   return {kind:entry.kind,identityKey:entry.identityKey,mediaType:entry.mediaType,title:library?.title||entry.title||'Без названия',year:library?.year||entry.year||'',poster:posterOf(library||{})||entry.poster||'',libraryId:library?idFor(library):entry.libraryId||undefined,tmdbId:entry.tmdbId??undefined,seasonNumber:entry.seasonNumber,episodeNumber:entry.episodeNumber,episodeTitle:entry.episodeTitle||''};
@@ -1091,9 +1102,10 @@ async function loadExtendedTmdbDetails(it,id,ref,request,randomMode=false){
 }
 function openDetails(id,options={}){
   const it=byId(id);if(!it)return;
-  const randomMode=!!options.random,request=++detailLoadRequest,p=posterOf(it),r=ratingOf(it),ident=identityFor(it),genres=(it.genres||[]).filter(Boolean),ref=tmdbReferenceFor(it),needsLoad=!!ref&&!hasExtendedTmdbDetails(it);
-  openModal(`<h2>${esc(it.title)}${ident.original_title&&norm(ident.original_title)!==norm(it.title)?`<div class="original-line">${esc(ident.original_title)}${ident.status==='confirmed'?' <span class="identity-status">TMDB подтверждено</span>':''}</div>`:''}</h2><div class="detail-layout"><div class="row-poster" style="width:110px;${p?`background-image:url('${esc(p)}')`:''}"></div><div><div class="rating">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</div><p class="detail-meta">${esc(it.year||'Год не указан')} · ${it.type==='M'?'Фильм':'Сериал'}</p>${genres.length?`<p class="detail-genres">${genres.map(esc).join(', ')}</p>`:''}${extendedDetailsHTML(it)}${needsLoad?`<div class="detail-extra" id="detailExtendedLoading" data-id="${esc(id)}">Загружаю данные о хронометраже и сезонах…</div>`:''}<p style="color:var(--muted);line-height:1.5">${esc(it.desc||'')}</p></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:15px">${randomMode?'<button class="small-btn gold" id="randomAgain">🎲 Ещё вариант</button>':''}<button class="small-btn ${isFav(it)?'on':''}" onclick="modalFav('${esc(id)}',${randomMode})">${isFav(it)?'★ В избранном':'☆ В избранное'}</button><button class="small-btn ${isWatched(it)?'on':''}" onclick="modalWatched('${esc(id)}',${randomMode})">${isWatched(it)?'✓ Просмотрено':'○ Отметить просмотренным'}</button><button class="small-btn" onclick="modalTonight('${esc(id)}')">🌆 На вечер</button><button class="small-btn gold" id="watchOpen">▶ Смотреть</button><a class="small-btn" style="text-decoration:none" target="_blank" rel="noopener noreferrer" href="${esc(it.kp_url||'#')}">Кинопоиск ↗</a></div>`);
+  const randomMode=!!options.random,request=++detailLoadRequest,p=posterOf(it),r=ratingOf(it),ident=identityFor(it),genres=(it.genres||[]).filter(Boolean),ref=tmdbReferenceFor(it),needsLoad=!!ref&&!hasExtendedTmdbDetails(it),kpUrl=safeExternalUrl(it.kp_url);
+  openModal(`<h2>${esc(it.title)}${ident.original_title&&norm(ident.original_title)!==norm(it.title)?`<div class="original-line">${esc(ident.original_title)}${ident.status==='confirmed'?' <span class="identity-status">TMDB подтверждено</span>':''}</div>`:''}</h2><div class="detail-layout"><div class="row-poster" style="width:110px;${p?`background-image:url('${esc(p)}')`:''}"></div><div><div class="rating">${r!=null?'★ '+Number(r).toFixed(1):'★ —'}</div><p class="detail-meta">${esc(it.year||'Год не указан')} · ${it.type==='M'?'Фильм':'Сериал'}</p>${genres.length?`<p class="detail-genres">${genres.map(esc).join(', ')}</p>`:''}${extendedDetailsHTML(it)}${needsLoad?`<div class="detail-extra" id="detailExtendedLoading" data-id="${esc(id)}">Загружаю данные о хронометраже и сезонах…</div>`:''}<p style="color:var(--muted);line-height:1.5">${esc(it.desc||'')}</p></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:15px">${randomMode?'<button class="small-btn gold" id="randomAgain">🎲 Ещё вариант</button>':''}<button class="small-btn ${isFav(it)?'on':''}" id="modalFavAction">${isFav(it)?'★ В избранном':'☆ В избранное'}</button><button class="small-btn ${isWatched(it)?'on':''}" id="modalWatchedAction">${isWatched(it)?'✓ Просмотрено':'○ Отметить просмотренным'}</button><button class="small-btn" id="modalTonightAction">🌆 На вечер</button><button class="small-btn gold" id="watchOpen">▶ Смотреть</button>${kpUrl?`<a class="small-btn" style="text-decoration:none" target="_blank" rel="noopener noreferrer" href="${esc(kpUrl)}">Кинопоиск ↗</a>`:''}</div>`);
   if(randomMode)$('#randomAgain').onclick=()=>openRandomDetails(id);
+  $('#modalFavAction').onclick=()=>window.modalFav(id,randomMode);$('#modalWatchedAction').onclick=()=>window.modalWatched(id,randomMode);$('#modalTonightAction').onclick=()=>window.modalTonight(id);
   $('#watchOpen').onclick=()=>openWatchPicker(id,randomMode);
   if(needsLoad)loadExtendedTmdbDetails(it,id,ref,request,randomMode);
 }
@@ -1125,7 +1137,7 @@ function findTmdbLibraryItem(mediaType,tmdbId){
 }
 function libraryDetailModel(it,details=null){
   const remote=details?tmdbDetailPresentation(details):null,ident=identityFor(it),extended=Object.assign({},it,details?extendedTmdbFields(details):{});
-  return {kind:'library',libraryItem:it,mediaType:it.type==='S'?'tv':'movie',tmdbId:tmdbReferenceFor(it)?.id??null,title:it.title,original:ident.original_title||it.original_title||remote?.original||'',year:it.year||remote?.year||'',rating:ratingOf(it)??remote?.rating??null,poster:posterOf(it)||remote?.poster||'',genres:(it.genres||[]).filter(Boolean).length?(it.genres||[]).filter(Boolean):(remote?.genres||[]),countries:remote?.countries||[],premiere:remote?.premiere||'',overview:it.desc||remote?.overview||'Описание пока не добавлено.',extendedHtml:extendedDetailsHTML(extended,{tonightLibraryId:idFor(it)}),identityConfirmed:ident.status==='confirmed',kpUrl:it.kp_url||''};
+  return {kind:'library',libraryItem:it,mediaType:it.type==='S'?'tv':'movie',tmdbId:tmdbReferenceFor(it)?.id??null,title:it.title,original:ident.original_title||it.original_title||remote?.original||'',year:it.year||remote?.year||'',rating:ratingOf(it)??remote?.rating??null,poster:posterOf(it)||remote?.poster||'',genres:(it.genres||[]).filter(Boolean).length?(it.genres||[]).filter(Boolean):(remote?.genres||[]),countries:remote?.countries||[],premiere:remote?.premiere||'',overview:it.desc||remote?.overview||'Описание пока не добавлено.',extendedHtml:extendedDetailsHTML(extended,{tonightLibraryId:idFor(it)}),identityConfirmed:ident.status==='confirmed',kpUrl:safeExternalUrl(it.kp_url)};
 }
 function globalDetailModel(details){
   const x=tmdbDetailPresentation(details);
@@ -1649,6 +1661,7 @@ function mergePlaybackProgress(a,b){
   const holder={playbackProgress:merged};normalizePlaybackProgress(holder);return holder.playbackProgress;
 }
 function mergeWatchlistState(current,incoming){
+  current=normalizeWatchlistStateShape(cloneJSON(current));incoming=normalizeWatchlistStateShape(cloneJSON(incoming));
   const out=mergeGeneric(current,incoming),currentTonight=cloneJSON(isPlainObject(current)?current:{}),incomingTonight=cloneJSON(isPlainObject(incoming)?incoming:{});
   normalizeTonightSelection(currentTonight);normalizeTonightSelection(incomingTonight);
   out.watched=mergeUniqueArray(current.watched,incoming.watched);
@@ -1682,7 +1695,7 @@ function applyBackupImport(mode){
   try{
     savePreImportSnapshot();
     const before=backupCounts(state),source=backupCounts(backup.state);
-    state=mode==='replace'?cloneJSON(backup.state):mergeWatchlistState(state,backup.state);normalizeTonightSelection(state);
+    state=mode==='replace'?normalizeWatchlistStateShape(cloneJSON(backup.state)):mergeWatchlistState(state,backup.state);
     ensureIdentityState();ensureBatchState();
     logTmdbEvent('data_import',null,{mode,exportedAt:backup.exportedAt});
     saveState();
@@ -1710,7 +1723,7 @@ function undoLastImport(){
     const raw=localStorage.getItem(IMPORT_UNDO_KEY);if(!raw)return;
     const snapshot=JSON.parse(raw);if(!isPlainObject(snapshot)||!isPlainObject(snapshot.state))throw new Error('снимок повреждён');
     if(!confirm('Вернуть данные к состоянию до последнего импорта?'))return;
-    state=cloneJSON(snapshot.state);normalizeTonightSelection(state);ensureIdentityState();ensureBatchState();logTmdbEvent('data_import_rollback',null,{snapshotAt:snapshot.at});saveState();
+    state=normalizeWatchlistStateShape(cloneJSON(snapshot.state));ensureIdentityState();ensureBatchState();logTmdbEvent('data_import_rollback',null,{snapshotAt:snapshot.at});saveState();
     if(snapshot.tokenPresent)localStorage.setItem(TOKEN_KEY,snapshot.tmdbToken||'');else localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(IMPORT_UNDO_KEY);rebuild();alert('Последний импорт отменён.');openDataPanel();
   }catch(e){alert('Не удалось отменить импорт: '+(e.message||String(e)))}
@@ -1944,17 +1957,17 @@ function applyTmdbCandidate(it,x,manual=false){
 }
 async function openManualTmdbMatch(id, backFn=openRowActions, queueMode=false){
   const it=byId(id);if(!it)return;
-  const ident=identityFor(it),hint=aliasHintFor(it),kpConfirmed=isConfirmedKinopoiskUrl(it.kp_url);
+  const ident=identityFor(it),hint=aliasHintFor(it),kpUrl=safeExternalUrl(it.kp_url),kpConfirmed=isConfirmedKinopoiskUrl(kpUrl);
   openSubModal('✨ Найти в TMDB',`
     <p style="color:var(--muted)">Русское название остаётся основным. Оригинальное сохраняется отдельно и тоже участвует в поиске.</p>
     ${hint?`<button class="suggest-original" id="useOriginalHint">Похоже, это адаптированное название.<br><b>Попробовать оригинальное: ${esc(hint.original)}</b>${hint.year?' · '+hint.year:''}</button>`:''}
     ${ident.original_title?`<div class="identity-note ok">Оригинальное название: <b>${esc(ident.original_title)}</b>${ident.status==='confirmed'?'<span class="identity-status">подтверждено</span>':''}</div>`:''}
     <div class="manual-search-box"><input id="manualQuery" value="${esc(it.title)}" placeholder="Русское или оригинальное название"><button class="small-btn gold" id="manualSearchBtn">Искать</button></div>
     <div class="search-hint">Оригинальное название знать не обязательно. После «Это он» русское название не заменяется.</div>
-    ${it.kp_url?(kpConfirmed
-      ?`<div class="identity-note ok">Кинопоиск: подтверждённая ссылка на конкретную карточку.</div><a class="small-btn gold" target="_blank" style="display:inline-block;text-decoration:none;margin-bottom:8px" href="${esc(it.kp_url)}">Открыть Кинопоиск ↗</a>`
-      :`<div class="identity-note warn">Ссылка Кинопоиска не подтверждена: это поиск, а не конкретная карточка. Она не используется как доказательство совпадения.</div><a class="small-btn" target="_blank" style="display:inline-block;text-decoration:none;margin-bottom:8px" href="${esc(it.kp_url)}">Открыть поиск Кинопоиска ↗</a>`
-    ):''}
+    ${kpUrl?(kpConfirmed
+      ?`<div class="identity-note ok">Кинопоиск: подтверждённая ссылка на конкретную карточку.</div><a class="small-btn gold" target="_blank" rel="noopener noreferrer" style="display:inline-block;text-decoration:none;margin-bottom:8px" href="${esc(kpUrl)}">Открыть Кинопоиск ↗</a>`
+      :`<div class="identity-note warn">Ссылка Кинопоиска не подтверждена: это поиск, а не конкретная карточка. Она не используется как доказательство совпадения.</div><a class="small-btn" target="_blank" rel="noopener noreferrer" style="display:inline-block;text-decoration:none;margin-bottom:8px" href="${esc(kpUrl)}">Открыть поиск Кинопоиска ↗</a>`
+    ):it.kp_url?'<div class="identity-note warn">Небезопасная внешняя ссылка скрыта.</div>':''}
     ${queueMode?'<div class="batch-actions"><button class="small-btn" id="skipManualItem">Пропустить</button></div>':''}
     <div id="manualMatches"><div class="empty">Поиск…</div></div>`,()=>backFn(id));
   if(queueMode&&$('#modalBack'))$('#modalBack').textContent='← К очереди';
@@ -2379,7 +2392,7 @@ function renderTonightSlot(){
   $('#tonightActionText').textContent=selection?`${it.title} · ${tonightSelectionLabel(selection)}`:it.title;
   host.innerHTML=`<div class="tonight-card" data-id="${esc(idFor(it))}">
     <button type="button" class="tonight-poster detail-trigger detail-poster" data-id="${esc(idFor(it))}" data-reveal-tonight="true" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}"></button>
-    <div class="tonight-card-main"><b><button type="button" class="detail-trigger detail-title" data-id="${esc(idFor(it))}" data-reveal-tonight="true" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></b><div class="row-meta">${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}${r!=null?' · ★ '+Number(r).toFixed(1):''}</div>${selectionText?`<div class="tonight-selection-line">${esc(selectionText)}</div>`:''}<div class="row-desc">Запланировано на сегодня вечером</div></div>
+    <div class="tonight-card-main"><b><button type="button" class="detail-trigger detail-title" data-id="${esc(idFor(it))}" data-reveal-tonight="true" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></b><div class="row-meta">${esc(it.year||'—')} · ${it.type==='M'?'Фильм':'Сериал'}${r!=null?' · ★ '+Number(r).toFixed(1):''}</div>${selectionText?`<div class="tonight-selection-line">${esc(selectionText)}</div>`:''}<div class="row-desc">Запланировано на сегодня вечером</div></div>
     <div class="row-actions"><button class="small-btn gold tonight-open">Открыть</button><button class="small-btn tonight-clear">✕</button></div>
   </div>`;
   bindDetailTriggers(host);
@@ -2399,7 +2412,7 @@ function openTonightPicker(){
       const p=posterOf(it),r=ratingOf(it);
       return `<div class="result">
         <button type="button" class="result-poster detail-trigger detail-poster" data-id="${esc(idFor(it))}" aria-label="Открыть карточку: ${esc(it.title)}" style="${p?`background-image:url('${esc(p)}')`:''}"></button>
-        <div><b><button type="button" class="detail-trigger detail-title" data-id="${esc(idFor(it))}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></b><br><small>${it.year||'—'} · ${it.type==='M'?'Фильм':'Сериал'}${r!=null?' · ★ '+Number(r).toFixed(1):''}</small></div>
+        <div><b><button type="button" class="detail-trigger detail-title" data-id="${esc(idFor(it))}" aria-label="Открыть карточку: ${esc(it.title)}">${esc(it.title)}</button></b><br><small>${esc(it.year||'—')} · ${it.type==='M'?'Фильм':'Сериал'}${r!=null?' · ★ '+Number(r).toFixed(1):''}</small></div>
         <button class="small-btn gold choose-tonight" data-id="${esc(idFor(it))}">Выбрать</button>
       </div>`;
     }).join('')||'<div class="empty">Ничего не найдено</div>';
