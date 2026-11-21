@@ -656,8 +656,11 @@ function openCloudRecoveryAccountChoice(recovery){
   $('#cloudRecoveryKeepAccount').onclick=async()=>{try{await authRequest('/auth/v1/logout',{method:'POST',token:fresh.access_token})}catch(_){}finishCloudRecovery('Пароль изменён. Текущий подключённый аккаунт сохранён.',{keepCurrent:true})};
   requestAnimationFrame(()=>$('#cloudRecoverySwitchAccount')?.focus());
 }
+function canonicalizeInvalidRecoveryRoute(){
+  clearCloudRecoverySession();writeAppRoute('#home',{replace:true,force:true});if(currentView==='detail')abandonDetailPage();showView('home',{explicit:true,restore:true,scrollTop:false,route:false});
+}
 function openCloudPasswordRecovery(){
-  const recovery=loadCloudRecoverySession();if(!recovery){cloudAuthStartupNotice={kind:'invalid',message:invalidRecoveryMessage()};showCloudAuthStartupNotice();return}
+  const recovery=loadCloudRecoverySession();if(!recovery){canonicalizeInvalidRecoveryRoute();cloudAuthStartupNotice={kind:'invalid',message:invalidRecoveryMessage()};showCloudAuthStartupNotice();return}
   if(recovery.phase==='account-choice'){openCloudRecoveryAccountChoice(recovery);return}
   openModal(`<h2>🔐 Новый пароль</h2><p style="color:var(--muted)">Задайте новый пароль для ${esc(recovery.session.user?.email||'аккаунта')}.</p><form class="sync-form" id="cloudPasswordRecoveryForm" novalidate><input id="cloudNewPassword" type="password" autocomplete="new-password" placeholder="Новый пароль" aria-label="Новый пароль"><input id="cloudRepeatPassword" type="password" autocomplete="new-password" placeholder="Повторите пароль" aria-label="Повторите пароль"><div class="sync-actions"><button type="submit" class="small-btn gold" id="cloudPasswordSave">Изменить пароль</button><button type="button" class="small-btn" id="cloudPasswordCancel">Отмена</button></div><p class="sync-auth-status" id="cloudPasswordRecoveryStatus" role="status" aria-live="polite"></p></form>`,{dismissible:false});
   $('#cloudPasswordRecoveryForm').onsubmit=e=>{e.preventDefault();performCloudPasswordUpdate()};$('#cloudPasswordCancel').onclick=cancelCloudRecovery;requestAnimationFrame(()=>$('#cloudNewPassword')?.focus());
@@ -680,7 +683,7 @@ async function performCloudPasswordUpdate(){
   }catch(error){
     if(password||repeat){$('#cloudNewPassword').value='';$('#cloudRepeatPassword').value='';password='';repeat=''}
     if(updated){clearCloudRecoverySession();finishCloudRecovery('Пароль изменён. Войдите с новым паролем.',{email});return}
-    status.textContent=cloudRecoveryErrorText(error);status.classList.add('error');if(/недействительна|устарела/i.test(status.textContent)){clearCloudRecoverySession();setTimeout(()=>openCloudRecoveryRequest(email),0)}
+    status.textContent=cloudRecoveryErrorText(error);status.classList.add('error');if(/недействительна|устарела/i.test(status.textContent)){canonicalizeInvalidRecoveryRoute();setTimeout(()=>openCloudRecoveryRequest(email),0)}
   }finally{button.disabled=false}
 }
 function showCloudAuthStartupNotice(){
@@ -1233,7 +1236,7 @@ function applyAppRoute({initial=false}={}){
     closeModal({route:false});activeProfileRouteSection='';
     if(currentView==='player')abandonPlayerView();
     if(route?.view==='detail'&&route.descriptor?.kind==='library'&&!byId(route.descriptor.id))route=null;
-    if(!route||route.view==='recovery'&&!recovery){if(currentView==='detail')abandonDetailPage();showView('home',{explicit:true,restore:true,scrollTop:false,route:false});canonical='#home';if(route?.view==='recovery'){cloudAuthStartupNotice={kind:'invalid',message:invalidRecoveryMessage()};showCloudAuthStartupNotice()}return}
+    if(!route||route.view==='recovery'&&!recovery){canonical='#home';if(route?.view==='recovery'){canonicalizeInvalidRecoveryRoute();cloudAuthStartupNotice={kind:'invalid',message:invalidRecoveryMessage()};showCloudAuthStartupNotice()}else{if(currentView==='detail')abandonDetailPage();showView('home',{explicit:true,restore:true,scrollTop:false,route:false})}return}
     canonical=canonicalAppRoute(route);
     if(route.view==='recovery'){showView('home',{restore:true,scrollTop:false,route:false});openCloudPasswordRecovery();return}
     if(route.view==='detail'){
