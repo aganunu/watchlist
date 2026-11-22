@@ -212,6 +212,26 @@ async function main() {
       assert.equal(app.counters.passwordGrant, 1);assert.equal(await app.page.evaluate(key => localStorage.getItem(key), SESSION_KEY), null);await app.close({expectedConsoleErrors:[/status of 400/]});
     });
 
+    await run('normal auth starts empty while recovery back preserves explicit email', async () => {
+      const app=await openApp();await app.page.evaluate(()=>openCloudAuth());assert.equal(await app.page.locator('#cloudEmail').inputValue(),'');assert.equal(await app.page.locator('#cloudEmail').getAttribute('autocomplete'),'username');assert.equal(await app.page.locator('#cloudPassword').getAttribute('autocomplete'),'current-password');await app.page.evaluate(()=>openCloudRecoveryRequest('return@example.test'));await app.page.locator('#cloudRecoveryBack').click();assert.equal(await app.page.locator('#cloudEmail').inputValue(),'return@example.test');assert.equal(await app.page.locator('#cloudPassword').inputValue(),'');await app.close();
+    });
+
+    await run('direct backdrop pointer gesture closes a dismissible modal', async () => {
+      const app=await openApp();await app.page.evaluate(()=>openModal('<p>Backdrop test</p>'));await app.page.locator('#modalBg').dispatchEvent('pointerdown',{pointerId:11,pointerType:'mouse',button:0});await app.page.locator('#modalBg').dispatchEvent('pointerup',{pointerId:11,pointerType:'mouse',button:0});assert.equal(await app.page.locator('#modalBg').evaluate(node=>node.classList.contains('hidden')),true);await app.close();
+    });
+
+    await run('drag from modal input to backdrop never dismisses the modal', async () => {
+      const app=await openApp();await app.page.evaluate(()=>openCloudAuth());await app.page.locator('#cloudEmail').dispatchEvent('pointerdown',{pointerId:12,pointerType:'mouse',button:0});await app.page.locator('#modalBg').dispatchEvent('pointerup',{pointerId:12,pointerType:'mouse',button:0});assert.equal(await app.page.locator('#modalBg').evaluate(node=>node.classList.contains('hidden')),false);await app.close();
+    });
+
+    await run('non-dismissible modal ignores backdrop pointer gesture', async () => {
+      const app=await openApp();await app.page.evaluate(()=>openModal('<p>Protected</p>',{dismissible:false}));await app.page.locator('#modalBg').dispatchEvent('pointerdown',{pointerId:13,pointerType:'touch',button:0});await app.page.locator('#modalBg').dispatchEvent('pointerup',{pointerId:13,pointerType:'touch',button:0});assert.equal(await app.page.locator('#modalBg').evaluate(node=>node.classList.contains('hidden')),false);await app.page.evaluate(()=>closeModal({force:true,route:false}));await app.close();
+    });
+
+    await run('modal close button still dismisses normally', async () => {
+      const app=await openApp();await app.page.evaluate(()=>openModal('<p>Close test</p>'));await app.page.locator('#modal .close').click();assert.equal(await app.page.locator('#modalBg').evaluate(node=>node.classList.contains('hidden')),true);await app.close();
+    });
+
     await run('successful sign-in closes auth modal before automatic sync', async () => {
       const base=JSON.parse(JSON.stringify(SYNC_STATE_FIXTURE)),app=await openApp({stateRaw:JSON.stringify(base),syncMetaValue:syncMeta(base,1,USERS.recovered.id),cloudRecord:{state:base,revision:1,updated_at:new Date().toISOString()},autoSync:true});await app.page.evaluate(()=>openCloudAuth());await app.page.locator('#cloudEmail').fill('user@example.test');await app.page.locator('#cloudPassword').fill('validpass1');await app.page.locator('#cloudSignIn').click();await app.page.waitForFunction(()=>cloudSession&&loadCloudMeta().lastSyncedAt);assert.equal(await app.page.locator('#modalBg').evaluate(node=>node.classList.contains('hidden')),true);assert.equal(await app.page.evaluate(()=>cloudSession.user.id),USERS.recovered.id);assert.equal(app.counters.rpc,0);await app.close();
     });
