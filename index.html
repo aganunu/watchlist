@@ -636,13 +636,15 @@ async function supabaseJSON(path,{method='GET',body=null,token='',signal=null}={
   if(!response.ok){const error=new Error((data&&typeof data==='object'&&(data.message||data.msg||data.error_description||data.error))||`Supabase ${response.status}`);error.status=response.status;error.payload=data;throw error}
   return data;
 }
-async function ensureCloudSession(){
+async function ensureCloudSession({signal=null}={}){
   cloudSession=cloudSession||loadCloudSession();if(!cloudSession)return null;
   if(!cloudSession.expires_at||Number(cloudSession.expires_at)>Math.floor(Date.now()/1000)+60)return cloudSession;
+  const original=cloudSession,originalUserId=original.user.id,originalRefreshToken=original.refresh_token;
   try{
-    const refreshed=await supabaseJSON('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:cloudSession.refresh_token}});
+    const refreshed=normalizeCloudSession(await supabaseJSON('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:originalRefreshToken},signal}));
+    const current=cloudSession||loadCloudSession();if(signal?.aborted||!refreshed||refreshed.user.id!==originalUserId||!current||current.user.id!==originalUserId||current.refresh_token!==originalRefreshToken)return null;
     storeCloudSession(refreshed);return cloudSession;
-  }catch(err){storeCloudSession(null);cloudUiStatus='Сессия истекла';throw new Error('Сессия истекла. Войдите снова.')}
+  }catch(err){const current=cloudSession||loadCloudSession(),sameSession=!!current&&current.user.id===originalUserId&&current.refresh_token===originalRefreshToken;if(signal?.aborted||!sameSession)return null;storeCloudSession(null);cloudUiStatus='Сессия истекла';throw new Error('Сессия истекла. Войдите снова.')}
 }
 async function ensureCloudRecoverySession(){
   let recovery=loadCloudRecoverySession();if(!recovery)throw new Error(invalidRecoveryMessage());
@@ -785,7 +787,7 @@ async function signOutCloud(){
   try{if(session)await supabaseJSON('/auth/v1/logout',{method:'POST',token:session.access_token})}catch(err){console.warn('Supabase sign out',err)}
 }
 async function fetchCloudRecord({signal=null}={}){
-  const session=await ensureCloudSession();if(!session)throw new Error('Сначала войдите в аккаунт');
+  const session=await ensureCloudSession({signal});if(!session)throw new Error('Сначала войдите в аккаунт');
   const userId=encodeURIComponent(session.user.id);let rows;
   try{rows=await supabaseJSON(`/rest/v1/watchlist_state?select=state,revision,updated_at,updated_by&user_id=eq.${userId}&limit=1`,{token:session.access_token,signal})}
   catch(err){if(err.status!==400||!/updated_by/i.test(JSON.stringify(err.payload||err.message)))throw err;rows=await supabaseJSON(`/rest/v1/watchlist_state?select=state,revision,updated_at&user_id=eq.${userId}&limit=1`,{token:session.access_token,signal})}
@@ -813,7 +815,7 @@ async function tryAutomaticConflictMerge(record,{retryDepth=0,signal=null}={}){
   const ok=await uploadCloudState(record.revision,{origin:SYNC_ORIGINS.CONFLICT,retryDepth,signal});if(ok){cloudUiStatus='Синхронизировано';renderSyncCard()}return ok
 }
 async function uploadCloudState(expectedRevision,{origin=SYNC_ORIGINS.LOCAL,retryDepth=0,signal=null}={}){
-  const session=await ensureCloudSession();if(!session)throw new Error('Сначала войдите в аккаунт');
+  const session=await ensureCloudSession({signal});if(!session)throw new Error('Сначала войдите в аккаунт');
   const payload=cloudPayload();
   try{
     await supabaseJSON('/rest/v1/rpc/save_watchlist_state',{method:'POST',token:session.access_token,signal,body:{p_state:payload,p_expected_revision:Number(expectedRevision)||0,p_device_id:cloudDeviceId||loadCloudDeviceId()}});
@@ -858,8 +860,7 @@ async function runCloudSync({reason='manual',manual=false}={}){
   if(!acquireCloudLease()){cloudUiStatus='Синхронизация выполняется в другой вкладке';renderSyncCard();return false}
   const request=++cloudSyncRequest;cloudSyncAbortController?.abort();const controller=typeof AbortController==='function'?new AbortController():null;cloudSyncAbortController=controller;cloudSyncBusy=true;cloudUiStatus='Проверяю облако…';renderSyncCard();
   try{
-    const session=await ensureCloudSession();if(!session){openCloudAuth();return}
-    if(request!==cloudSyncRequest)return false;
+    const session=await ensureCloudSession({signal:controller?.signal});if(request!==cloudSyncRequest||controller?.signal.aborted)return false;if(!session){if(cloudSession||loadCloudSession())return false;openCloudAuth();return}
     const record=await fetchCloudRecord({signal:controller?.signal});if(request!==cloudSyncRequest||controller?.signal.aborted||loadCloudRecoverySession())return false;const rawMeta=loadCloudMeta(),meta=rawMeta.userId===session.user.id?rawMeta:{},payload=cloudPayload(),localDigest=cloudStateDigest(payload),cloudDigest=record?cloudStateDigest(record.state):'';
     const baselineReady=isPlainObject(meta.baseSnapshot)&&meta.baseRevision!=null&&!meta.manualOnly;
     if(!record){if(isEffectivelyEmptySyncState(payload)){const saved=storeSyncedMeta({state:payload,revision:0,updated_at:null,updated_by:null},payload);cloudUiStatus=saved?'Синхронизировано':'Локальная baseline требует ручной проверки';return saved}return uploadCloudState(0,{signal:controller?.signal})}

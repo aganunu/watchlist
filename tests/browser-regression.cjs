@@ -103,7 +103,7 @@ async function main() {
   }
 
   async function openApp({pathName = '/', viewport = {width: 1280, height: 720}, stateRaw = JSON.stringify(STATE_FIXTURE), normalSession = null, recoverySession = null, backupValue = null, syncMetaValue = null, cloudRecord = null, sync = {}, auth = {}, autoSync = true, playbackSyncMs = null, retrySteps = null} = {}) {
-    const counters = {recover: 0, signup: 0, update: 0, passwordGrant: 0, rest: 0, rpc: 0, logout: 0, rpcBodies: []};
+    const counters = {recover: 0, signup: 0, update: 0, passwordGrant: 0, refresh: 0, rest: 0, rpc: 0, logout: 0, rpcBodies: []};
     const cloud = {record: cloudRecord ? JSON.parse(JSON.stringify(cloudRecord)) : null};
     const context = await browser.newContext({viewport, serviceWorkers: 'block'});
     await context.addInitScript(config => {
@@ -144,7 +144,7 @@ async function main() {
           if (auth.freshLoginFails) {await json(503, {message: 'temporary sign-in failure'});return;}
           await json(200, session(USERS.recovered));return;
         }
-        if (pathname === '/auth/v1/token' && url.searchParams.get('grant_type') === 'refresh_token') {await json(200, session(USERS.recovered, 'refreshed'));return;}
+        if (pathname === '/auth/v1/token' && url.searchParams.get('grant_type') === 'refresh_token') {counters.refresh += 1;if(auth.refreshDelay)await new Promise(resolve=>setTimeout(resolve,auth.refreshDelay));const body=request.postDataJSON(),user=String(body.refresh_token||'').startsWith('recovery-')?USERS.recovered:USERS.normal;await json(200, session(user, 'refreshed'));return;}
         if (pathname === '/auth/v1/logout') {counters.logout += 1;if(auth.logoutDelay)await new Promise(resolve=>setTimeout(resolve,auth.logoutDelay));if(auth.logoutNetwork){await route.abort();return;}await json(200, {});return;}
         if (pathname === '/rest/v1/watchlist_state') {counters.rest += 1;if(sync.restDelay)await new Promise(resolve=>setTimeout(resolve,sync.restDelay));if(sync.readFailures>0){sync.readFailures-=1;await json(503,{message:'temporary read failure'});return;}if(sync.networkFailure){await route.abort();return;}await json(200, cloud.record ? [cloud.record] : []);return;}
         if (pathname === '/rest/v1/rpc/save_watchlist_state') {
@@ -425,6 +425,14 @@ async function main() {
       await app.page.evaluate(()=>{window.__pendingSync=runCloudSync({manual:true})});await app.page.waitForFunction(()=>!!cloudSyncAbortController);
       const immediate=await app.page.evaluate(({sessionKey,leaseKey})=>{const controller=cloudSyncAbortController;window.__pendingLogout=signOutCloud();return {aborted:controller.signal.aborted,session:localStorage.getItem(sessionKey),lease:localStorage.getItem(leaseKey),timers:[cloudSyncTimer,cloudPlaybackTimer,cloudRetryTimer,cloudPollTimer,cloudLeaseTimer]}} ,{sessionKey:SESSION_KEY,leaseKey:'watchlist_supabase_sync_lease'});
       assert.equal(immediate.aborted,true);assert.equal(immediate.session,null);assert.equal(immediate.lease,null);assert.deepEqual(immediate.timers,[0,0,0,0,0]);await app.page.waitForTimeout(650);assert.equal(app.counters.rpc,0);assert.equal(await app.page.evaluate(key=>localStorage.getItem(key),SESSION_KEY),null);await app.close({expectedConsoleErrors:[/ERR_FAILED/]});
+    });
+
+    await run('logout during delayed expired-session refresh cannot resurrect session', async () => {
+      const base=JSON.parse(JSON.stringify(SYNC_STATE_FIXTURE)),expired=session(USERS.normal,'expired');expired.expires_at=Math.floor(Date.now()/1000)-60;
+      const app=await openApp({stateRaw:JSON.stringify(base),normalSession:expired,syncMetaValue:syncMeta(base,1),cloudRecord:{state:base,revision:1,updated_at:new Date().toISOString()},auth:{refreshDelay:350},autoSync:false});
+      await app.page.evaluate(()=>{window.__refreshingSync=runCloudSync({manual:true})});await app.page.waitForFunction(()=>cloudSyncAbortController&&cloudSyncBusy);while(app.counters.refresh<1)await app.page.waitForTimeout(10);
+      await app.page.evaluate(()=>signOutCloud());await app.page.waitForTimeout(500);const result=await app.page.evaluate(({sessionKey,leaseKey})=>({session:cloudSession,stored:localStorage.getItem(sessionKey),lease:localStorage.getItem(leaseKey),timers:[cloudSyncTimer,cloudPlaybackTimer,cloudRetryTimer,cloudPollTimer,cloudLeaseTimer]}),{sessionKey:SESSION_KEY,leaseKey:'watchlist_supabase_sync_lease'});
+      assert.equal(result.session,null);assert.equal(result.stored,null);assert.equal(result.lease,null);assert.deepEqual(result.timers,[0,0,0,0,0]);assert.equal(app.counters.rest,0);assert.equal(app.counters.rpc,0);await app.page.waitForTimeout(250);assert.equal(await app.page.evaluate(key=>localStorage.getItem(key),SESSION_KEY),null);await app.close({expectedConsoleErrors:[/ERR_FAILED|ERR_ABORTED/]});
     });
 
     await run('foreign-user sync metadata is ignored conservatively', async () => {
