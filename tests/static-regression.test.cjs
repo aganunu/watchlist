@@ -86,8 +86,12 @@ test('browser harness uses a pinned public dependency without Codex runtime path
 test('TV spatial navigation stays runtime-only and protects editable controls', () => {
   assert.match(html, /const TV_FOCUSABLE=/);
   assert.match(html, /function tvDirectionalCandidate\(/);
+  assert.match(html, /function tvVisibleGlobalNavigation\(/);
+  assert.match(html, /function tvNavigationCandidates\([\s\S]*?tvVisibleGlobalNavigation\(\)/);
   assert.match(html, /function handleTvDirection\([\s\S]*?if\(isTvEditable\(event\.target\)\)return/);
   assert.match(html, /function handleTvBack\(/);
+  assert.match(html, /const tvAutofocus=tvKeyboardMode/);
+  assert.match(html, /function initialModalFocus\(\)\{const candidates=tvFocusableElements/);
   assert.match(html, /tvViewFocusMemory=new Map\(\)/);
   assert.doesNotMatch(html, /localStorage\.setItem\([^\n]*tv(?:Focus|Navigation)/i);
 });

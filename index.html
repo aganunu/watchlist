@@ -1123,8 +1123,9 @@ function toggleWatched(id){state.watched=state.watched||[];state.watched=state.w
 function openModal(html,options={}){
   const wasHidden=$('#modalBg').classList.contains('hidden');
   if(wasHidden&&isTvFocusable(document.activeElement))tvModalReturnFocus=document.activeElement;
+  const tvAutofocus=tvKeyboardMode;
   modalBackdropPointerId=null;modalDismissible=options.dismissible!==false;$('#modal').innerHTML=`${modalDismissible?'<button class="small-btn close" aria-label="Закрыть" onclick="closeModal()">✕</button>':''}${html}`;$('#modalBg').classList.remove('hidden');
-  requestAnimationFrame(()=>{if(!$('#modalBg').classList.contains('hidden')&&!$('#modal').contains(document.activeElement))focusTvElement(initialModalFocus())});
+  if(tvAutofocus)requestAnimationFrame(()=>{if(!$('#modalBg').classList.contains('hidden')&&!$('#modal').contains(document.activeElement))focusTvElement(initialModalFocus())});
 }
 function closeModal(options={}){
   if(!modalDismissible&&!options.force)return;const returnFocus=tvModalReturnFocus;tvModalReturnFocus=null;modalBackdropPointerId=null;modalDismissible=true;
@@ -1157,10 +1158,10 @@ function findTvFocusDescriptor(root,descriptor){
 }
 function rememberTvViewFocus(view=currentView){const root=$('#view-'+view),active=document.activeElement;if(root?.contains(active)&&isTvFocusable(active))tvViewFocusMemory.set(view,tvFocusDescriptor(active))}
 function restoreTvViewFocus(view=currentView){const root=$('#view-'+view);if(!root)return false;return focusTvElement(findTvFocusDescriptor(root,tvViewFocusMemory.get(view)))||focusTvElement(tvFocusableElements(root)[0])}
-function initialModalFocus(){const root=$('#modal');return root.querySelector('[autofocus]')||root.querySelector('input:not([disabled]),select:not([disabled]),textarea:not([disabled])')||root.querySelector('.modal-back,.primary,.gold')||tvFocusableElements(root)[0]}
+function initialModalFocus(){const candidates=tvFocusableElements($('#modal'));return candidates.find(element=>element.matches('[autofocus]'))||candidates.find(element=>element.matches('input,select,textarea'))||candidates.find(element=>element.matches('.modal-back,.primary,.gold'))||candidates[0]||null}
 function tvDirectionalCandidate(active,direction,candidates){
   const source=active.getBoundingClientRect(),sx=source.left+source.width/2,sy=source.top+source.height/2;
-  const verticalGroup=direction==='up'||direction==='down'?active.closest('.media-card,.row,.tmdb-result'):null;
+  const verticalGroup=direction==='up'||direction==='down'?active.closest('.carousel,.row,.tmdb-result'):null;
   let best=null,bestScore=Infinity;
   for(const candidate of candidates){if(candidate===active||verticalGroup?.contains(candidate))continue;const rect=candidate.getBoundingClientRect(),cx=rect.left+rect.width/2,cy=rect.top+rect.height/2,dx=cx-sx,dy=cy-sy;
     const forward=direction==='left'?-dx:direction==='right'?dx:direction==='up'?-dy:dy;if(forward<=3)continue;
@@ -1173,11 +1174,24 @@ function tvCarouselNeighbor(active,direction){
   const cards=[...carousel.querySelectorAll('.media-card')],next=cards[cards.indexOf(card)+(direction==='right'?1:-1)];if(!next)return false;
   const role=detailTriggerRole(active),same=[...next.querySelectorAll(TV_FOCUSABLE)].find(element=>detailTriggerRole(element)===role&&isTvFocusable(element));return same||tvFocusableElements(next)[0]||false;
 }
+function tvVisibleGlobalNavigation(){return ['.desktop-side','.nav'].map(selector=>document.querySelector(selector)).find(container=>container&&tvFocusableElements(container).length)||null}
+function tvNavigationCandidates(modalOpen){
+  if(modalOpen)return tvFocusableElements($('#modal'));
+  const view=tvFocusableElements($('#view-'+currentView)),global=tvVisibleGlobalNavigation();return global?[...tvFocusableElements(global),...view]:view;
+}
+function tvPrimaryNavNeighbor(active,direction){
+  const nav=active.closest('.desktop-side,.nav');if(!nav)return null;const controls=tvFocusableElements(nav),index=controls.indexOf(active),vertical=nav.classList.contains('desktop-side'),step=vertical?(direction==='down'?1:direction==='up'?-1:0):(direction==='right'?1:direction==='left'?-1:0);if(!step)return null;return controls[index+step]||false;
+}
+function tvContentToPrimaryNav(active,direction,viewCandidates){
+  if(direction!=='left'||active.closest('.desktop-side,.nav'))return null;const nav=tvVisibleGlobalNavigation();if(!nav?.classList.contains('desktop-side'))return null;
+  const rect=active.getBoundingClientRect(),hasLeftPeer=viewCandidates.some(candidate=>{if(candidate===active||active.closest('.media-card,.row,.tmdb-result')?.contains(candidate))return false;const other=candidate.getBoundingClientRect(),cy=other.top+other.height/2;return other.left+other.width/2<rect.left&&cy>=rect.top&&cy<=rect.bottom});if(hasLeftPeer)return null;
+  const navView=currentView==='detail'||currentView==='player'?(detailNavState?.sourceView||'home'):currentView;return nav.querySelector(`[data-view="${navView}"]`)||tvFocusableElements(nav)[0]||null;
+}
 function handleTvDirection(event){
   if(currentView==='player'||event.defaultPrevented||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key))return;
-  if(isTvEditable(event.target))return;const modalOpen=!$('#modalBg').classList.contains('hidden'),root=modalOpen?$('#modal'):$('#view-'+currentView),candidates=tvFocusableElements(root);if(!candidates.length)return;
-  const active=root?.contains(document.activeElement)&&isTvFocusable(document.activeElement)?document.activeElement:candidates[0],direction=event.key.slice(5).toLowerCase(),carouselTarget=tvCarouselNeighbor(active,direction);
-  const target=carouselTarget===false?null:carouselTarget||tvDirectionalCandidate(active,direction,candidates);event.preventDefault();event.stopPropagation();tvKeyboardMode=true;if(target)focusTvElement(target);else focusTvElement(active);
+  if(isTvEditable(event.target))return;const modalOpen=!$('#modalBg').classList.contains('hidden'),candidates=tvNavigationCandidates(modalOpen);if(!candidates.length)return;
+  const active=candidates.includes(document.activeElement)?document.activeElement:candidates[0],direction=event.key.slice(5).toLowerCase(),navTarget=tvPrimaryNavNeighbor(active,direction),carouselTarget=tvCarouselNeighbor(active,direction),viewCandidates=tvFocusableElements($('#view-'+currentView)),navExit=modalOpen?null:tvContentToPrimaryNav(active,direction,viewCandidates),spatialCandidates=!active.closest('.desktop-side,.nav')&&(direction==='up'||direction==='down')?candidates.filter(candidate=>!candidate.closest('.desktop-side,.nav')):candidates;
+  const target=navTarget===false?null:navTarget||carouselTarget||navExit||tvDirectionalCandidate(active,direction,spatialCandidates);event.preventDefault();event.stopPropagation();tvKeyboardMode=true;if(target)focusTvElement(target);else focusTvElement(active);
 }
 function handleTvBack(event){
   if(currentView==='player'||event.defaultPrevented||isTvEditable(event.target)||!['Escape','Backspace','BrowserBack','GoBack'].includes(event.key))return;
@@ -1185,7 +1199,7 @@ function handleTvBack(event){
   if(currentView==='detail'){event.preventDefault();event.stopPropagation();backFromDetailPage()}
 }
 document.addEventListener('pointerdown',()=>{tvKeyboardMode=false},{capture:true,passive:true});
-document.addEventListener('keydown',event=>{handleTvBack(event);handleTvDirection(event)},true);
+document.addEventListener('keydown',event=>{if(!['Shift','Control','Alt','Meta'].includes(event.key))tvKeyboardMode=true;handleTvBack(event);handleTvDirection(event)},true);
 
 function openSubModal(title, bodyHtml, backFn){
   openModal(`<div class="modal-nav"><button class="modal-back" id="modalBack">← Назад</button></div><h2>${title}</h2>${bodyHtml}`);
