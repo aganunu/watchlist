@@ -286,7 +286,7 @@ let BASE={movies:[],series:[]},state={},items=[],filtered=[],renderLimit=30,type
 let pendingImportBackup=null;
 let cloudSession=null,cloudDeviceId='',cloudSyncBusy=false,cloudUiStatus='Локальный режим';
 let cloudSyncTimer=0,cloudPlaybackTimer=0,cloudRetryTimer=0,cloudPollTimer=0,cloudLeaseTimer=0,cloudSyncRequest=0,cloudSyncAbortController=null,cloudTabId='',cloudLastSeenState=null,cloudLocalDivergent=false,cloudConflictContext=null,cloudAutoSyncInitialized=false;
-let cloudAuthRouteBlocked=false,cloudAuthStartupNotice=null,modalDismissible=true;
+let cloudAuthRouteBlocked=false,cloudAuthStartupNotice=null,modalDismissible=true,modalBackdropPointerId=null;
 let addSearchState={query:'',results:[],scrollTop:0,searchRequest:0};
 let globalSearchState={results:[],status:'idle',error:'',request:0,timer:0};
 let addPreviewRequest=0;
@@ -663,7 +663,7 @@ function renderSyncCard(){
   const session=cloudSession||loadCloudSession(),user=session&&session.user,meta=loadCloudMeta(),hasUndo=!!localStorage.getItem(CLOUD_PULL_UNDO_KEY);
   if(!user){
     host.innerHTML=`<div class="sync-head"><div><b>☁️ Аккаунт и синхронизация</b><small>Приложение полностью работает локально. Вход нужен только для облачной копии.</small></div><span class="sync-badge">Локально</span></div><div class="sync-actions"><button type="button" class="small-btn gold" id="cloudOpenAuth">Войти / создать аккаунт</button></div>`;
-    $('#cloudOpenAuth').onclick=openCloudAuth;return;
+    $('#cloudOpenAuth').onclick=()=>openCloudAuth();return;
   }
   const ownMeta=meta.userId===user.id?meta:{},last=syncTimeText(ownMeta.lastSyncedAt);
   host.innerHTML=`<div class="sync-head"><div><b>☁️ Аккаунт и синхронизация</b><small>${esc(user.email||'Аккаунт Supabase')}</small></div><span class="sync-badge on">Подключено</span></div><div class="sync-meta">${esc(cloudUiStatus)} · последняя синхронизация: ${esc(last)}${ownMeta.revision!=null?` · revision ${esc(ownMeta.revision)}`:''}</div><div class="sync-actions"><button type="button" class="small-btn gold" id="cloudSyncNow" ${cloudSyncBusy?'disabled':''}>${cloudSyncBusy?'Синхронизация…':'Синхронизировать сейчас'}</button><button type="button" class="small-btn" id="cloudSignOut">Выйти</button>${hasUndo?'<button type="button" class="small-btn" id="cloudUndoPull">↶ Отменить получение</button>':''}</div>`;
@@ -671,7 +671,8 @@ function renderSyncCard(){
   if($('#cloudUndoPull'))$('#cloudUndoPull').onclick=undoLastCloudPull;
 }
 function openCloudAuth(prefillEmail=''){
-  openModal(`<h2>☁️ Аккаунт и синхронизация</h2><p style="color:var(--muted)">Войдите по email и паролю или создайте аккаунт. До входа все функции остаются локальными.</p><form class="sync-form" id="cloudAuthForm" novalidate><input id="cloudEmail" type="email" inputmode="email" autocomplete="email" placeholder="Email" aria-label="Email" value="${esc(prefillEmail)}"><input id="cloudPassword" type="password" autocomplete="current-password" placeholder="Пароль" aria-label="Пароль"><div class="sync-actions"><button type="submit" class="small-btn gold" id="cloudSignIn">Войти</button><button type="button" class="small-btn" id="cloudSignUp">Создать аккаунт</button><button type="button" class="small-btn" id="cloudForgotPassword">Забыл пароль?</button></div><p class="sync-auth-status" id="cloudAuthStatus" role="status" aria-live="polite"></p></form>`);
+  const explicitEmail=typeof prefillEmail==='string'?prefillEmail:'',emailValue=explicitEmail?` value="${esc(explicitEmail)}"`:'';
+  openModal(`<h2>☁️ Аккаунт и синхронизация</h2><p style="color:var(--muted)">Войдите по email и паролю или создайте аккаунт. До входа все функции остаются локальными.</p><form class="sync-form" id="cloudAuthForm" novalidate><input id="cloudEmail" name="username" type="email" inputmode="email" autocomplete="username" placeholder="Email" aria-label="Email"${emailValue}><input id="cloudPassword" name="password" type="password" autocomplete="current-password" placeholder="Пароль" aria-label="Пароль"><div class="sync-actions"><button type="submit" class="small-btn gold" id="cloudSignIn">Войти</button><button type="button" class="small-btn" id="cloudSignUp">Создать аккаунт</button><button type="button" class="small-btn" id="cloudForgotPassword">Забыл пароль?</button></div><p class="sync-auth-status" id="cloudAuthStatus" role="status" aria-live="polite"></p></form>`);
   $('#cloudAuthForm').onsubmit=e=>{e.preventDefault();performCloudAuth('signin')};
   $('#cloudSignUp').onclick=e=>{e.preventDefault();performCloudAuth('signup')};
   $('#cloudForgotPassword').onclick=e=>{e.preventDefault();openCloudRecoveryRequest($('#cloudEmail')?.value.trim()||'')};
@@ -1104,15 +1105,15 @@ function updateStats(){const watched=items.filter(isWatched).length,fav=items.fi
 function byId(id){return items.find(x=>idFor(x)===id)}
 function toggleFav(id){state.pins=state.pins||[];state.pins=state.pins.includes(id)?state.pins.filter(x=>x!==id):[...state.pins,id];saveState();rebuild()}
 function toggleWatched(id){state.watched=state.watched||[];state.watched=state.watched.includes(id)?state.watched.filter(x=>x!==id):[...state.watched,id];saveState();rebuild()}
-function openModal(html,options={}){modalDismissible=options.dismissible!==false;$('#modal').innerHTML=`${modalDismissible?'<button class="small-btn close" onclick="closeModal()">✕</button>':''}${html}`;$('#modalBg').classList.remove('hidden')}
+function openModal(html,options={}){modalBackdropPointerId=null;modalDismissible=options.dismissible!==false;$('#modal').innerHTML=`${modalDismissible?'<button class="small-btn close" onclick="closeModal()">✕</button>':''}${html}`;$('#modalBg').classList.remove('hidden')}
 function closeModal(options={}){
-  if(!modalDismissible&&!options.force)return;modalDismissible=true;
+  if(!modalDismissible&&!options.force)return;modalBackdropPointerId=null;modalDismissible=true;
   $('#modalBg').classList.add('hidden');const profileSection=activeProfileRouteSection;activeProfileRouteSection='';
   if(!profileSection||options.route===false||appRouteApplying||!appRouteReady)return;
   if(history.state?.watchlistRoute===appRouteHash('profile',{section:profileSection})&&history.state?.parentRoute==='#profile')history.back();
   else{showView('profile',{restore:true,scrollTop:false,route:false});writeAppRoute('#profile',{replace:true})}
 }
-window.closeModal=closeModal;$('#modalBg').onclick=e=>{if(e.target===$('#modalBg')&&modalDismissible)closeModal()}
+window.closeModal=closeModal;$('#modalBg').addEventListener('pointerdown',e=>{modalBackdropPointerId=e.target===$('#modalBg')&&modalDismissible?e.pointerId:null});$('#modalBg').addEventListener('pointerup',e=>{const dismiss=e.target===$('#modalBg')&&modalDismissible&&modalBackdropPointerId===e.pointerId;modalBackdropPointerId=null;if(dismiss)closeModal()});$('#modalBg').addEventListener('pointercancel',()=>{modalBackdropPointerId=null});
 
 function openSubModal(title, bodyHtml, backFn){
   openModal(`<div class="modal-nav"><button class="modal-back" id="modalBack">← Назад</button></div><h2>${title}</h2>${bodyHtml}`);
