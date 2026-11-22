@@ -212,6 +212,14 @@ async function main() {
       assert.equal(app.counters.passwordGrant, 1);assert.equal(await app.page.evaluate(key => localStorage.getItem(key), SESSION_KEY), null);await app.close({expectedConsoleErrors:[/status of 400/]});
     });
 
+    await run('successful sign-in closes auth modal before automatic sync', async () => {
+      const base=JSON.parse(JSON.stringify(SYNC_STATE_FIXTURE)),app=await openApp({stateRaw:JSON.stringify(base),syncMetaValue:syncMeta(base,1,USERS.recovered.id),cloudRecord:{state:base,revision:1,updated_at:new Date().toISOString()},autoSync:true});await app.page.evaluate(()=>openCloudAuth());await app.page.locator('#cloudEmail').fill('user@example.test');await app.page.locator('#cloudPassword').fill('validpass1');await app.page.locator('#cloudSignIn').click();await app.page.waitForFunction(()=>cloudSession&&loadCloudMeta().lastSyncedAt);assert.equal(await app.page.locator('#modalBg').evaluate(node=>node.classList.contains('hidden')),true);assert.equal(await app.page.evaluate(()=>cloudSession.user.id),USERS.recovered.id);assert.equal(app.counters.rpc,0);await app.close();
+    });
+
+    await run('successful sign-in closes auth modal before first-sync choice', async () => {
+      const local=JSON.parse(JSON.stringify(SYNC_STATE_FIXTURE)),remote=JSON.parse(JSON.stringify(SYNC_STATE_FIXTURE));local.notes.local='keep';remote.notes.cloud='keep';const app=await openApp({stateRaw:JSON.stringify(local),cloudRecord:{state:remote,revision:3,updated_at:new Date().toISOString()},autoSync:true});await app.page.evaluate(()=>openCloudAuth());await app.page.locator('#cloudEmail').fill('user@example.test');await app.page.locator('#cloudPassword').fill('validpass1');await app.page.locator('#cloudSignIn').click();await app.page.getByText('☁️ Первая синхронизация').waitFor();assert.equal(await app.page.locator('#cloudAuthForm').count(),0);assert.equal(await app.page.locator('#modalBg').evaluate(node=>node.classList.contains('hidden')),false);assert.equal(app.counters.rpc,0);await app.close();
+    });
+
     await run('sign-up uses the mocked Auth endpoint and stores its returned session', async () => {
       const app = await openApp();await app.page.evaluate(() => openCloudAuth());
       await app.page.locator('#cloudEmail').fill('new@example.test');await app.page.locator('#cloudPassword').fill('validpass1');await app.page.locator('#cloudSignUp').click();

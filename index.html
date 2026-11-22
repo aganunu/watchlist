@@ -694,7 +694,7 @@ async function performCloudAuth(mode){
   try{
     const path=mode==='signup'?'/auth/v1/signup':'/auth/v1/token?grant_type=password',timeoutPromise=new Promise((_,reject)=>{timeout=setTimeout(()=>{controller?.abort();const error=new Error('Auth request timeout');error.name='AbortError';reject(error)},15000)}),result=await Promise.race([supabaseJSON(path,{method:'POST',body:{email,password},signal:controller?.signal||null}),timeoutPromise]);
     if(!result||!result.access_token){alert('Аккаунт создан. Если подтверждение email включено, откройте письмо и затем войдите.');return}
-    storeCloudSession(result);cloudUiStatus='Вход выполнен';await openFirstCloudSync();
+    storeCloudSession(result);cloudUiStatus='Вход выполнен';if($('#cloudAuthForm')===form)closeModal({route:false});await openFirstCloudSync();
   }catch(err){if(status){status.textContent=cloudAuthErrorText(err);status.classList.add('error')}}finally{clearTimeout(timeout);buttons.forEach(button=>button.disabled=false);form?.removeAttribute('aria-busy')}
 }
 function cloudRecoveryErrorText(error){
