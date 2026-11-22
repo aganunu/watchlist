@@ -49,7 +49,7 @@ test('compatibility entry preserves query and hash with location.replace', () =>
 test('recovery state is isolated from localStorage and cloud payload', () => {
   assert.match(html, /sessionStorage\.setItem\(CLOUD_RECOVERY_SESSION_KEY/);
   assert.doesNotMatch(html, /localStorage\.setItem\(CLOUD_RECOVERY_SESSION_KEY/);
-  assert.match(html, /delete payload\.tmdbToken;delete payload\.tmdb_token;delete payload\.watchlist_tmdb_key/);
+  assert.match(html, /SYNC_FORBIDDEN_KEYS=.*tmdbToken.*watchlist_tmdb_key.*access_token.*refresh_token/);
   assert.match(html, /if\(loadCloudRecoverySession\(\)\)\{openCloudPasswordRecovery\(\);return\}/);
 });
 
@@ -81,4 +81,33 @@ test('browser harness uses a pinned public dependency without Codex runtime path
   const pkg = JSON.parse(read('package.json')), harness = read('tests/browser-regression.cjs');
   assert.equal(pkg.devDependencies['playwright-core'], '1.62.1');
   assert.doesNotMatch(harness, /codex-runtimes|NODE_PATH|\.cache[\\/]codex/i);
+});
+
+test('automatic sync has one rollback switch and explicit critical mutation origins', () => {
+  assert.match(html, /const AUTO_SYNC_V1_ENABLED=/);
+  assert.match(html, /SYNC_ORIGINS=Object\.freeze\([\s\S]*CONFLICT:'conflict-resolution'/);
+  assert.match(html, /saveState\(\{origin:SYNC_ORIGINS\.CLOUD,reason:'cloud-pull'\}\)/);
+  assert.match(html, /saveState\(\{origin:SYNC_ORIGINS\.PLAYBACK,reason:'playback-progress'\}\)/);
+  assert.match(html, /saveState\(\{origin:SYNC_ORIGINS\.IMPORT,reason:`backup-\$\{mode\}`\}\)/);
+  assert.match(html, /saveState\(\{origin:SYNC_ORIGINS\.UNDO_CLOUD,reason:'undo-cloud-pull'\}\)/);
+  assert.match(html, /saveState\(\{origin:SYNC_ORIGINS\.TAB,reason:'storage-safe-merge'\}\)/);
+  assert.match(html, /saveState\(\{origin:SYNC_ORIGINS\.CONFLICT,reason:'automatic-safe-merge'\}\)/);
+});
+
+test('sync writes user state before optional metadata and excludes sensitive fields', () => {
+  const save = html.match(/function saveState\([\s\S]*?\n\}/)?.[0] || '';
+  assert.ok(save.indexOf('localStorage.setItem(STORAGE_KEY') >= 0);
+  assert.ok(save.indexOf('localStorage.setItem(STORAGE_KEY') < save.indexOf('markCloudDirty'));
+  assert.match(html, /SYNC_FORBIDDEN_KEYS=.*tmdbToken.*watchlist_tmdb_key.*access_token.*refresh_token/);
+  assert.doesNotMatch(html, /canonicalSyncState[\s\S]{0,500}(?:access_token|refresh_token|sourceUrl|blob:)/);
+});
+
+test('auto sync uses revision CAS, foreground polling, lease and recovery isolation', () => {
+  assert.match(html, /p_expected_revision:Number\(expectedRevision\)\|\|0/);
+  assert.match(html, /document\.visibilityState==='visible'/);
+  assert.match(html, /AUTO_SYNC_POLL_MS=60000/);
+  assert.match(html, /steps=\[5000,15000,30000,60000,300000\]/);
+  assert.match(html, /CLOUD_LEASE_KEY='watchlist_supabase_sync_lease'/);
+  assert.match(html, /if\(loadCloudRecoverySession\(\)\)\{if\(manual\)openCloudPasswordRecovery\(\);return false\}/);
+  assert.doesNotMatch(html, /BroadcastChannel|postgres_changes|realtime\.channel/);
 });
