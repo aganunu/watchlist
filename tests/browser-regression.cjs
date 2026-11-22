@@ -212,8 +212,12 @@ async function main() {
       assert.equal(app.counters.passwordGrant, 1);assert.equal(await app.page.evaluate(key => localStorage.getItem(key), SESSION_KEY), null);await app.close({expectedConsoleErrors:[/status of 400/]});
     });
 
-    await run('normal auth starts empty while recovery back preserves explicit email', async () => {
-      const app=await openApp();await app.page.evaluate(()=>openCloudAuth());assert.equal(await app.page.locator('#cloudEmail').inputValue(),'');assert.equal(await app.page.locator('#cloudEmail').getAttribute('autocomplete'),'username');assert.equal(await app.page.locator('#cloudPassword').getAttribute('autocomplete'),'current-password');await app.page.evaluate(()=>openCloudRecoveryRequest('return@example.test'));await app.page.locator('#cloudRecoveryBack').click();assert.equal(await app.page.locator('#cloudEmail').inputValue(),'return@example.test');assert.equal(await app.page.locator('#cloudPassword').inputValue(),'');await app.close();
+    await run('real signed-out account button opens auth with empty credentials', async () => {
+      const app=await openApp();await app.page.locator('[data-view="profile"]:visible').first().click();await app.page.locator('#cloudOpenAuth').click();assert.equal(await app.page.locator('#cloudEmail').inputValue(),'');assert.notEqual(await app.page.locator('#cloudEmail').inputValue(),'[object PointerEvent]');assert.equal(await app.page.locator('#cloudEmail').getAttribute('autocomplete'),'username');assert.equal(await app.page.locator('#cloudPassword').getAttribute('autocomplete'),'current-password');assert.equal(await app.page.locator('#cloudPassword').inputValue(),'');await app.close();
+    });
+
+    await run('recovery back preserves an explicitly supplied email', async () => {
+      const app=await openApp();await app.page.evaluate(()=>openCloudRecoveryRequest('return@example.test'));await app.page.locator('#cloudRecoveryBack').click();assert.equal(await app.page.locator('#cloudEmail').inputValue(),'return@example.test');assert.equal(await app.page.locator('#cloudPassword').inputValue(),'');await app.close();
     });
 
     await run('direct backdrop pointer gesture closes a dismissible modal', async () => {

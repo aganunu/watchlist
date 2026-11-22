@@ -663,7 +663,7 @@ function renderSyncCard(){
   const session=cloudSession||loadCloudSession(),user=session&&session.user,meta=loadCloudMeta(),hasUndo=!!localStorage.getItem(CLOUD_PULL_UNDO_KEY);
   if(!user){
     host.innerHTML=`<div class="sync-head"><div><b>☁️ Аккаунт и синхронизация</b><small>Приложение полностью работает локально. Вход нужен только для облачной копии.</small></div><span class="sync-badge">Локально</span></div><div class="sync-actions"><button type="button" class="small-btn gold" id="cloudOpenAuth">Войти / создать аккаунт</button></div>`;
-    $('#cloudOpenAuth').onclick=openCloudAuth;return;
+    $('#cloudOpenAuth').onclick=()=>openCloudAuth();return;
   }
   const ownMeta=meta.userId===user.id?meta:{},last=syncTimeText(ownMeta.lastSyncedAt);
   host.innerHTML=`<div class="sync-head"><div><b>☁️ Аккаунт и синхронизация</b><small>${esc(user.email||'Аккаунт Supabase')}</small></div><span class="sync-badge on">Подключено</span></div><div class="sync-meta">${esc(cloudUiStatus)} · последняя синхронизация: ${esc(last)}${ownMeta.revision!=null?` · revision ${esc(ownMeta.revision)}`:''}</div><div class="sync-actions"><button type="button" class="small-btn gold" id="cloudSyncNow" ${cloudSyncBusy?'disabled':''}>${cloudSyncBusy?'Синхронизация…':'Синхронизировать сейчас'}</button><button type="button" class="small-btn" id="cloudSignOut">Выйти</button>${hasUndo?'<button type="button" class="small-btn" id="cloudUndoPull">↶ Отменить получение</button>':''}</div>`;
@@ -671,7 +671,7 @@ function renderSyncCard(){
   if($('#cloudUndoPull'))$('#cloudUndoPull').onclick=undoLastCloudPull;
 }
 function openCloudAuth(prefillEmail=''){
-  const emailValue=prefillEmail?` value="${esc(prefillEmail)}"`:'';
+  const explicitEmail=typeof prefillEmail==='string'?prefillEmail:'',emailValue=explicitEmail?` value="${esc(explicitEmail)}"`:'';
   openModal(`<h2>☁️ Аккаунт и синхронизация</h2><p style="color:var(--muted)">Войдите по email и паролю или создайте аккаунт. До входа все функции остаются локальными.</p><form class="sync-form" id="cloudAuthForm" novalidate><input id="cloudEmail" name="username" type="email" inputmode="email" autocomplete="username" placeholder="Email" aria-label="Email"${emailValue}><input id="cloudPassword" name="password" type="password" autocomplete="current-password" placeholder="Пароль" aria-label="Пароль"><div class="sync-actions"><button type="submit" class="small-btn gold" id="cloudSignIn">Войти</button><button type="button" class="small-btn" id="cloudSignUp">Создать аккаунт</button><button type="button" class="small-btn" id="cloudForgotPassword">Забыл пароль?</button></div><p class="sync-auth-status" id="cloudAuthStatus" role="status" aria-live="polite"></p></form>`);
   $('#cloudAuthForm').onsubmit=e=>{e.preventDefault();performCloudAuth('signin')};
   $('#cloudSignUp').onclick=e=>{e.preventDefault();performCloudAuth('signup')};
