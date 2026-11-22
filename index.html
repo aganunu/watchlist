@@ -268,13 +268,15 @@ const BASE_URLS=[
 ];
 const STORAGE_KEY='watchlist_v3',TOKEN_KEY='watchlist_tmdb_key',IMPORT_UNDO_KEY='watchlist_v3_import_undo';
 const SUPABASE_URL='https://owiqnzkavzjqbckstegc.supabase.co',SUPABASE_KEY='sb_publishable_PE807IeLQs8bng9MMI2Rhg_Ey2WPEYt';
-const CLOUD_SESSION_KEY='watchlist_supabase_session',CLOUD_SYNC_KEY='watchlist_supabase_sync',CLOUD_PULL_UNDO_KEY='watchlist_supabase_pull_undo',CLOUD_DEVICE_KEY='watchlist_device_id';
+const CLOUD_SESSION_KEY='watchlist_supabase_session',CLOUD_SYNC_KEY='watchlist_supabase_sync',CLOUD_PULL_UNDO_KEY='watchlist_supabase_pull_undo',CLOUD_CONFLICT_KEY='watchlist_supabase_conflict',CLOUD_LEASE_KEY='watchlist_supabase_sync_lease',CLOUD_DEVICE_KEY='watchlist_device_id';
 const CLOUD_RECOVERY_SESSION_KEY='watchlist_supabase_recovery_session',CLOUD_RECOVERY_REDIRECT='https://aganunu.github.io/watchlist/',CLOUD_RECOVERY_TTL_MS=30*60*1000,CLOUD_AUTH_TIMEOUT_MS=15000,CLOUD_PASSWORD_MIN_LENGTH=8;
 const SUPABASE_AUTH_URL_KEYS=['access_token','refresh_token','expires_in','expires_at','token_type','type','provider_token','provider_refresh_token','code','error','error_code','error_description','token_hash'];
 const BACKUP_FORMAT='watchlist-full-backup',BACKUP_VERSION=1;
 const PINNED_HLS_LIBRARY='https://cdn.jsdelivr.net/npm/hls.js@1.7.1/dist/hls.min.js';
 const PLAYER_SEEK_STEP=5;
 const PLAYBACK_RESUME_MIN_SECONDS=10,PLAYBACK_SHORT_MIN_SECONDS=2,PLAYBACK_SHORT_MIN_RATIO=.15,PLAYBACK_COMPLETE_RATIO=.95,PLAYBACK_SAVE_THROTTLE_MS=15000,PLAYBACK_PROGRESS_LIMIT=200;
+const AUTO_SYNC_V1_ENABLED=globalThis.__WATCHLIST_AUTO_SYNC_V1_ENABLED__!==false,AUTO_SYNC_DEBOUNCE_MS=2000,AUTO_SYNC_PLAYBACK_MS=30000,AUTO_SYNC_POLL_MS=60000,AUTO_SYNC_LEASE_MS=15000;
+const SYNC_ORIGINS=Object.freeze({LOCAL:'local-user',PLAYBACK:'playback',CLOUD:'cloud-applied',IMPORT:'import',UNDO_CLOUD:'undo-cloud',TAB:'tab-applied',STARTUP:'startup-normalization',CONFLICT:'conflict-resolution'});
 const PLAYER_TRANSLATIONS=Object.freeze({
   'Announcements':'Объявления','Accessibility':'Специальные возможности','AirPlay':'AirPlay','Audio':'Аудио','Auto':'Авто','Boost':'Усиление','Captions':'Субтитры','Caption Styles':'Стиль субтитров','Captions look like this':'Пример субтитров','Chapters':'Главы','Closed-Captions Off':'Субтитры выключены','Closed-Captions On':'Субтитры включены','Connected':'Подключено','Continue':'Продолжить','Connecting':'Подключение','Default':'По умолчанию','Disabled':'Отключено','Disconnected':'Нет подключения','Display Background':'Фон области','Download':'Скачать','Enter Fullscreen':'На весь экран','Enter PiP':'Включить картинку в картинке','Exit Fullscreen':'Выйти из полноэкранного режима','Exit PiP':'Выйти из картинки в картинке','Font':'Шрифт','Family':'Гарнитура','Fullscreen':'Полный экран','Google Cast':'Google Cast','Keyboard Animations':'Анимация клавиатурных действий','LIVE':'ПРЯМОЙ ЭФИР','Loop':'Повтор','Mute':'Выключить звук','Normal':'Обычный','Off':'Выкл.','Pause':'Пауза','Play':'Воспроизвести','Playback':'Воспроизведение','PiP':'Картинка в картинке','Quality':'Качество','Replay':'Повторить','Reset':'Сбросить','Seek Backward':'Назад на','Seek Forward':'Вперёд на','Seek':'Перемотка','Settings':'Настройки','Skip To Live':'К прямому эфиру','Speed':'Скорость','Size':'Размер','Color':'Цвет','Opacity':'Прозрачность','Shadow':'Тень','Text':'Текст','Text Background':'Фон текста','Track':'Дорожка','Unmute':'Включить звук','Volume':'Громкость'
 });
@@ -282,6 +284,7 @@ const PLAYER_REMOTE_STATE_LABELS=Object.freeze({'Connected':'Подключен�
 let BASE={movies:[],series:[]},state={},items=[],filtered=[],renderLimit=30,typeFilter='all',stateFilter='all',libraryQuery='',globalSearchQuery='',sortMode='rating',currentView='home',searchType='all';
 let pendingImportBackup=null;
 let cloudSession=null,cloudDeviceId='',cloudSyncBusy=false,cloudUiStatus='Локальный режим';
+let cloudSyncTimer=0,cloudRetryTimer=0,cloudPollTimer=0,cloudLeaseTimer=0,cloudSyncRequest=0,cloudSyncAbortController=null,cloudTabId='',cloudLastSeenState=null,cloudLocalDivergent=false,cloudConflictContext=null,cloudAutoSyncInitialized=false;
 let cloudAuthRouteBlocked=false,cloudAuthStartupNotice=null,modalDismissible=true;
 let addSearchState={query:'',results:[],scrollTop:0,searchRequest:0};
 let globalSearchState={results:[],status:'idle',error:'',request:0,timer:0};
@@ -451,8 +454,19 @@ function normalizeWatchlistStateShape(value){
   Object.keys(target.tmdbMeta).forEach(key=>{if(!isPlainObject(target.tmdbMeta[key]))delete target.tmdbMeta[key]});
   normalizeTonightSelection(target);normalizePlaybackProgress(target);return target;
 }
-function loadState(){let stored;try{stored=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch(e){stored={}};state=normalizeWatchlistStateShape(stored);ensureIdentityState();ensureBatchState()}
-function saveState(){state=normalizeWatchlistStateShape(state);ensureIdentityState();ensureBatchState();localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
+function loadState(){let stored;try{stored=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch(e){stored={}};state=normalizeWatchlistStateShape(stored);ensureIdentityState();ensureBatchState();cloudLastSeenState=cloneJSON(state)}
+function saveState({origin=SYNC_ORIGINS.LOCAL,reason='state-change'}={}){
+  state=normalizeWatchlistStateShape(state);ensureIdentityState();ensureBatchState();
+  const candidate=cloneJSON(state),persisted=readStoredJSON(STORAGE_KEY),lastSeen=cloudLastSeenState&&cloneJSON(cloudLastSeenState);let tabConflict=null;
+  if(lastSeen&&isPlainObject(persisted)&&[SYNC_ORIGINS.LOCAL,SYNC_ORIGINS.PLAYBACK,SYNC_ORIGINS.IMPORT,SYNC_ORIGINS.UNDO_CLOUD].includes(origin)){
+    const baseDigest=cloudStateDigest(canonicalSyncState(lastSeen)),externalDigest=cloudStateDigest(canonicalSyncState(persisted)),candidateDigest=cloudStateDigest(canonicalSyncState(candidate));
+    if(externalDigest!==baseDigest&&candidateDigest!==baseDigest){const resolved=resolveThreeWayState(lastSeen,candidate,persisted);if(resolved.ok)state=normalizeWatchlistStateShape(resolved.value);else tabConflict={kind:'tab',base:lastSeen,local:candidate,cloud:cloneJSON(persisted),conflicts:resolved.conflicts}}
+  }
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(state));cloudLastSeenState=cloneJSON(state);
+  if(tabConflict){cloudLocalDivergent=true;cloudConflictContext=tabConflict;const stored=storeConflictEnvelope(tabConflict);cloudUiStatus=stored?'Конфликт между вкладками — требуется выбор':'Конфликт между вкладками · снимок отката неполный';renderSyncCard();return true}
+  if([SYNC_ORIGINS.CLOUD,SYNC_ORIGINS.TAB,SYNC_ORIGINS.STARTUP,SYNC_ORIGINS.CONFLICT].includes(origin))return true;
+  markCloudDirty(origin,reason);return true;
+}
 function readStoredJSON(key){try{return JSON.parse(localStorage.getItem(key)||'null')}catch(e){return null}}
 function normalizeCloudSession(value){
   if(!isPlainObject(value)||!value.access_token||!value.refresh_token||!isPlainObject(value.user))return null;
@@ -471,7 +485,7 @@ function loadCloudRecoverySession(){
   const raw=sessionStorage.getItem(CLOUD_RECOVERY_SESSION_KEY);let value=null;try{value=JSON.parse(raw||'null')}catch(_){value=null}
   const normalized=normalizeCloudRecoverySession(value);if(!normalized&&raw)sessionStorage.removeItem(CLOUD_RECOVERY_SESSION_KEY);return normalized;
 }
-function storeCloudRecoverySession(value){const normalized=normalizeCloudRecoverySession(value);if(!normalized)throw new Error('Некорректная recovery-сессия');sessionStorage.setItem(CLOUD_RECOVERY_SESSION_KEY,JSON.stringify(normalized));renderSyncCard();return normalized}
+function storeCloudRecoverySession(value){const normalized=normalizeCloudRecoverySession(value);if(!normalized)throw new Error('Некорректная recovery-сессия');sessionStorage.setItem(CLOUD_RECOVERY_SESSION_KEY,JSON.stringify(normalized));stopCloudAutoSync();renderSyncCard();return normalized}
 function clearCloudRecoverySession(){sessionStorage.removeItem(CLOUD_RECOVERY_SESSION_KEY);renderSyncCard()}
 function authRequest(path,options={}){
   const controller=typeof AbortController==='function'?new AbortController():null;let timeout=0;
@@ -536,7 +550,7 @@ function storeCloudSession(value){
   renderSyncCard();
 }
 function loadCloudMeta(){const value=readStoredJSON(CLOUD_SYNC_KEY);return isPlainObject(value)?value:{}}
-function storeCloudMeta(value){localStorage.setItem(CLOUD_SYNC_KEY,JSON.stringify(value));renderSyncCard()}
+function storeCloudMeta(value,{quiet=false}={}){try{localStorage.setItem(CLOUD_SYNC_KEY,JSON.stringify(value));if(!quiet)renderSyncCard();return true}catch(error){console.warn('Supabase sync metadata не сохранена',error);cloudUiStatus='Есть несинхронизированные изменения · служебные данные не сохранены';if(!quiet)renderSyncCard();return false}}
 function stableSerialize(value){
   if(value===null||typeof value!=='object')return JSON.stringify(value);
   if(Array.isArray(value))return '['+value.map(stableSerialize).join(',')+']';
@@ -547,13 +561,66 @@ function cloudStateDigest(value){
   for(let i=0;i<text.length;i++)hash=Math.imul(hash^text.charCodeAt(i),16777619);
   return (hash>>>0).toString(16).padStart(8,'0');
 }
-function canonicalSyncState(value){
-  const payload=cloneJSON(value);
-  delete payload.tmdbToken;delete payload.tmdb_token;delete payload.watchlist_tmdb_key;
-  delete payload.tmdbUnresolvedExpanded;
-  return payload;
-}
+const SYNC_FORBIDDEN_KEYS=/^(?:tmdbToken|tmdb_token|watchlist_tmdb_key|access_token|refresh_token|token_hash|provider_token|provider_refresh_token|password|credentials|sourceUrl|source_url|blobUrl|blob_url|filePath|file_path|localFile|local_file|cloudSession|recoverySession)$/i;
+function sanitizeSyncValue(value){if(Array.isArray(value))return value.map(sanitizeSyncValue);if(!isPlainObject(value))return value;const clean={};Object.entries(value).forEach(([key,entry])=>{if(!SYNC_FORBIDDEN_KEYS.test(key))clean[key]=sanitizeSyncValue(entry)});return clean}
+function canonicalSyncState(value){const payload=sanitizeSyncValue(cloneJSON(value));delete payload.tmdbUnresolvedExpanded;return payload}
 function cloudPayload(){return canonicalSyncState(state)}
+const SYNC_KNOWN_FIELDS=new Set(['watched','pins','addedItems','identityHistory','batchHistory','tmdbAuditLog','tmdbUpdateHistory','tmdbReviewSkipped','tmdbUnresolved','tmdbMeta','ratings','notes','identities','titleAliases','tonightId','tonightSelection','playbackProgress','manualReviewQueue','lastBatchUndo']);
+function syncEqual(a,b){return stableSerialize(a)===stableSerialize(b)}
+function syncClone(value){return value===undefined?undefined:cloneJSON(value)}
+function syncValuePresent(value){if(value==null||value===false||value===0||value==='')return false;if(Array.isArray(value))return value.length>0;if(isPlainObject(value))return Object.keys(value).some(key=>syncValuePresent(value[key]));return true}
+function isEffectivelyEmptySyncState(value){const payload=canonicalSyncState(value);return !Object.entries(payload).some(([key,entry])=>!SYNC_KNOWN_FIELDS.has(key)||syncValuePresent(entry))}
+function resolvePrimitiveArray(base,local,cloud,path,conflicts){const values=new Map();[...(base||[]),...(local||[]),...(cloud||[])].forEach(value=>values.set(stableSerialize(value),value));const out=[];for(const [key,value] of values){const b=(base||[]).some(item=>stableSerialize(item)===key),l=(local||[]).some(item=>stableSerialize(item)===key),c=(cloud||[]).some(item=>stableSerialize(item)===key);let keep;if(l===c)keep=l;else if(l===b)keep=c;else if(c===b)keep=l;else{conflicts.push(path.join('.'));continue}if(keep)out.push(cloneJSON(value))}return out}
+function resolveAddedItems(base,local,cloud,path,conflicts){const map=items=>{const result=new Map();(items||[]).forEach(item=>result.set(addedItemKey(item),item));return result},bm=map(base),lm=map(local),cm=map(cloud),out=[];for(const key of new Set([...bm.keys(),...lm.keys(),...cm.keys()])){const value=resolveThreeWayValue(bm.get(key),lm.get(key),cm.get(key),[...path,key],conflicts);if(value!==undefined)out.push(value)}return out}
+function resolveThreeWayValue(base,local,cloud,path,conflicts){
+  if(syncEqual(local,cloud))return syncClone(local);if(syncEqual(local,base))return syncClone(cloud);if(syncEqual(cloud,base))return syncClone(local);
+  if(path.length===1&&!SYNC_KNOWN_FIELDS.has(path[0])){conflicts.push(path.join('.'));return syncClone(local)}
+  if(path[0]==='playbackProgress'&&path.length===2&&isPlainObject(local)&&isPlainObject(cloud)){const lu=Number(local.updatedAt)||0,cu=Number(cloud.updatedAt)||0;if(lu>0&&cu>0&&lu!==cu)return syncClone(lu>cu?local:cloud);conflicts.push(path.join('.'));return syncClone(local)}
+  if(Array.isArray(base)||Array.isArray(local)||Array.isArray(cloud)){
+    if(!Array.isArray(base)||!Array.isArray(local)||!Array.isArray(cloud)){conflicts.push(path.join('.'));return syncClone(local)}
+    if(path[0]==='addedItems')return resolveAddedItems(base,local,cloud,path,conflicts);
+    if([...base,...local,...cloud].every(item=>item==null||typeof item!=='object'))return resolvePrimitiveArray(base,local,cloud,path,conflicts);
+    const baseKeys=new Set(base.map(stableSerialize)),appendOnly=base.every(item=>local.some(x=>syncEqual(x,item))&&cloud.some(x=>syncEqual(x,item)));
+    if(appendOnly){const out=[],seen=new Set();[...base,...local,...cloud].forEach(item=>{const key=stableSerialize(item);if(!seen.has(key)){seen.add(key);out.push(cloneJSON(item))}});return out}
+    conflicts.push(path.join('.'));return syncClone(local)
+  }
+  if(isPlainObject(base)||isPlainObject(local)||isPlainObject(cloud)){
+    if(!isPlainObject(base)||!isPlainObject(local)||!isPlainObject(cloud)){conflicts.push(path.join('.'));return syncClone(local)}
+    const out={};for(const key of new Set([...Object.keys(base),...Object.keys(local),...Object.keys(cloud)])){const value=resolveThreeWayValue(base[key],local[key],cloud[key],[...path,key],conflicts);if(value!==undefined)out[key]=value}return out
+  }
+  conflicts.push(path.join('.'));return syncClone(local)
+}
+function resolveThreeWayState(base,local,cloud){const conflicts=[],value=resolveThreeWayValue(canonicalSyncState(base||{}),canonicalSyncState(local||{}),canonicalSyncState(cloud||{}),[],conflicts);return {ok:conflicts.length===0,value,conflicts:[...new Set(conflicts.filter(Boolean))]}}
+function storeConflictEnvelope(context){const envelope={at:new Date().toISOString(),kind:context.kind||'cloud',baseRevision:context.baseRevision??null,cloudRevision:context.cloudRevision??null,conflicts:context.conflicts||[],base:canonicalSyncState(context.base||{}),local:canonicalSyncState(context.local||{}),cloud:canonicalSyncState(context.cloud||{})};try{localStorage.setItem(CLOUD_CONFLICT_KEY,JSON.stringify(envelope));return true}catch(error){console.warn('Supabase conflict snapshot не сохранён',error);cloudUiStatus='Конфликт · не удалось сохранить полный снимок для отката';renderSyncCard();return false}}
+function ownCloudMeta(){const session=cloudSession||loadCloudSession(),meta=loadCloudMeta();return session&&meta.userId===session.user.id?meta:{}}
+function autoSyncAllowed(){return AUTO_SYNC_V1_ENABLED&&!!(cloudSession||loadCloudSession())&&!loadCloudRecoverySession()&&!cloudConflictContext&&!cloudLocalDivergent&&navigator.onLine!==false}
+function clearCloudSyncTimers(){clearTimeout(cloudSyncTimer);clearTimeout(cloudRetryTimer);clearInterval(cloudPollTimer);clearInterval(cloudLeaseTimer);cloudSyncTimer=cloudRetryTimer=cloudPollTimer=cloudLeaseTimer=0}
+function scheduleCloudSync(kind=SYNC_ORIGINS.LOCAL,{immediate=false}={}){if(!autoSyncAllowed())return;clearTimeout(cloudSyncTimer);const delay=immediate?0:kind===SYNC_ORIGINS.PLAYBACK?AUTO_SYNC_PLAYBACK_MS:AUTO_SYNC_DEBOUNCE_MS;cloudSyncTimer=setTimeout(()=>{cloudSyncTimer=0;runCloudSync({reason:kind})},delay)}
+function scheduleCloudRetry(){if(!autoSyncAllowed())return;const meta=ownCloudMeta(),attempt=Math.min(5,(Number(meta.retryAttempt)||0)+1),steps=[5000,15000,30000,60000,300000],delay=Math.round(steps[attempt-1]*(.9+Math.random()*.2));meta.retryAttempt=attempt;meta.retryAt=Date.now()+delay;meta.dirty=true;storeCloudMeta(meta);clearTimeout(cloudRetryTimer);cloudRetryTimer=setTimeout(()=>{cloudRetryTimer=0;runCloudSync({reason:'retry'})},delay)}
+function markCloudDirty(origin,reason){const session=cloudSession||loadCloudSession();if(!session)return;const meta=loadCloudMeta(),next=meta.userId&&meta.userId!==session.user.id?{}:Object.assign({},meta),localDigest=cloudStateDigest(cloudPayload());next.version=2;next.userId=session.user.id;next.deviceId=cloudDeviceId||loadCloudDeviceId();next.localDigest=localDigest;if(next.baseDigest&&next.baseDigest===localDigest){next.dirty=false;next.dirtySince=null;next.dirtyReason=null;next.dirtyKind=null;storeCloudMeta(next);clearTimeout(cloudSyncTimer);cloudSyncTimer=0;return}next.dirty=true;next.dirtySince=next.dirtySince||new Date().toISOString();next.dirtyReason=reason;next.dirtyKind=origin;storeCloudMeta(next);scheduleCloudSync(origin)}
+function initCloudTabId(){if(!cloudTabId)cloudTabId=globalThis.crypto&&crypto.randomUUID?crypto.randomUUID():`tab-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;return cloudTabId}
+function readCloudLease(){const lease=readStoredJSON(CLOUD_LEASE_KEY);return isPlainObject(lease)?lease:null}
+function renewCloudLease(){const lease=readCloudLease();if(document.visibilityState!=='visible'||lease?.owner!==cloudTabId){clearInterval(cloudLeaseTimer);cloudLeaseTimer=0;return}lease.expiresAt=Date.now()+AUTO_SYNC_LEASE_MS;try{localStorage.setItem(CLOUD_LEASE_KEY,JSON.stringify(lease))}catch(_){clearInterval(cloudLeaseTimer);cloudLeaseTimer=0}}
+function acquireCloudLease(){const now=Date.now(),tabId=initCloudTabId(),current=readCloudLease();if(current&&current.owner!==tabId&&Number(current.expiresAt)>now)return false;const lease={owner:tabId,expiresAt:now+AUTO_SYNC_LEASE_MS};try{localStorage.setItem(CLOUD_LEASE_KEY,JSON.stringify(lease));const acquired=readCloudLease()?.owner===tabId;if(acquired){clearInterval(cloudLeaseTimer);cloudLeaseTimer=setInterval(renewCloudLease,Math.floor(AUTO_SYNC_LEASE_MS/3))}return acquired}catch(_){return false}}
+function releaseCloudLease(){clearInterval(cloudLeaseTimer);cloudLeaseTimer=0;const lease=readCloudLease();if(lease?.owner===cloudTabId)localStorage.removeItem(CLOUD_LEASE_KEY)}
+function startCloudPolling(){clearInterval(cloudPollTimer);if(!AUTO_SYNC_V1_ENABLED)return;cloudPollTimer=setInterval(()=>{if(document.visibilityState==='visible'&&autoSyncAllowed())runCloudSync({reason:'poll'})},AUTO_SYNC_POLL_MS)}
+function stopCloudAutoSync(){clearCloudSyncTimers();cloudSyncRequest++;cloudSyncAbortController?.abort();cloudSyncAbortController=null;releaseCloudLease()}
+function handleCloudStorageEvent(event){
+  if(event.key===CLOUD_SESSION_KEY){cloudSession=loadCloudSession();if(!cloudSession)stopCloudAutoSync();else{startCloudPolling();scheduleCloudSync('session',{immediate:true})}renderSyncCard();return}
+  if(event.key===CLOUD_SYNC_KEY){renderSyncCard();return}
+  if(event.key!==STORAGE_KEY||!event.newValue)return;
+  let external;try{external=normalizeWatchlistStateShape(JSON.parse(event.newValue))}catch(_){return}
+  const current=cloneJSON(state),meta=ownCloudMeta(),base=isPlainObject(meta.baseSnapshot)?meta.baseSnapshot:cloudLastSeenState||current,currentDigest=cloudStateDigest(canonicalSyncState(current)),externalDigest=cloudStateDigest(canonicalSyncState(external)),baseDigest=cloudStateDigest(canonicalSyncState(base));
+  if(currentDigest===externalDigest){cloudLastSeenState=cloneJSON(external);return}
+  if(!meta.dirty&&!cloudLocalDivergent){state=external;ensureIdentityState();ensureBatchState();cloudLastSeenState=cloneJSON(external);rebuild();return}
+  const resolved=resolveThreeWayState(base,current,external);
+  if(resolved.ok){state=normalizeWatchlistStateShape(cloneJSON(resolved.value));cloudLastSeenState=cloneJSON(external);saveState({origin:SYNC_ORIGINS.TAB,reason:'storage-safe-merge'});rebuild();scheduleCloudSync(meta.dirtyKind||SYNC_ORIGINS.LOCAL);return}
+  setCloudConflict({kind:'tab',base,local:current,cloud:external,baseRevision:meta.baseRevision,cloudRevision:meta.revision,conflicts:resolved.conflicts},{open:false})
+}
+function startCloudAutoSync(){
+  if(!cloudAutoSyncInitialized){cloudAutoSyncInitialized=true;window.addEventListener('storage',handleCloudStorageEvent);window.addEventListener('online',()=>{if(autoSyncAllowed())scheduleCloudSync('online',{immediate:true})});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&autoSyncAllowed())scheduleCloudSync('visible',{immediate:true})})}
+  startCloudPolling();if(autoSyncAllowed())scheduleCloudSync('startup',{immediate:true})
+}
 async function supabaseJSON(path,{method='GET',body=null,token='',signal=null}={}){
   const headers={apikey:SUPABASE_KEY,accept:'application/json'};
   if(token)headers.Authorization='Bearer '+token;
@@ -709,46 +776,59 @@ function showCloudAuthStartupNotice(){
 async function signOutCloud(){
   const session=cloudSession||loadCloudSession();
   try{if(session)await supabaseJSON('/auth/v1/logout',{method:'POST',token:session.access_token})}catch(err){console.warn('Supabase sign out',err)}
-  storeCloudSession(null);cloudUiStatus='Локальный режим';renderSyncCard();
+  stopCloudAutoSync();cloudConflictContext=null;cloudLocalDivergent=false;storeCloudSession(null);cloudUiStatus='Локальный режим';renderSyncCard();
 }
-async function fetchCloudRecord(){
+async function fetchCloudRecord({signal=null}={}){
   const session=await ensureCloudSession();if(!session)throw new Error('Сначала войдите в аккаунт');
   const userId=encodeURIComponent(session.user.id);let rows;
-  try{rows=await supabaseJSON(`/rest/v1/watchlist_state?select=state,revision,updated_at,updated_by&user_id=eq.${userId}&limit=1`,{token:session.access_token})}
-  catch(err){if(err.status!==400||!/updated_by/i.test(JSON.stringify(err.payload||err.message)))throw err;rows=await supabaseJSON(`/rest/v1/watchlist_state?select=state,revision,updated_at&user_id=eq.${userId}&limit=1`,{token:session.access_token})}
+  try{rows=await supabaseJSON(`/rest/v1/watchlist_state?select=state,revision,updated_at,updated_by&user_id=eq.${userId}&limit=1`,{token:session.access_token,signal})}
+  catch(err){if(err.status!==400||!/updated_by/i.test(JSON.stringify(err.payload||err.message)))throw err;rows=await supabaseJSON(`/rest/v1/watchlist_state?select=state,revision,updated_at&user_id=eq.${userId}&limit=1`,{token:session.access_token,signal})}
   if(!Array.isArray(rows)||!rows.length)return null;
   const row=rows[0];if(!isPlainObject(row.state))throw new Error('Облачное состояние имеет неверный формат');
   return {state:canonicalSyncState(row.state),revision:Number(row.revision)||0,updated_at:row.updated_at||null,updated_by:row.updated_by||null};
 }
 function storeSyncedMeta(record,payload){
-  const session=cloudSession||loadCloudSession();if(!session)return;
+  const session=cloudSession||loadCloudSession();if(!session)return false;
   const localSnapshot=canonicalSyncState(payload),localDigest=cloudStateDigest(localSnapshot),cloudSnapshot=canonicalSyncState(record.state),cloudDigest=cloudStateDigest(cloudSnapshot);
-  const meta={userId:session.user.id,deviceId:cloudDeviceId||loadCloudDeviceId(),revision:record.revision,baseRevision:record.revision,cloudUpdatedAt:record.updated_at,updatedBy:record.updated_by||null,lastSyncedAt:new Date().toISOString(),digest:localDigest,localDigest,cloudDigest,baseSnapshot:localSnapshot};
-  try{storeCloudMeta(meta)}catch(err){delete meta.baseSnapshot;meta.baseSnapshotUnavailable=true;storeCloudMeta(meta);console.warn('Supabase base snapshot не сохранён',err)}
+  const meta={version:2,userId:session.user.id,deviceId:cloudDeviceId||loadCloudDeviceId(),revision:record.revision,baseRevision:record.revision,cloudUpdatedAt:record.updated_at,updatedBy:record.updated_by||null,lastSyncedAt:new Date().toISOString(),digest:localDigest,baseDigest:localDigest,localDigest,cloudDigest,baseSnapshot:localSnapshot,dirty:false,retryAttempt:0,retryAt:null};
+  if(!storeCloudMeta(meta)){delete meta.baseSnapshot;meta.baseSnapshotUnavailable=true;meta.manualOnly=true;storeCloudMeta(meta);cloudUiStatus='Синхронизация требует ручной проверки · baseline не сохранена';renderSyncCard();return false}cloudLocalDivergent=false;cloudConflictContext=null;localStorage.removeItem(CLOUD_CONFLICT_KEY);return true
 }
-async function uploadCloudState(expectedRevision){
+function openTabConflictChoice(context){
+  openModal(`<h2>⚠️ Конфликт между вкладками</h2><div class="identity-note warn">Обе вкладки изменили пересекающиеся данные. Выберите сохранённую версию явно.</div>${syncSummaryHTML('Текущая вкладка',context.local)}${syncSummaryHTML('Другая вкладка',context.cloud)}<div class="sync-choice"><button type="button" class="small-btn gold" id="tabConflictLocal">Оставить текущую вкладку</button><button type="button" class="small-btn" id="tabConflictExternal">Использовать другую вкладку</button><button type="button" class="small-btn" id="tabConflictCancel">Отмена</button></div>`);
+  $('#tabConflictCancel').onclick=closeModal;$('#tabConflictLocal').onclick=()=>resolveTabConflict(context.local,'local');$('#tabConflictExternal').onclick=()=>resolveTabConflict(context.cloud,'external')
+}
+function resolveTabConflict(value,choice){state=normalizeWatchlistStateShape(cloneJSON(value));ensureIdentityState();ensureBatchState();cloudConflictContext=null;cloudLocalDivergent=false;saveState({origin:SYNC_ORIGINS.CONFLICT,reason:`tab-${choice}`});const meta=ownCloudMeta();meta.dirty=true;meta.dirtyKind=SYNC_ORIGINS.CONFLICT;meta.dirtyReason=`tab-${choice}`;meta.localDigest=cloudStateDigest(cloudPayload());storeCloudMeta(meta);localStorage.removeItem(CLOUD_CONFLICT_KEY);rebuild();closeModal();runCloudSync({reason:SYNC_ORIGINS.CONFLICT})}
+function setCloudConflict(context,{open=true}={}){cloudConflictContext=context;cloudLocalDivergent=context.kind==='tab';const stored=storeConflictEnvelope(context);cloudUiStatus=stored?'Конфликт — требуется выбор':'Конфликт · снимок для отката неполный';renderSyncCard();if(open){if(context.kind==='tab')openTabConflictChoice(context);else if(context.record)openCloudSyncChoice(context.record,{conflict:true})}return false}
+async function tryAutomaticConflictMerge(record,{retryDepth=0,signal=null}={}){
+  const meta=ownCloudMeta(),base=meta.baseSnapshot;if(!isPlainObject(base))return setCloudConflict({kind:'cloud',base:{},local:cloudPayload(),cloud:record.state,baseRevision:meta.baseRevision,cloudRevision:record.revision,conflicts:['baseline'],record});
+  const local=cloudPayload(),resolved=resolveThreeWayState(base,local,record.state),context={kind:'cloud',base,local,cloud:record.state,baseRevision:meta.baseRevision,cloudRevision:record.revision,conflicts:resolved.conflicts,record};
+  if(!resolved.ok||!storeConflictEnvelope(context))return setCloudConflict(context);
+  const previous=cloneJSON(state);try{state=normalizeWatchlistStateShape(cloneJSON(resolved.value));ensureIdentityState();ensureBatchState();saveState({origin:SYNC_ORIGINS.CONFLICT,reason:'automatic-safe-merge'})}catch(error){state=normalizeWatchlistStateShape(previous);ensureIdentityState();ensureBatchState();throw error}const pending=ownCloudMeta();pending.dirty=true;pending.dirtyKind=SYNC_ORIGINS.CONFLICT;pending.dirtyReason='automatic-safe-merge';pending.localDigest=cloudStateDigest(cloudPayload());storeCloudMeta(pending);rebuild();
+  const ok=await uploadCloudState(record.revision,{origin:SYNC_ORIGINS.CONFLICT,retryDepth,signal});if(ok){cloudUiStatus='Синхронизировано';renderSyncCard()}return ok
+}
+async function uploadCloudState(expectedRevision,{origin=SYNC_ORIGINS.LOCAL,retryDepth=0,signal=null}={}){
   const session=await ensureCloudSession();if(!session)throw new Error('Сначала войдите в аккаунт');
   const payload=cloudPayload();
   try{
-    await supabaseJSON('/rest/v1/rpc/save_watchlist_state',{method:'POST',token:session.access_token,body:{p_state:payload,p_expected_revision:Number(expectedRevision)||0,p_device_id:cloudDeviceId||loadCloudDeviceId()}});
+    await supabaseJSON('/rest/v1/rpc/save_watchlist_state',{method:'POST',token:session.access_token,signal,body:{p_state:payload,p_expected_revision:Number(expectedRevision)||0,p_device_id:cloudDeviceId||loadCloudDeviceId()}});
   }catch(err){
-    const latest=await fetchCloudRecord().catch(()=>null);
-    if(latest&&latest.revision!==Number(expectedRevision||0)){cloudUiStatus='Обнаружен конфликт revision';openCloudSyncChoice(latest,{conflict:true});return false}
+    if(signal?.aborted)throw err;const latest=await fetchCloudRecord({signal}).catch(()=>null);
+    if(latest&&latest.revision!==Number(expectedRevision||0)){if(cloudStateDigest(latest.state)===cloudStateDigest(payload)){const saved=storeSyncedMeta(latest,payload);cloudUiStatus=saved?'Синхронизировано':'Облако обновлено · baseline требует ручной проверки';return saved}if(retryDepth<1)return tryAutomaticConflictMerge(latest,{retryDepth:retryDepth+1,signal});return setCloudConflict({kind:'cloud',base:ownCloudMeta().baseSnapshot||{},local:payload,cloud:latest.state,baseRevision:expectedRevision,cloudRevision:latest.revision,conflicts:['revision-race'],record:latest})}
     throw err;
   }
-  const saved=await fetchCloudRecord();if(!saved)throw new Error('Supabase не вернул сохранённую облачную копию');
-  storeSyncedMeta(saved,payload);cloudUiStatus=`Облако обновлено · revision ${saved.revision}`;renderSyncCard();return true;
+  const saved=await fetchCloudRecord({signal});if(!saved)throw new Error('Supabase не вернул сохранённую облачную копию');
+  const metadataSaved=storeSyncedMeta(saved,payload);cloudUiStatus=metadataSaved?`Облако обновлено · revision ${saved.revision}`:'Облако обновлено · локальная baseline требует ручной проверки';renderSyncCard();return metadataSaved;
 }
-function savePreCloudPullSnapshot(){localStorage.setItem(CLOUD_PULL_UNDO_KEY,JSON.stringify({at:new Date().toISOString(),state:cloneJSON(state)}))}
+function savePreCloudPullSnapshot(){try{localStorage.setItem(CLOUD_PULL_UNDO_KEY,JSON.stringify({at:new Date().toISOString(),state:cloneJSON(state)}));return true}catch(error){console.warn('Supabase pull undo snapshot не сохранён',error);cloudUiStatus='Получение отменено: не удалось сохранить снимок отката';renderSyncCard();return false}}
 function applyCloudRecord(record){
   if(!record||!isPlainObject(record.state))throw new Error('Облачное состояние имеет неверный формат');
-  savePreCloudPullSnapshot();state=normalizeWatchlistStateShape(cloneJSON(record.state));ensureIdentityState();ensureBatchState();saveState();rebuild();storeSyncedMeta(record,cloudPayload());cloudUiStatus=`Получена облачная копия · revision ${record.revision}`;renderSyncCard();
+  if(!savePreCloudPullSnapshot())return false;const previous=cloneJSON(state);try{state=normalizeWatchlistStateShape(cloneJSON(record.state));ensureIdentityState();ensureBatchState();saveState({origin:SYNC_ORIGINS.CLOUD,reason:'cloud-pull'})}catch(error){state=normalizeWatchlistStateShape(previous);ensureIdentityState();ensureBatchState();throw error}rebuild();const metadataSaved=storeSyncedMeta(record,cloudPayload());cloudUiStatus=metadataSaved?`Получена облачная копия · revision ${record.revision}`:'Облачная копия получена · baseline требует ручной проверки';renderSyncCard();return metadataSaved;
 }
 function undoLastCloudPull(){
   try{
     const snapshot=readStoredJSON(CLOUD_PULL_UNDO_KEY);if(!isPlainObject(snapshot)||!isPlainObject(snapshot.state))throw new Error('снимок отсутствует или повреждён');
     if(!confirm('Вернуть локальные данные к состоянию до получения облачной копии?'))return;
-    state=normalizeWatchlistStateShape(cloneJSON(snapshot.state));ensureIdentityState();ensureBatchState();saveState();localStorage.removeItem(CLOUD_PULL_UNDO_KEY);rebuild();cloudUiStatus='Получение из облака отменено; локальные данные изменены';renderSyncCard();
+    state=normalizeWatchlistStateShape(cloneJSON(snapshot.state));ensureIdentityState();ensureBatchState();saveState({origin:SYNC_ORIGINS.UNDO_CLOUD,reason:'undo-cloud-pull'});localStorage.removeItem(CLOUD_PULL_UNDO_KEY);rebuild();cloudUiStatus='Получение из облака отменено · изменения ожидают отправки';renderSyncCard();
   }catch(err){alert('Не удалось отменить получение: '+err.message)}
 }
 function syncSummaryHTML(label,value){
@@ -759,32 +839,33 @@ function openCloudSyncChoice(record,{conflict=false}={}){
   const hasCloud=!!record,title=conflict?'⚠️ Конфликт синхронизации':'☁️ Первая синхронизация',updatedBy=conflict&&record&&record.updated_by?`<br><small>updated_by: ${esc(record.updated_by)}</small>`:'';
   openModal(`<h2>${title}</h2>${conflict?`<div class="identity-note warn">Локальные данные изменены, но в облаке уже есть более новая revision. Автоматическое объединение отключено — выберите источник вручную.${updatedBy}</div>`:hasCloud?'<p style="color:var(--muted)">Облачная копия уже существует. Выберите, какие данные считать основными.</p>':'<p style="color:var(--muted)">Облачной копии ещё нет. Можно безопасно загрузить текущие локальные данные.</p>'}${syncSummaryHTML('Локально',cloudPayload())}${hasCloud?syncSummaryHTML(`Облако · revision ${record.revision}`,record.state):''}<div class="sync-choice"><button type="button" class="small-btn gold" id="cloudChooseUpload">${hasCloud?'Использовать локальные и заменить облачные':'Загрузить локальные данные в облако'}</button>${hasCloud?'<button type="button" class="small-btn" id="cloudChooseDownload">Получить облачные данные на устройство</button>':''}<button type="button" class="small-btn" id="cloudChooseCancel">Отмена</button></div>`);
   $('#cloudChooseCancel').onclick=closeModal;
-  $('#cloudChooseUpload').onclick=async()=>{if(hasCloud&&!confirm('Заменить облачную копию текущими локальными данными?'))return;try{const ok=await uploadCloudState(hasCloud?record.revision:0);if(ok){closeModal();renderSyncCard()}}catch(err){alert('Синхронизация: '+err.message)}};
+  $('#cloudChooseUpload').onclick=async()=>{if(hasCloud&&!confirm('Заменить облачную копию текущими локальными данными?'))return;try{const ok=await uploadCloudState(hasCloud?record.revision:0,{origin:conflict?SYNC_ORIGINS.CONFLICT:SYNC_ORIGINS.LOCAL});if(ok){closeModal();renderSyncCard()}}catch(err){alert('Синхронизация: '+err.message)}};
   if(hasCloud)$('#cloudChooseDownload').onclick=()=>{if(!confirm('Заменить локальный кэш облачной копией? Перед заменой будет создан снимок для отката.'))return;try{applyCloudRecord(record);closeModal()}catch(err){alert('Синхронизация: '+err.message)}};
 }
 async function openFirstCloudSync(){
   if(loadCloudRecoverySession()){openCloudPasswordRecovery();return}
-  cloudSyncBusy=true;renderSyncCard();
-  try{openCloudSyncChoice(await fetchCloudRecord())}catch(err){cloudUiStatus='Ошибка: '+err.message;alert('Синхронизация: '+err.message)}finally{cloudSyncBusy=false;renderSyncCard()}
+  startCloudPolling();return runCloudSync({reason:'login'})
 }
-async function syncCloudNow(){
-  if(loadCloudRecoverySession()){openCloudPasswordRecovery();return}if(cloudSyncBusy)return;cloudSyncBusy=true;cloudUiStatus='Проверяю revision…';renderSyncCard();
+async function runCloudSync({reason='manual',manual=false}={}){
+  if(loadCloudRecoverySession()){if(manual)openCloudPasswordRecovery();return false}if(cloudConflictContext){if(manual){if(cloudConflictContext.kind==='tab')openTabConflictChoice(cloudConflictContext);else if(cloudConflictContext.record)openCloudSyncChoice(cloudConflictContext.record,{conflict:true})}return false}if(!manual&&!AUTO_SYNC_V1_ENABLED||cloudSyncBusy)return false;
+  if(!manual&&(document.visibilityState!=='visible'||navigator.onLine===false))return false;
+  if(!acquireCloudLease()){cloudUiStatus='Синхронизация выполняется в другой вкладке';renderSyncCard();return false}
+  const request=++cloudSyncRequest;cloudSyncAbortController?.abort();const controller=typeof AbortController==='function'?new AbortController():null;cloudSyncAbortController=controller;cloudSyncBusy=true;cloudUiStatus='Проверяю облако…';renderSyncCard();
   try{
     const session=await ensureCloudSession();if(!session){openCloudAuth();return}
-    const record=await fetchCloudRecord(),meta=loadCloudMeta(),payload=cloudPayload(),localDigest=cloudStateDigest(payload),cloudDigest=record?cloudStateDigest(record.state):'',knownLocalDigest=meta.localDigest||meta.digest||'',knownCloudDigest=meta.cloudDigest||'',localChanged=!knownLocalDigest||knownLocalDigest!==localDigest,first=meta.userId!==session.user.id||meta.revision==null;
-    if(!record||first){openCloudSyncChoice(record);return}
-    const revisionSame=record.revision===Number(meta.revision),baselineReady=!!meta.localDigest&&!!meta.cloudDigest&&meta.baseRevision!=null;
-    if(!baselineReady&&revisionSame){
-      if(meta.digest===localDigest||localDigest===cloudDigest){storeSyncedMeta(record,payload);cloudUiStatus='Синхронизировано';return}
-      openCloudSyncChoice(record,{conflict:true});return;
-    }
-    const cloudChanged=record.revision!==Number(meta.revision)||!!knownCloudDigest&&knownCloudDigest!==cloudDigest;
-    if(!localChanged&&!cloudChanged){storeSyncedMeta(record,payload);cloudUiStatus='Синхронизировано'}
-    else if(localChanged&&!cloudChanged){if(await uploadCloudState(meta.revision))cloudUiStatus='Локальные изменения сохранены в облаке'}
-    else if(!localChanged&&cloudChanged&&record.revision>Number(meta.revision))applyCloudRecord(record);
-    else openCloudSyncChoice(record,{conflict:true});
-  }catch(err){cloudUiStatus='Ошибка: '+err.message;alert('Синхронизация: '+err.message)}finally{cloudSyncBusy=false;renderSyncCard()}
+    if(request!==cloudSyncRequest)return false;
+    const record=await fetchCloudRecord({signal:controller?.signal});if(request!==cloudSyncRequest||controller?.signal.aborted||loadCloudRecoverySession())return false;const rawMeta=loadCloudMeta(),meta=rawMeta.userId===session.user.id?rawMeta:{},payload=cloudPayload(),localDigest=cloudStateDigest(payload),cloudDigest=record?cloudStateDigest(record.state):'';
+    const baselineReady=isPlainObject(meta.baseSnapshot)&&meta.baseRevision!=null&&!meta.manualOnly;
+    if(!record){if(isEffectivelyEmptySyncState(payload)){const saved=storeSyncedMeta({state:payload,revision:0,updated_at:null,updated_by:null},payload);cloudUiStatus=saved?'Синхронизировано':'Локальная baseline требует ручной проверки';return saved}return uploadCloudState(0,{signal:controller?.signal})}
+    if(!baselineReady){if(localDigest===cloudDigest){const saved=storeSyncedMeta(record,payload);cloudUiStatus=saved?'Синхронизировано':'Локальная baseline требует ручной проверки';return saved}if(isEffectivelyEmptySyncState(payload))return applyCloudRecord(record);openCloudSyncChoice(record);return false}
+    const baseDigest=meta.baseDigest||cloudStateDigest(meta.baseSnapshot),localChanged=!!meta.dirty||localDigest!==baseDigest,cloudChanged=record.revision!==Number(meta.baseRevision)||cloudDigest!==(meta.cloudDigest||baseDigest);
+    if(!localChanged&&!cloudChanged){const saved=storeSyncedMeta(record,payload);cloudUiStatus=saved?'Синхронизировано':'Локальная baseline требует ручной проверки';return saved}
+    if(localChanged&&!cloudChanged)return uploadCloudState(meta.baseRevision,{signal:controller?.signal});
+    if(!localChanged&&cloudChanged)return applyCloudRecord(record);
+    return tryAutomaticConflictMerge(record,{signal:controller?.signal});
+  }catch(err){if(controller?.signal.aborted||loadCloudRecoverySession())return false;cloudUiStatus=navigator.onLine===false?'Нет сети · изменения сохранены локально':'Есть несинхронизированные изменения · '+err.message;if(!manual)scheduleCloudRetry();else alert('Синхронизация: '+err.message);return false}finally{if(cloudSyncAbortController===controller)cloudSyncAbortController=null;cloudSyncBusy=false;releaseCloudLease();renderSyncCard()}
 }
+async function syncCloudNow(){return runCloudSync({reason:'manual',manual:true})}
 async function fetchBase(){for(const u of BASE_URLS){try{const r=await fetch(u,{cache:'force-cache'});if(!r.ok)continue;const t=await r.text();const m=t.match(/const DATA = (\{[\s\S]*?\});\nconst GENRE_COLORS/);if(m)return JSON.parse(m[1])}catch(e){console.warn(e)}}throw new Error('Не удалось загрузить базовый список')}
 function metaEntryFor(it){
   const exact=idFor(it);
@@ -1330,7 +1411,7 @@ function persistPlaybackProgress({force=false,ended=false}={}){
   const completed=isPlaybackProgressComplete(snapshot.currentTime,snapshot.duration,{ended}),key=session.key;
   if(snapshot.currentTime<playbackResumeMinimum(snapshot.duration)&&!completed)return false;
   const previous=normalizePlaybackProgress(state)[key];if(force&&previous&&Math.abs(previous.currentTime-snapshot.currentTime)<.5&&Math.abs(previous.duration-snapshot.duration)<.5&&previous.completed===completed&&now-previous.updatedAt<1200)return false;
-  state.playbackProgress[key]=playbackProgressEntry(session.target,snapshot.currentTime,snapshot.duration,{completed});session.lastStoredAt=now;session.completed=completed;saveState();renderContinueWatching();return true;
+  state.playbackProgress[key]=playbackProgressEntry(session.target,snapshot.currentTime,snapshot.duration,{completed});session.lastStoredAt=now;session.completed=completed;saveState({origin:SYNC_ORIGINS.PLAYBACK,reason:'playback-progress'});renderContinueWatching();return true;
 }
 function applyPlaybackResume(session){
   if(!session||session!==playbackProgressSession||session.resumeApplied||session.request!==playerRequestToken)return;const resume=session.resumeEntry;if(!resume){session.resumeApplied=true;return}const snapshot=playbackMediaSnapshot(session.media);if(!snapshot.duration)return;if(snapshot.currentTime>1){session.resumeApplied=true;return}
@@ -1698,7 +1779,7 @@ function applyBackupImport(mode){
     state=mode==='replace'?normalizeWatchlistStateShape(cloneJSON(backup.state)):mergeWatchlistState(state,backup.state);
     ensureIdentityState();ensureBatchState();
     logTmdbEvent('data_import',null,{mode,exportedAt:backup.exportedAt});
-    saveState();
+    saveState({origin:SYNC_ORIGINS.IMPORT,reason:`backup-${mode}`});
     if(typeof backup.tmdbToken==='string'&&backup.tmdbToken)localStorage.setItem(TOKEN_KEY,backup.tmdbToken);
     rebuild();pendingImportBackup=null;
     const after=backupCounts(state),verb=mode==='replace'?'восстановлено':'объединено';
@@ -1723,7 +1804,7 @@ function undoLastImport(){
     const raw=localStorage.getItem(IMPORT_UNDO_KEY);if(!raw)return;
     const snapshot=JSON.parse(raw);if(!isPlainObject(snapshot)||!isPlainObject(snapshot.state))throw new Error('снимок повреждён');
     if(!confirm('Вернуть данные к состоянию до последнего импорта?'))return;
-    state=normalizeWatchlistStateShape(cloneJSON(snapshot.state));ensureIdentityState();ensureBatchState();logTmdbEvent('data_import_rollback',null,{snapshotAt:snapshot.at});saveState();
+    state=normalizeWatchlistStateShape(cloneJSON(snapshot.state));ensureIdentityState();ensureBatchState();logTmdbEvent('data_import_rollback',null,{snapshotAt:snapshot.at});saveState({origin:SYNC_ORIGINS.IMPORT,reason:'backup-undo'});
     if(snapshot.tokenPresent)localStorage.setItem(TOKEN_KEY,snapshot.tmdbToken||'');else localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(IMPORT_UNDO_KEY);rebuild();alert('Последний импорт отменён.');openDataPanel();
   }catch(e){alert('Не удалось отменить импорт: '+(e.message||String(e)))}
@@ -2744,7 +2825,7 @@ $$('[data-type]').forEach(b=>b.onclick=()=>{$$('[data-type]').forEach(x=>x.class
 $$('[data-state]').forEach(b=>b.onclick=()=>{const was=b.classList.contains('active');$$('[data-state]').forEach(x=>x.classList.remove('active'));stateFilter=was?'all':b.dataset.state;if(!was)b.classList.add('active');applyFilters()});
 $$('[data-search-type]').forEach(b=>b.onclick=()=>{$$('[data-search-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active');searchType=b.dataset.searchType;renderSearch()});
 $$('[data-state-go]').forEach(b=>b.addEventListener('click',()=>{stateFilter=b.dataset.stateGo||'all';showView('list');$$('[data-state]').forEach(x=>x.classList.toggle('active',x.dataset.state===stateFilter));applyFilters()}));
-;(async()=>{try{loadState();cloudSession=await restoreCloudSession();cloudDeviceId=loadCloudDeviceId();BASE=await fetchBase();rebuild();if(cloudAuthRouteBlocked){showView('home',{restore:true,route:false});showCloudAuthStartupNotice();return}appRouteReady=true;applyAppRoute({initial:true});if(cloudAuthStartupNotice)showCloudAuthStartupNotice()}catch(e){$('#heroCount').textContent='Ошибка загрузки';$('#list').innerHTML='<div class="empty">'+esc(e.message)+'</div>'}})()
+;(async()=>{try{loadState();cloudSession=await restoreCloudSession();cloudDeviceId=loadCloudDeviceId();BASE=await fetchBase();rebuild();if(cloudAuthRouteBlocked){showView('home',{restore:true,route:false});showCloudAuthStartupNotice();return}appRouteReady=true;applyAppRoute({initial:true});if(cloudAuthStartupNotice)showCloudAuthStartupNotice();startCloudAutoSync()}catch(e){$('#heroCount').textContent='Ошибка загрузки';$('#list').innerHTML='<div class="empty">'+esc(e.message)+'</div>'}})()
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=beta15-pwa-1',{updateViaCache:'none'}).catch(error=>console.warn('Service worker registration failed',error)),{once:true});
 }
