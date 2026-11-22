@@ -25,6 +25,7 @@
 html{scroll-padding-bottom:140px}html,body{margin:0;min-height:100%;background:radial-gradient(900px 520px at 70% -8%,rgba(223,165,47,.10),transparent 58%),var(--bg);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!important}
 button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--gold2);outline-offset:3px}
+[data-tv-focusable]{scroll-margin:92px 42px}
 .app{max-width:var(--max);margin:auto;padding:18px 18px var(--bottom-gap)}
 .top{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:22px}
 .brand{display:flex;align-items:center;gap:9px;min-width:0;font-size:21px;font-weight:800;white-space:nowrap}
@@ -117,10 +118,20 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
 @media(min-width:1100px){
   body{padding-left:88px}.desktop-side{display:flex;position:fixed;left:13px;top:50%;transform:translateY(-50%);width:64px;flex-direction:column;gap:8px;padding:8px;background:rgba(14,18,23,.94);border:1px solid var(--line);border-radius:21px;z-index:35}.desktop-side button{height:50px;border:0;border-radius:14px;background:transparent;color:var(--muted);font-size:20px}.desktop-side button.active{color:var(--gold2);background:rgba(223,165,47,.09)}.nav{display:none}.app{padding-bottom:40px}.carousel{grid-auto-columns:185px}
 }
+@media(min-width:1200px){
+  :root{--tv-focus:rgba(243,188,76,.96)}
+  button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible,.detail-trigger:focus-visible,.stat:focus-visible,.sentinel:focus-visible{outline:4px solid var(--tv-focus);outline-offset:4px;box-shadow:0 0 0 7px rgba(243,188,76,.19),0 12px 32px rgba(0,0,0,.48)}
+  .detail-poster:focus-visible,.tmdb-result-poster:focus-visible{outline-offset:2px;transform:translateY(-3px) scale(1.025);filter:brightness(1.1);position:relative;z-index:4}
+  .media-card:focus-within{border-color:rgba(243,188,76,.68);box-shadow:0 13px 34px rgba(0,0,0,.38)}
+  .desktop-side{width:74px;gap:10px;padding:10px}.desktop-side button{height:58px;font-size:23px}
+  .modal{width:min(780px,calc(100% - 80px));max-height:84vh}.modal button,.modal a{min-height:46px}
+  .section{margin-top:26px}.carousel{gap:16px}.row{min-height:126px}.small-btn{min-height:44px}
+}
 @media(min-width:1700px){
   :root{--max:1650px}.app{padding-top:36px}.brand{font-size:28px}.hero h1{font-size:58px}.hero p{font-size:21px}.search-wrap input{font-size:20px;padding:21px}.filter-open{font-size:19px}.stat{padding:22px}.stat b{font-size:18px}.stat strong{font-size:46px}.stat span{font-size:16px}.section h2{font-size:30px}.section-actions{gap:10px}.carousel-nav{width:48px;height:48px;font-size:27px}.carousel{grid-auto-columns:235px}.row{grid-template-columns:104px 1fr auto;padding:14px}.row-poster{width:104px}.row h3{font-size:24px}.row-meta,.row-desc{font-size:16px}.small-btn{font-size:17px;padding:13px 16px}.sentinel{padding:18px;font-size:21px}
 }
 @media(min-width:1600px) and (pointer:coarse){button,.chip{font-size:20px}.desktop-side{width:90px}.desktop-side button{height:70px;font-size:28px}.carousel{grid-auto-columns:260px}}
+@media(prefers-reduced-motion:reduce){.detail-poster,.tmdb-result-poster,.media-card{transition:none!important;scroll-behavior:auto!important}}
 
 .modal-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
 .modal-back{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:12px;padding:9px 12px}
@@ -295,6 +306,8 @@ let detailNavState=null,activeDetailDescriptor=null,activeDetailRandom=false,act
 let tonightSelectorRequest=0;
 let playerNavState=null,pendingPlayerOrigin=null,playerRequestToken=0,playerEpisodeRequest=0,playerFullscreenExitedAt=0,activePlaybackTarget=null,activePlaybackSourceRef=null,nativeLocalFileSession=null,playbackProgressSession=null;
 let appRouteReady=false,appRouteApplying=false,activeProfileRouteSection='';
+let tvModalReturnFocus=null,tvKeyboardMode=false;
+const tvViewFocusMemory=new Map();
 const addDetailsCache=new Map(),seasonDetailsCache=new Map();
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -966,6 +979,7 @@ function findDetailReturnTarget(snapshot){
 function abandonDetailPage(){detailLoadRequest++;detailNavState=null;pendingPlayerOrigin=null;activeDetailDescriptor=null;activeDetailRandom=false;activeDetailDetails=null;activeDetailRevealTonight=false}
 function showView(name,options={}){
   const restore=!!options.restore;
+  rememberTvViewFocus(currentView);
   if(options.explicit&&currentView==='detail'&&name!=='detail')abandonDetailPage();
   if(currentView==='player'&&name!=='player'&&!options.playerBack)abandonPlayerView();
   currentView=name;
@@ -980,6 +994,7 @@ function showView(name,options={}){
   if(name==='home'&&!restore)requestAnimationFrame(resetCarouselPositions);
   if(!restore&&options.scrollTop!==false)scrollTo({top:0,behavior:options.behavior||'smooth'});
   if(options.route!==false&&name!=='player')writeAppRoute(appRouteHash(name));
+  if(options.tvFocus)requestAnimationFrame(()=>restoreTvViewFocus(name));
 }
 function updateProfile(){
   const el=$('#profileListCount');
@@ -1105,15 +1120,72 @@ function updateStats(){const watched=items.filter(isWatched).length,fav=items.fi
 function byId(id){return items.find(x=>idFor(x)===id)}
 function toggleFav(id){state.pins=state.pins||[];state.pins=state.pins.includes(id)?state.pins.filter(x=>x!==id):[...state.pins,id];saveState();rebuild()}
 function toggleWatched(id){state.watched=state.watched||[];state.watched=state.watched.includes(id)?state.watched.filter(x=>x!==id):[...state.watched,id];saveState();rebuild()}
-function openModal(html,options={}){modalBackdropPointerId=null;modalDismissible=options.dismissible!==false;$('#modal').innerHTML=`${modalDismissible?'<button class="small-btn close" onclick="closeModal()">✕</button>':''}${html}`;$('#modalBg').classList.remove('hidden')}
+function openModal(html,options={}){
+  const wasHidden=$('#modalBg').classList.contains('hidden');
+  if(wasHidden&&isTvFocusable(document.activeElement))tvModalReturnFocus=document.activeElement;
+  modalBackdropPointerId=null;modalDismissible=options.dismissible!==false;$('#modal').innerHTML=`${modalDismissible?'<button class="small-btn close" aria-label="Закрыть" onclick="closeModal()">✕</button>':''}${html}`;$('#modalBg').classList.remove('hidden');
+  requestAnimationFrame(()=>{if(!$('#modalBg').classList.contains('hidden')&&!$('#modal').contains(document.activeElement))focusTvElement(initialModalFocus())});
+}
 function closeModal(options={}){
-  if(!modalDismissible&&!options.force)return;modalBackdropPointerId=null;modalDismissible=true;
+  if(!modalDismissible&&!options.force)return;const returnFocus=tvModalReturnFocus;tvModalReturnFocus=null;modalBackdropPointerId=null;modalDismissible=true;
   $('#modalBg').classList.add('hidden');const profileSection=activeProfileRouteSection;activeProfileRouteSection='';
-  if(!profileSection||options.route===false||appRouteApplying||!appRouteReady)return;
-  if(history.state?.watchlistRoute===appRouteHash('profile',{section:profileSection})&&history.state?.parentRoute==='#profile')history.back();
-  else{showView('profile',{restore:true,scrollTop:false,route:false});writeAppRoute('#profile',{replace:true})}
+  if(profileSection&&options.route!==false&&!appRouteApplying&&appRouteReady){
+    if(history.state?.watchlistRoute===appRouteHash('profile',{section:profileSection})&&history.state?.parentRoute==='#profile')history.back();
+    else{showView('profile',{restore:true,scrollTop:false,route:false});writeAppRoute('#profile',{replace:true})}
+  }
+  requestAnimationFrame(()=>{if($('#modalBg').classList.contains('hidden')&&isTvFocusable(returnFocus))focusTvElement(returnFocus)});
 }
 window.closeModal=closeModal;$('#modalBg').addEventListener('pointerdown',e=>{modalBackdropPointerId=e.target===$('#modalBg')&&modalDismissible?e.pointerId:null});$('#modalBg').addEventListener('pointerup',e=>{const dismiss=e.target===$('#modalBg')&&modalDismissible&&modalBackdropPointerId===e.pointerId;modalBackdropPointerId=null;if(dismiss)closeModal()});$('#modalBg').addEventListener('pointercancel',()=>{modalBackdropPointerId=null});
+
+const TV_FOCUSABLE='button:not([disabled]),a[href],summary,input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function isTvEditable(element){return !!element?.matches?.('input,textarea,select,[contenteditable="true"]')||!!element?.isContentEditable}
+function isTvFocusable(element){
+  if(!element?.matches?.(TV_FOCUSABLE)||element.closest('[aria-hidden="true"],.hidden')||element.disabled)return false;
+  const style=getComputedStyle(element),rect=element.getBoundingClientRect();return style.display!=='none'&&style.visibility!=='hidden'&&rect.width>0&&rect.height>0;
+}
+function tvFocusableElements(root=document){return [...root.querySelectorAll(TV_FOCUSABLE)].filter(isTvFocusable)}
+function focusTvElement(element){if(!isTvFocusable(element))return false;element.dataset.tvFocusable='true';element.focus({preventScroll:true});const carousel=element.closest('.carousel');element.scrollIntoView({block:'nearest',inline:carousel?'center':'nearest',behavior:'auto'});if(carousel)requestAnimationFrame(()=>updateCarouselNavigation(carousel));return document.activeElement===element}
+function tvFocusDescriptor(element){
+  if(!element)return null;if(element.id)return {id:element.id};
+  if(element.dataset?.id)return {dataId:element.dataset.id,role:detailTriggerRole(element)};
+  if(element.dataset?.view)return {view:element.dataset.view};return null;
+}
+function findTvFocusDescriptor(root,descriptor){
+  if(!root||!descriptor)return null;if(descriptor.id)return document.getElementById(descriptor.id);
+  if(descriptor.dataId)return [...root.querySelectorAll('[data-id]')].find(element=>element.dataset.id===descriptor.dataId&&detailTriggerRole(element)===descriptor.role)||root.querySelector(`[data-id="${CSS.escape(descriptor.dataId)}"]`);
+  if(descriptor.view)return root.querySelector(`[data-view="${descriptor.view}"]`);return null;
+}
+function rememberTvViewFocus(view=currentView){const root=$('#view-'+view),active=document.activeElement;if(root?.contains(active)&&isTvFocusable(active))tvViewFocusMemory.set(view,tvFocusDescriptor(active))}
+function restoreTvViewFocus(view=currentView){const root=$('#view-'+view);if(!root)return false;return focusTvElement(findTvFocusDescriptor(root,tvViewFocusMemory.get(view)))||focusTvElement(tvFocusableElements(root)[0])}
+function initialModalFocus(){const root=$('#modal');return root.querySelector('[autofocus]')||root.querySelector('input:not([disabled]),select:not([disabled]),textarea:not([disabled])')||root.querySelector('.modal-back,.primary,.gold')||tvFocusableElements(root)[0]}
+function tvDirectionalCandidate(active,direction,candidates){
+  const source=active.getBoundingClientRect(),sx=source.left+source.width/2,sy=source.top+source.height/2;
+  const verticalGroup=direction==='up'||direction==='down'?active.closest('.media-card,.row,.tmdb-result'):null;
+  let best=null,bestScore=Infinity;
+  for(const candidate of candidates){if(candidate===active||verticalGroup?.contains(candidate))continue;const rect=candidate.getBoundingClientRect(),cx=rect.left+rect.width/2,cy=rect.top+rect.height/2,dx=cx-sx,dy=cy-sy;
+    const forward=direction==='left'?-dx:direction==='right'?dx:direction==='up'?-dy:dy;if(forward<=3)continue;
+    const cross=direction==='left'||direction==='right'?Math.abs(dy):Math.abs(dx),overlap=direction==='left'||direction==='right'?(rect.top<source.bottom&&rect.bottom>source.top):(rect.left<source.right&&rect.right>source.left);
+    const score=forward+cross*(overlap ? .7 : 2.4)+Math.hypot(dx,dy)*.08;if(score<bestScore){bestScore=score;best=candidate}
+  }return best;
+}
+function tvCarouselNeighbor(active,direction){
+  if(direction!=='left'&&direction!=='right')return null;const carousel=active.closest('.carousel'),card=active.closest('.media-card');if(!carousel||!card)return null;
+  const cards=[...carousel.querySelectorAll('.media-card')],next=cards[cards.indexOf(card)+(direction==='right'?1:-1)];if(!next)return false;
+  const role=detailTriggerRole(active),same=[...next.querySelectorAll(TV_FOCUSABLE)].find(element=>detailTriggerRole(element)===role&&isTvFocusable(element));return same||tvFocusableElements(next)[0]||false;
+}
+function handleTvDirection(event){
+  if(currentView==='player'||event.defaultPrevented||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key))return;
+  if(isTvEditable(event.target))return;const modalOpen=!$('#modalBg').classList.contains('hidden'),root=modalOpen?$('#modal'):$('#view-'+currentView),candidates=tvFocusableElements(root);if(!candidates.length)return;
+  const active=root?.contains(document.activeElement)&&isTvFocusable(document.activeElement)?document.activeElement:candidates[0],direction=event.key.slice(5).toLowerCase(),carouselTarget=tvCarouselNeighbor(active,direction);
+  const target=carouselTarget===false?null:carouselTarget||tvDirectionalCandidate(active,direction,candidates);event.preventDefault();event.stopPropagation();tvKeyboardMode=true;if(target)focusTvElement(target);else focusTvElement(active);
+}
+function handleTvBack(event){
+  if(currentView==='player'||event.defaultPrevented||isTvEditable(event.target)||!['Escape','Backspace','BrowserBack','GoBack'].includes(event.key))return;
+  if(!$('#modalBg').classList.contains('hidden')){event.preventDefault();event.stopPropagation();if(!modalDismissible)return;const back=$('#modalBack');if(isTvFocusable(back))back.click();else closeModal();return}
+  if(currentView==='detail'){event.preventDefault();event.stopPropagation();backFromDetailPage()}
+}
+document.addEventListener('pointerdown',()=>{tvKeyboardMode=false},{capture:true,passive:true});
+document.addEventListener('keydown',event=>{handleTvBack(event);handleTvDirection(event)},true);
 
 function openSubModal(title, bodyHtml, backFn){
   openModal(`<div class="modal-nav"><button class="modal-back" id="modalBack">← Назад</button></div><h2>${title}</h2>${bodyHtml}`);
@@ -2828,7 +2900,7 @@ $('#homeStats').addEventListener('keydown',e=>{
   const cards=$$('#homeStats .stat'),index=cards.indexOf(document.activeElement);if(index<0)return;
   e.preventDefault();const direction=e.key==='ArrowRight'||e.key==='ArrowDown'?1:-1;cards[(index+direction+cards.length)%cards.length].focus();
 });
-$$('[data-view]').forEach(b=>b.addEventListener('click',()=>{const view=b.dataset.view;if(view)showView(view,{explicit:true})}));
+$$('[data-view]').forEach(b=>b.addEventListener('click',event=>{const view=b.dataset.view;if(view)showView(view,{explicit:true,tvFocus:tvKeyboardMode||event.detail===0})}));
 $$('[data-type]').forEach(b=>b.onclick=()=>{$$('[data-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active');typeFilter=b.dataset.type;applyFilters()});
 $$('[data-state]').forEach(b=>b.onclick=()=>{const was=b.classList.contains('active');$$('[data-state]').forEach(x=>x.classList.remove('active'));stateFilter=was?'all':b.dataset.state;if(!was)b.classList.add('active');applyFilters()});
 $$('[data-search-type]').forEach(b=>b.onclick=()=>{$$('[data-search-type]').forEach(x=>x.classList.remove('active'));b.classList.add('active');searchType=b.dataset.searchType;renderSearch()});

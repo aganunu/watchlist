@@ -83,6 +83,15 @@ test('browser harness uses a pinned public dependency without Codex runtime path
   assert.doesNotMatch(harness, /codex-runtimes|NODE_PATH|\.cache[\\/]codex/i);
 });
 
+test('TV spatial navigation stays runtime-only and protects editable controls', () => {
+  assert.match(html, /const TV_FOCUSABLE=/);
+  assert.match(html, /function tvDirectionalCandidate\(/);
+  assert.match(html, /function handleTvDirection\([\s\S]*?if\(isTvEditable\(event\.target\)\)return/);
+  assert.match(html, /function handleTvBack\(/);
+  assert.match(html, /tvViewFocusMemory=new Map\(\)/);
+  assert.doesNotMatch(html, /localStorage\.setItem\([^\n]*tv(?:Focus|Navigation)/i);
+});
+
 test('automatic sync has one rollback switch and explicit critical mutation origins', () => {
   assert.match(html, /const AUTO_SYNC_V1_ENABLED=/);
   assert.match(html, /SYNC_ORIGINS=Object\.freeze\([\s\S]*CONFLICT:'conflict-resolution'/);

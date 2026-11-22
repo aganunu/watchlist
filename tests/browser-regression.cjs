@@ -544,6 +544,34 @@ async function main() {
       const base=JSON.parse(JSON.stringify(SYNC_STATE_FIXTURE)),app=await openApp({viewport:{width:1920,height:1080},stateRaw:JSON.stringify(base),normalSession:session(USERS.normal),syncMetaValue:syncMeta(base,1),cloudRecord:{state:base,revision:1,updated_at:new Date().toISOString()},autoSync:false});await app.page.locator('[data-view="profile"]:visible').first().click();await app.page.locator('#cloudSyncNow').focus();assert.equal(await app.page.evaluate(()=>document.activeElement?.id),'cloudSyncNow');const size=await app.page.evaluate(()=>({inner:innerWidth,scroll:document.documentElement.scrollWidth}));assert.ok(size.scroll<=size.inner+1,JSON.stringify(size));await app.close();
     });
 
+    await run('TV D-pad traverses carousel cards and moves down to the next section', async () => {
+      const fixture=JSON.parse(JSON.stringify(STATE_FIXTURE));fixture.pins=['M::Тестовый фильм::2024'];const app=await openApp({stateRaw:JSON.stringify(fixture),viewport:{width:1280,height:720}});
+      const cards=app.page.locator('#topCarousel .detail-poster');await cards.first().focus();const first=await cards.first().getAttribute('data-id');await app.page.keyboard.press('ArrowRight');const second=await app.page.evaluate(()=>document.activeElement?.dataset?.id);assert.notEqual(second,first);assert.equal(await app.page.evaluate(()=>document.activeElement?.closest('#topCarousel')!==null),true);
+      await cards.first().focus();await app.page.keyboard.press('ArrowDown');assert.equal(await app.page.evaluate(()=>document.activeElement?.closest('#favoritesCarousel')!==null),true);await app.close();
+    });
+
+    await run('TV carousel navigation reveals offscreen cards without losing focus', async () => {
+      const fixture=JSON.parse(JSON.stringify(STATE_FIXTURE));fixture.addedItems=Array.from({length:14},(_,index)=>({title:`Добавленный ${index}`,year:2000+index,type:'M',rating:7+index/100,desc:'Карточка для D-pad'}));const app=await openApp({stateRaw:JSON.stringify(fixture),viewport:{width:1280,height:720}});
+      await app.page.locator('#topCarousel .detail-poster').first().focus();for(let index=0;index<8;index+=1)await app.page.keyboard.press('ArrowRight');const result=await app.page.evaluate(()=>({scroll:document.querySelector('#topCarousel').scrollLeft,inside:document.activeElement?.closest('#topCarousel')!==null,visible:document.activeElement?.getBoundingClientRect().right<=innerWidth+2}));assert.ok(result.scroll>0,JSON.stringify(result));assert.equal(result.inside,true);assert.equal(result.visible,true);await app.close();
+    });
+
+    await run('TV Detail Back restores the exact originating card control', async () => {
+      const app=await openApp({viewport:{width:1280,height:720}}),trigger=app.page.locator('#topCarousel .detail-poster').first();await trigger.focus();const id=await trigger.getAttribute('data-id');await app.page.keyboard.press('Enter');await app.page.locator('#view-detail.active').waitFor();await app.page.keyboard.press('Escape');await app.page.locator('#view-home.active').waitFor();const restored=await app.page.evaluate(()=>({id:document.activeElement?.dataset?.id,poster:document.activeElement?.classList.contains('detail-poster')}));assert.deepEqual(restored,{id,poster:true});await app.close();
+    });
+
+    await run('TV modal traps spatial focus, skips unavailable controls and restores its trigger', async () => {
+      const app=await openApp({viewport:{width:1280,height:720}});await app.page.locator('[data-view="profile"]:visible').first().click();const trigger=app.page.locator('#profileAbout');await trigger.focus();await app.page.evaluate(()=>openModal('<div class="action-sheet"><button class="primary" id="tvFirst">Первый</button><button id="tvDisabled" disabled>Недоступен</button><button id="tvHidden" class="hidden">Скрыт</button><button id="tvSecond">Второй</button></div>'));await app.page.locator('#tvFirst').focus();await app.page.keyboard.press('ArrowDown');assert.equal(await app.page.evaluate(()=>document.activeElement?.id),'tvSecond');assert.equal(await app.page.evaluate(()=>document.querySelector('#modal').contains(document.activeElement)),true);await app.page.keyboard.press('Escape');await app.page.waitForFunction(()=>document.activeElement?.id==='profileAbout');
+      await app.page.evaluate(()=>openModal('<button id="protectedControl">Защищено</button>',{dismissible:false}));await app.page.locator('#protectedControl').focus();await app.page.keyboard.press('Escape');assert.equal(await app.page.locator('#modalBg').evaluate(node=>node.classList.contains('hidden')),false);await app.page.evaluate(()=>closeModal({force:true,route:false}));await app.close();
+    });
+
+    await run('TV navigation activates primary views while inputs retain native arrow keys', async () => {
+      const app=await openApp({viewport:{width:1920,height:1080}}),home=app.page.locator('.desktop-side [data-view="home"]');await home.focus();await app.page.keyboard.press('ArrowDown');assert.equal(await app.page.evaluate(()=>document.activeElement?.dataset?.view),'list');await app.page.keyboard.press('Enter');await app.page.locator('#view-list.active').waitFor();await app.page.waitForFunction(()=>document.activeElement?.id==='listSearch');await app.page.locator('#listSearch').fill('abc');await app.page.locator('#listSearch').press('ArrowLeft');assert.equal(await app.page.evaluate(()=>document.activeElement?.id),'listSearch');await app.close();
+    });
+
+    await run('TV large-screen layouts keep strong focus and avoid horizontal overflow', async () => {
+      for(const viewport of [{width:1280,height:720},{width:1920,height:1080}]){const app=await openApp({viewport});const target=app.page.locator('#topCarousel .detail-poster').first();await target.focus();const result=await app.page.evaluate(()=>({inner:innerWidth,scroll:document.documentElement.scrollWidth,outline:getComputedStyle(document.activeElement).outlineWidth,nav:getComputedStyle(document.querySelector('.desktop-side')).display}));assert.ok(result.scroll<=result.inner+1,JSON.stringify({viewport,result}));assert.equal(result.outline,'4px');assert.equal(result.nav,'flex');await app.close()}
+    });
+
     await run('compatibility redirect preserves query and hash', async () => {
       const app = await openApp({pathName: '/v6-beta15.html?probe=1#search'});await app.page.waitForFunction(() => location.pathname === '/' && location.search === '?probe=1' && location.hash === '#search');await app.page.locator('#view-search.active').waitFor();await app.close();
     });
