@@ -102,13 +102,15 @@ async function main() {
     catch (error) {error.message = `${name}: ${error.message}`;throw error}
   }
 
-  async function openApp({pathName = '/', viewport = {width: 1280, height: 720}, stateRaw = JSON.stringify(STATE_FIXTURE), normalSession = null, recoverySession = null, backupValue = null, syncMetaValue = null, cloudRecord = null, sync = {}, auth = {}, autoSync = true} = {}) {
+  async function openApp({pathName = '/', viewport = {width: 1280, height: 720}, stateRaw = JSON.stringify(STATE_FIXTURE), normalSession = null, recoverySession = null, backupValue = null, syncMetaValue = null, cloudRecord = null, sync = {}, auth = {}, autoSync = true, playbackSyncMs = null, retrySteps = null} = {}) {
     const counters = {recover: 0, signup: 0, update: 0, passwordGrant: 0, rest: 0, rpc: 0, logout: 0, rpcBodies: []};
     const cloud = {record: cloudRecord ? JSON.parse(JSON.stringify(cloudRecord)) : null};
     const context = await browser.newContext({viewport, serviceWorkers: 'block'});
     await context.addInitScript(config => {
       if (location.origin !== config.origin) return;
       globalThis.__WATCHLIST_AUTO_SYNC_V1_ENABLED__ = config.autoSync;
+      if (config.playbackSyncMs) globalThis.__WATCHLIST_AUTO_SYNC_PLAYBACK_MS__ = config.playbackSyncMs;
+      if (config.retrySteps) globalThis.__WATCHLIST_AUTO_SYNC_RETRY_STEPS__ = config.retrySteps;
       if (config.stateRaw !== null) localStorage.setItem(config.stateKey, config.stateRaw);
       localStorage.setItem(config.tokenKey, 'fixture-tmdb-token');
       if (config.normalSession) localStorage.setItem(config.sessionKey, JSON.stringify(config.normalSession));
@@ -116,7 +118,7 @@ async function main() {
       if (config.syncMetaValue) localStorage.setItem(config.syncKey, JSON.stringify(config.syncMetaValue));
       if (config.backupValue !== null) localStorage.setItem('fixture_backup', config.backupValue);
       if (config.syncQuotaFail || config.conflictQuotaFail) {const original=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(config.syncQuotaFail&&key===config.syncKey||config.conflictQuotaFail&&key===config.conflictKey)throw new DOMException('quota','QuotaExceededError');return original.call(this,key,value)}}
-    }, {origin, stateRaw, stateKey: STATE_KEY, tokenKey: TOKEN_KEY, sessionKey: SESSION_KEY, recoveryKey: RECOVERY_KEY, syncKey: SYNC_KEY, conflictKey: CONFLICT_KEY, normalSession, recoverySession, syncMetaValue, backupValue, syncQuotaFail:!!sync.quotaFail, conflictQuotaFail:!!sync.conflictQuotaFail, autoSync});
+    }, {origin, stateRaw, stateKey: STATE_KEY, tokenKey: TOKEN_KEY, sessionKey: SESSION_KEY, recoveryKey: RECOVERY_KEY, syncKey: SYNC_KEY, conflictKey: CONFLICT_KEY, normalSession, recoverySession, syncMetaValue, backupValue, syncQuotaFail:!!sync.quotaFail, conflictQuotaFail:!!sync.conflictQuotaFail, autoSync, playbackSyncMs, retrySteps});
     await context.route('**/*', async route => {
       const url = new URL(route.request().url());
       if (url.hostname === 'raw.githubusercontent.com' || url.hostname === 'cdn.jsdelivr.net' && url.pathname.includes('/aganunu/watchlist@')) {
@@ -143,8 +145,8 @@ async function main() {
           await json(200, session(USERS.recovered));return;
         }
         if (pathname === '/auth/v1/token' && url.searchParams.get('grant_type') === 'refresh_token') {await json(200, session(USERS.recovered, 'refreshed'));return;}
-        if (pathname === '/auth/v1/logout') {counters.logout += 1;await json(200, {});return;}
-        if (pathname === '/rest/v1/watchlist_state') {counters.rest += 1;if(sync.networkFailure){await route.abort();return;}await json(200, cloud.record ? [cloud.record] : []);return;}
+        if (pathname === '/auth/v1/logout') {counters.logout += 1;if(auth.logoutDelay)await new Promise(resolve=>setTimeout(resolve,auth.logoutDelay));if(auth.logoutNetwork){await route.abort();return;}await json(200, {});return;}
+        if (pathname === '/rest/v1/watchlist_state') {counters.rest += 1;if(sync.restDelay)await new Promise(resolve=>setTimeout(resolve,sync.restDelay));if(sync.readFailures>0){sync.readFailures-=1;await json(503,{message:'temporary read failure'});return;}if(sync.networkFailure){await route.abort();return;}await json(200, cloud.record ? [cloud.record] : []);return;}
         if (pathname === '/rest/v1/rpc/save_watchlist_state') {
           counters.rest += 1;counters.rpc += 1;const body=request.postDataJSON();counters.rpcBodies.push(body);
           if(sync.networkFailure){await route.abort();return;}
@@ -415,7 +417,14 @@ async function main() {
     });
 
     await run('logout cancels every automatic sync timer', async () => {
-      const base=JSON.parse(JSON.stringify(SYNC_STATE_FIXTURE)),app=await openApp({stateRaw:JSON.stringify(base),normalSession:session(USERS.normal),syncMetaValue:syncMeta(base,1),cloudRecord:{state:base,revision:1,updated_at:new Date().toISOString()},autoSync:false});await app.page.evaluate(()=>{cloudSyncTimer=setTimeout(()=>{},60000);cloudRetryTimer=setTimeout(()=>{},60000);cloudPollTimer=setInterval(()=>{},60000);cloudLeaseTimer=setInterval(()=>{},60000);return signOutCloud()});const timers=await app.page.evaluate(()=>({sync:cloudSyncTimer,retry:cloudRetryTimer,poll:cloudPollTimer,lease:cloudLeaseTimer}));assert.deepEqual(timers,{sync:0,retry:0,poll:0,lease:0});await app.close();
+      const base=JSON.parse(JSON.stringify(SYNC_STATE_FIXTURE)),app=await openApp({stateRaw:JSON.stringify(base),normalSession:session(USERS.normal),syncMetaValue:syncMeta(base,1),cloudRecord:{state:base,revision:1,updated_at:new Date().toISOString()},autoSync:false});await app.page.evaluate(()=>{cloudSyncTimer=setTimeout(()=>{},60000);cloudPlaybackTimer=setTimeout(()=>{},60000);cloudRetryTimer=setTimeout(()=>{},60000);cloudPollTimer=setInterval(()=>{},60000);cloudLeaseTimer=setInterval(()=>{},60000);return signOutCloud()});const timers=await app.page.evaluate(()=>({sync:cloudSyncTimer,playback:cloudPlaybackTimer,retry:cloudRetryTimer,poll:cloudPollTimer,lease:cloudLeaseTimer}));assert.deepEqual(timers,{sync:0,playback:0,retry:0,poll:0,lease:0});await app.close();
+    });
+
+    await run('logout immediately aborts sync and stays signed out when server logout fails', async () => {
+      const base=JSON.parse(JSON.stringify(SYNC_STATE_FIXTURE)),app=await openApp({stateRaw:JSON.stringify(base),normalSession:session(USERS.normal),syncMetaValue:syncMeta(base,1),cloudRecord:{state:base,revision:1,updated_at:new Date().toISOString()},sync:{restDelay:500},auth:{logoutDelay:300,logoutNetwork:true},autoSync:false});
+      await app.page.evaluate(()=>{window.__pendingSync=runCloudSync({manual:true})});await app.page.waitForFunction(()=>!!cloudSyncAbortController);
+      const immediate=await app.page.evaluate(({sessionKey,leaseKey})=>{const controller=cloudSyncAbortController;window.__pendingLogout=signOutCloud();return {aborted:controller.signal.aborted,session:localStorage.getItem(sessionKey),lease:localStorage.getItem(leaseKey),timers:[cloudSyncTimer,cloudPlaybackTimer,cloudRetryTimer,cloudPollTimer,cloudLeaseTimer]}} ,{sessionKey:SESSION_KEY,leaseKey:'watchlist_supabase_sync_lease'});
+      assert.equal(immediate.aborted,true);assert.equal(immediate.session,null);assert.equal(immediate.lease,null);assert.deepEqual(immediate.timers,[0,0,0,0,0]);await app.page.waitForTimeout(650);assert.equal(app.counters.rpc,0);assert.equal(await app.page.evaluate(key=>localStorage.getItem(key),SESSION_KEY),null);await app.close({expectedConsoleErrors:[/ERR_FAILED/]});
     });
 
     await run('foreign-user sync metadata is ignored conservatively', async () => {
@@ -454,7 +463,21 @@ async function main() {
     });
 
     await run('ordinary mutations debounce into one upload and playback uses its longer timer', async () => {
-      const base=JSON.parse(JSON.stringify(SYNC_STATE_FIXTURE)),app=await openApp({stateRaw:JSON.stringify(base),normalSession:session(USERS.normal),syncMetaValue:syncMeta(base,1),cloudRecord:{state:base,revision:1,updated_at:new Date().toISOString()},autoSync:true});await app.page.waitForTimeout(100);await app.page.evaluate(()=>{state.notes.a='one';saveState();state.ratings.b=8;saveState()});await app.page.waitForTimeout(2500);assert.equal(app.counters.rpc,1);await app.page.evaluate(()=>{state.playbackProgress.test={kind:'movie',identityKey:'test',mediaType:'movie',currentTime:20,duration:100,updatedAt:Date.now(),completed:false};saveState({origin:SYNC_ORIGINS.PLAYBACK,reason:'playback-progress'})});const timerActive=await app.page.evaluate(()=>cloudSyncTimer!==0);assert.equal(timerActive,true);await app.page.waitForTimeout(2200);assert.equal(app.counters.rpc,1);await app.close();
+      const base=JSON.parse(JSON.stringify(SYNC_STATE_FIXTURE)),app=await openApp({stateRaw:JSON.stringify(base),normalSession:session(USERS.normal),syncMetaValue:syncMeta(base,1),cloudRecord:{state:base,revision:1,updated_at:new Date().toISOString()},autoSync:true});await app.page.waitForTimeout(100);await app.page.evaluate(()=>{state.notes.a='one';saveState();state.ratings.b=8;saveState()});await app.page.waitForTimeout(2500);assert.equal(app.counters.rpc,1);await app.page.evaluate(()=>{state.playbackProgress.test={kind:'movie',identityKey:'test',mediaType:'movie',currentTime:20,duration:100,updatedAt:Date.now(),completed:false};saveState({origin:SYNC_ORIGINS.PLAYBACK,reason:'playback-progress'})});const timerActive=await app.page.evaluate(()=>cloudPlaybackTimer!==0);assert.equal(timerActive,true);await app.page.waitForTimeout(2200);assert.equal(app.counters.rpc,1);await app.close();
+    });
+
+    await run('repeated playback saves cannot postpone the first cloud deadline', async () => {
+      const base=JSON.parse(JSON.stringify(SYNC_STATE_FIXTURE)),app=await openApp({stateRaw:JSON.stringify(base),normalSession:session(USERS.normal),syncMetaValue:syncMeta(base,1),cloudRecord:{state:base,revision:1,updated_at:new Date().toISOString()},autoSync:true,playbackSyncMs:180});await app.page.waitForTimeout(100);const before=app.counters.rpc;
+      const save=seconds=>app.page.evaluate(seconds=>{state.playbackProgress.test={kind:'movie',identityKey:'test',mediaType:'movie',currentTime:seconds,duration:100,updatedAt:Date.now(),completed:false};saveState({origin:SYNC_ORIGINS.PLAYBACK,reason:'playback-progress'})},seconds);
+      await save(20);const firstTimer=await app.page.evaluate(()=>cloudPlaybackTimer);await app.page.waitForTimeout(60);await save(25);assert.equal(await app.page.evaluate(()=>cloudPlaybackTimer),firstTimer);await app.page.waitForTimeout(60);await save(30);assert.equal(await app.page.evaluate(()=>cloudPlaybackTimer),firstTimer);await app.page.waitForTimeout(160);assert.equal(app.counters.rpc,before+1);await app.page.waitForTimeout(180);assert.equal(app.counters.rpc,before+1);await app.close();
+    });
+
+    await run('clean poll failure followed by remote update retries as pull without RPC', async () => {
+      const base=JSON.parse(JSON.stringify(SYNC_STATE_FIXTURE)),remote=JSON.parse(JSON.stringify(base)),meta=syncMeta(base,1),app=await openApp({stateRaw:JSON.stringify(base),syncMetaValue:meta,cloudRecord:{state:base,revision:1,updated_at:new Date().toISOString()},sync:{readFailures:1},autoSync:true,retrySteps:[500]});await app.page.evaluate(value=>storeCloudSession(value),session(USERS.normal));await app.page.evaluate(()=>runCloudSync({reason:'poll'}));assert.equal(await app.page.evaluate(()=>loadCloudMeta().dirty),false);remote.notes.remote='newer';app.cloud.record={state:remote,revision:2,updated_at:new Date().toISOString(),updated_by:'other-device'};await app.page.evaluate(()=>runCloudSync({reason:'retry'}));assert.equal(await app.page.evaluate(()=>state.notes.remote),'newer');assert.equal(app.counters.rpc,0);assert.equal(await app.page.evaluate(()=>cloudConflictContext),null);assert.equal(await app.page.evaluate(()=>cloudRetryTimer),0);await app.close({expectedConsoleErrors:[/status of 503/]});
+    });
+
+    await run('successful sync cancels a stale retry timer', async () => {
+      const base=JSON.parse(JSON.stringify(SYNC_STATE_FIXTURE)),app=await openApp({stateRaw:JSON.stringify(base),syncMetaValue:syncMeta(base,1),cloudRecord:{state:base,revision:1,updated_at:new Date().toISOString()},autoSync:true,retrySteps:[150]});await app.page.evaluate(value=>storeCloudSession(value),session(USERS.normal));await app.page.evaluate(()=>scheduleCloudRetry(new Error('temporary')));assert.notEqual(await app.page.evaluate(()=>cloudRetryTimer),0);const before=app.counters.rest;await app.page.evaluate(()=>runCloudSync({reason:'online'}));assert.equal(await app.page.evaluate(()=>cloudRetryTimer),0);await app.page.waitForTimeout(250);assert.equal(app.counters.rest,before+1);assert.equal(await app.page.evaluate(()=>loadCloudMeta().retryAttempt),0);await app.close();
     });
 
     await run('offline mutation remains pending and reconnect retries it', async () => {

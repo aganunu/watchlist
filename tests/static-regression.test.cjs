@@ -106,7 +106,7 @@ test('auto sync uses revision CAS, foreground polling, lease and recovery isolat
   assert.match(html, /p_expected_revision:Number\(expectedRevision\)\|\|0/);
   assert.match(html, /document\.visibilityState==='visible'/);
   assert.match(html, /AUTO_SYNC_POLL_MS=60000/);
-  assert.match(html, /steps=\[5000,15000,30000,60000,300000\]/);
+  assert.match(html, /AUTO_SYNC_RETRY_STEPS=.*\[5000,15000,30000,60000,300000\]/);
   assert.match(html, /CLOUD_LEASE_KEY='watchlist_supabase_sync_lease'/);
   assert.match(html, /if\(loadCloudRecoverySession\(\)\)\{if\(manual\)openCloudPasswordRecovery\(\);return false\}/);
   assert.doesNotMatch(html, /BroadcastChannel|postgres_changes|realtime\.channel/);
