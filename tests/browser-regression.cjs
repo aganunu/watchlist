@@ -102,6 +102,40 @@ async function main() {
     catch (error) {error.message = `${name}: ${error.message}`;throw error}
   }
 
+  async function playerApp(options={}){
+    const app=await openApp(options);
+    await app.page.evaluate(()=>{
+      class FixturePlayer extends HTMLElement {
+        currentTime=0;
+        duration=120;
+        paused=true;
+        set src(value){this.fixtureSource=value}
+        pause(){this.paused=true}
+      }
+      customElements.define('media-player',FixturePlayer);
+      window.fixtureTarget={kind:'movie',identityKey:'tmdb:movie:7',tmdbId:'7',mediaType:'movie',title:'Fixture movie',year:2024};
+      window.fixtureEpisode={kind:'episode',identityKey:'tmdb:tv:8',tmdbId:'8',mediaType:'tv',title:'Fixture series',seasonNumber:1,episodeNumber:1};
+      window.fixtureSeed=(target,time=34,completed=false)=>{
+        state.playbackProgress[playbackProgressKey(target)]=playbackProgressEntry(target,time,120,{completed});
+        saveState({origin:SYNC_ORIGINS.PLAYBACK,reason:'playback-test'});renderContinueWatching();
+      };
+      addDetailsCache.set(tmdbDetailsCacheKey('tv',8),{id:8,name:'Fixture series',seasons:[{season_number:0},{season_number:1},{season_number:2}]});
+      seasonDetailsCache.set('tv:8:season:1',{episodes:[{episode_number:1,name:'Pilot'},{episode_number:3,name:'Third'}]});
+      seasonDetailsCache.set('tv:8:season:2',{episodes:[{episode_number:1,name:'Final'}]});
+      window.fixtureSignal=(type,time)=>{
+        const media=activePlayerElement();
+        if(time!=null)media.currentTime=time;
+        media.dispatchEvent(new Event(type));
+      };
+    });
+    return app;
+  }
+
+  async function chooseUrl(page,url='https://media.example.test/private-stream.mp4?signature=fixture'){
+    await page.locator('#playbackUrl').fill(url);
+    await page.locator('#playbackOpenUrl').click();
+  }
+
   async function openApp({pathName = '/', viewport = {width: 1280, height: 720}, stateRaw = JSON.stringify(STATE_FIXTURE), normalSession = null, recoverySession = null, backupValue = null, syncMetaValue = null, cloudRecord = null, sync = {}, auth = {}, autoSync = true, playbackSyncMs = null, retrySteps = null} = {}) {
     const counters = {recover: 0, signup: 0, update: 0, passwordGrant: 0, refresh: 0, rest: 0, rpc: 0, logout: 0, rpcBodies: []};
     const cloud = {record: cloudRecord ? JSON.parse(JSON.stringify(cloudRecord)) : null};
@@ -542,6 +576,337 @@ async function main() {
 
     await run('large-screen sync controls remain focusable without horizontal overflow', async () => {
       const base=JSON.parse(JSON.stringify(SYNC_STATE_FIXTURE)),app=await openApp({viewport:{width:1920,height:1080},stateRaw:JSON.stringify(base),normalSession:session(USERS.normal),syncMetaValue:syncMeta(base,1),cloudRecord:{state:base,revision:1,updated_at:new Date().toISOString()},autoSync:false});await app.page.locator('[data-view="profile"]:visible').first().click();await app.page.locator('#cloudSyncNow').focus();assert.equal(await app.page.evaluate(()=>document.activeElement?.id),'cloudSyncNow');const size=await app.page.evaluate(()=>({inner:innerWidth,scroll:document.documentElement.scrollWidth}));assert.ok(size.scroll<=size.inner+1,JSON.stringify(size));await app.close();
+    });
+
+    await run('Continue Watching asks for resume and seeks only after media readiness', async () => {
+      const app=await playerApp(),{page}=app;
+      await page.evaluate(()=>fixtureSeed(fixtureTarget));
+      await page.locator('#continueCarousel .continue-open').first().click();
+      await chooseUrl(page);
+      assert.equal(await page.locator('#playerResume').innerText(),'Продолжить с 0:34');
+      assert.equal(await page.locator('media-player').count(),0);
+      await page.locator('#playerResume').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),0);
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),34);
+      const saved=await page.evaluate(()=>{
+        fixtureSignal('pause',42);
+        return JSON.stringify([localStorage.getItem(STORAGE_KEY),cloudPayload(),makeFullBackup(false)]);
+      });
+      assert.doesNotMatch(saved,/private-stream|signature=fixture/);
+      await app.close();
+    });
+
+    await run('restart preserves old progress on failure and retry clears it only on ready', async () => {
+      const app=await playerApp({viewport:{width:390,height:844}}),{page}=app;
+      await page.evaluate(()=>{fixtureSeed(fixtureTarget);openPlaybackSourceSetup(fixtureTarget)});
+      await chooseUrl(page);await page.locator('#playerRestart').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>{window.firstSource=activePlayerElement().fixtureSource;fixtureSignal('error')});
+      assert.equal(await page.evaluate(()=>resumablePlaybackProgress(fixtureTarget)?.currentTime),34);
+      assert.doesNotMatch(await page.locator('#playerStage').innerText(),/private-stream|signature/);
+      await page.locator('#playerRetry').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      assert.deepEqual(await page.evaluate(()=>activePlayerElement().fixtureSource),await page.evaluate(()=>firstSource));
+      assert.equal(await page.locator('#playerRestart:visible').count(),0);
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.deepEqual(await page.evaluate(()=>[activePlayerElement().currentTime,resumablePlaybackProgress(fixtureTarget)]),[0,null]);
+      await page.locator('#playerChangeSource').click();await chooseUrl(page,'https://media.example.test/replacement.webm');
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource?.type==='video/webm');
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),0);
+      assert.match(await page.locator('#playerSubtitle').innerText(),/WebM/);
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+      await app.close();
+    });
+
+    for(const [mode,position] of [['resume',70],['fresh',45],['restart',50]]){
+      await run(`same-target source change restores the current position after ${mode}`,async()=>{
+        const app=await playerApp(),{page}=app;
+        await page.evaluate(mode=>{
+          if(mode!=='fresh')fixtureSeed(fixtureTarget);
+          openPlaybackSourceSetup(fixtureTarget);
+        },mode);
+        await chooseUrl(page);
+        if(mode!=='fresh')await page.locator(mode==='resume'?'#playerResume':'#playerRestart').click();
+        await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+        await page.evaluate(()=>fixtureSignal('can-play'));
+        assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),mode==='resume'?34:0);
+        await page.evaluate(position=>{activePlayerElement().currentTime=position},position);
+        await page.locator('#playerChangeSource').click();await chooseUrl(page,'https://media.example.test/replacement.webm');
+        await page.waitForFunction(()=>activePlayerElement()?.fixtureSource?.type==='video/webm');
+        assert.equal(await page.locator('#playerResume:visible').count(),0);
+        await page.evaluate(()=>fixtureSignal('can-play'));
+        assert.deepEqual(await page.evaluate(()=>[activePlayerElement().currentTime,playbackProgressForTarget(fixtureTarget)?.currentTime]),[position,position]);
+        await app.close();
+      });
+    }
+
+    await run('Retry before readiness restores the original resume and leaves the old progress intact',async()=>{
+      const app=await playerApp(),{page}=app;
+      await page.evaluate(()=>{fixtureSeed(fixtureTarget);openPlaybackSourceSetup(fixtureTarget)});
+      await chooseUrl(page);await page.locator('#playerResume').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>fixtureSignal('error'));
+      assert.equal(await page.evaluate(()=>playbackProgressForTarget(fixtureTarget).currentTime),34);
+      await page.locator('#playerRetry').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),34);
+      await app.close();
+    });
+
+    for(const duration of [120,NaN])await run(`Retry preserves the checkpoint after a clock reset with duration ${duration}`,async()=>{
+      const app=await playerApp(),{page}=app;
+      await page.evaluate(()=>{fixtureSeed(fixtureTarget);openPlaybackSourceSetup(fixtureTarget)});
+      await chooseUrl(page);await page.locator('#playerResume').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(duration=>{
+        fixtureSignal('can-play');fixtureSignal('timeupdate',55);fixtureSignal('timeupdate',70);
+        const media=activePlayerElement();media.duration=duration;media.currentTime=0;
+        media.dispatchEvent(new Event('pause'));
+        fixtureSignal('error');
+      },duration);
+      assert.equal(await page.evaluate(()=>playbackProgressForTarget(fixtureTarget).currentTime),70);
+      await page.locator('#playerRetry').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),70);
+      await app.close();
+    });
+
+    await run('an intentional seek to zero is honored by source replacement and Retry',async()=>{
+      const app=await playerApp(),{page}=app;
+      await page.evaluate(()=>{fixtureSeed(fixtureTarget);openPlaybackSourceSetup(fixtureTarget)});
+      await chooseUrl(page);await page.locator('#playerResume').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>{
+        fixtureSignal('can-play');fixtureSignal('timeupdate',70);
+        fixtureSignal('seeking',0);fixtureSignal('seeked',0);
+      });
+      await page.locator('#playerChangeSource').click();await chooseUrl(page,'https://media.example.test/new.webm');
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource?.type==='video/webm');
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),0);
+      await page.evaluate(()=>{
+        fixtureSignal('timeupdate',51);fixtureSignal('seeking',0);fixtureSignal('seeked',0);fixtureSignal('error');
+      });
+      await page.locator('#playerRetry').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),0);
+      await app.close();
+    });
+
+    await run('episode replacement keeps targets separate and ignores late events from retired media',async()=>{
+      const app=await playerApp(),{page}=app;
+      await page.evaluate(()=>openPlaybackSourceSetup(fixtureEpisode));
+      await chooseUrl(page);await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>{fixtureSignal('can-play');activePlayerElement().currentTime=73;window.retiredMedia=activePlayerElement()});
+      await page.getByRole('button',{name:'Следующая серия →',exact:true}).click();
+      await chooseUrl(page,'https://media.example.test/next.webm');
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource?.type==='video/webm');
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),0);
+      await page.evaluate(()=>{
+        fixtureSignal('timeupdate',46);
+        retiredMedia.currentTime=110;
+        for(const type of ['can-play','timeupdate','pause','error','ended'])retiredMedia.dispatchEvent(new Event(type));
+        fixtureSignal('error');
+      });
+      await page.locator('#playerRetry').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.deepEqual(await page.evaluate(()=>[activePlayerElement().currentTime,activePlaybackTarget.episodeNumber,playbackProgressForTarget(fixtureEpisode).currentTime]),[46,3,73]);
+      await app.close();
+    });
+
+    await run('replacement clamps recovery to the new duration and reset clears cached recovery',async()=>{
+      const app=await playerApp(),{page}=app;
+      await page.evaluate(()=>openPlaybackSourceSetup(fixtureTarget));
+      await chooseUrl(page);await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>{fixtureSignal('can-play');fixtureSignal('timeupdate',70)});
+      await page.locator('#playerChangeSource').click();await chooseUrl(page,'https://media.example.test/short.webm');
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource?.type==='video/webm');
+      await page.evaluate(()=>{activePlayerElement().duration=40;fixtureSignal('can-play')});
+      assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),39);
+      await page.locator('#playerChangeSource').click();
+      page.once('dialog',dialog=>dialog.accept());
+      await page.locator('#playerResetProgress').click();
+      await page.evaluate(()=>fixtureSignal('pause'));
+      await chooseUrl(page,'https://media.example.test/after-reset.mp4');
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource?.type==='video/mp4');
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.deepEqual(await page.evaluate(()=>[activePlayerElement().currentTime,playbackProgressForTarget(fixtureTarget)]),[0,null]);
+      await app.close();
+    });
+
+    await run('source drafts are target-scoped, disappear on reload and stay outside snapshots', async () => {
+      const app=await playerApp(),{page}=app,url='https://media.example.test/unique-stream.m3u8?credential=fixture';
+      await page.evaluate(()=>openPlaybackSourceSetup(fixtureEpisode));
+      await page.locator('#playbackUrl').fill(url);await page.locator('#playbackFormat').selectOption('hls');
+      await page.locator('#modalBack').click();
+      await page.evaluate(()=>openPlaybackSourceSetup(fixtureEpisode));
+      assert.equal(await page.locator('#playbackUrl').inputValue(),url);
+      assert.equal(await page.locator('#playbackFormat').inputValue(),'hls');
+      await page.evaluate(()=>openPlaybackSourceSetup({...fixtureEpisode,episodeNumber:3}));
+      assert.equal(await page.locator('#playbackUrl').inputValue(),'');
+      const snapshots=await page.evaluate(()=>{
+        storeConflictEnvelope({base:state,local:state,cloud:state});
+        return JSON.stringify([localStorage.getItem(STORAGE_KEY),localStorage.getItem(CLOUD_CONFLICT_KEY),cloudPayload(),makeFullBackup(false),sessionStorage,state]);
+      });
+      assert.ok(!snapshots.includes(url));assert.ok(!snapshots.includes('unique-stream'));
+      await page.reload();
+      await page.evaluate(()=>openPlaybackSourceSetup({kind:'episode',identityKey:'tmdb:tv:8',tmdbId:'8',mediaType:'tv',title:'Fixture series',seasonNumber:1,episodeNumber:1}));
+      assert.equal(await page.locator('#playbackUrl').inputValue(),'');
+      await app.close();
+    });
+
+    await run('episode badges, current state and neighbors use per-episode progress and TMDB ordering', async () => {
+      const app=await playerApp({viewport:{width:390,height:844}}),{page}=app;
+      const neighbors=await page.evaluate(async()=>{
+        const third={...fixtureEpisode,episodeNumber:3},last={...fixtureEpisode,seasonNumber:2};
+        fixtureSeed(fixtureEpisode);fixtureSeed(third,120,true);
+        const results=await Promise.all([previousEpisodeTarget(fixtureEpisode),nextEpisodeTarget(fixtureEpisode),nextEpisodeTarget(third),previousEpisodeTarget(last),nextEpisodeTarget(last)]);
+        openPlaybackSourceSetup(fixtureEpisode);
+        return results.map(target=>target&&episodeCode(target.seasonNumber,target.episodeNumber));
+      });
+      assert.deepEqual(neighbors,[null,'S01E03','S02E01','S01E03',null]);
+      await chooseUrl(page);await page.locator('#playerResume').click();
+      const current=page.locator('#playerPanelEpisodes [data-episode="1"]');
+      await current.waitFor();assert.equal(await current.getAttribute('aria-current'),'true');
+      assert.match(await current.innerText(),/Продолжить · 0:34/);
+      assert.match(await page.locator('#playerPanelEpisodes [data-episode="3"]').innerText(),/✓ Просмотрено/);
+      assert.equal(await page.locator('#playerPanelSeasons [data-season="0"]').count(),0);
+      await page.getByRole('button',{name:'Следующая серия →',exact:true}).click();
+      assert.match(await page.locator('#playbackSetupTarget').innerText(),/S01E03 · Third/);
+      assert.equal(await page.locator('#playbackUrl').inputValue(),'');
+      await app.close();
+    });
+
+    await run('episode ended prompts once, opens the next target and handles the last episode', async () => {
+      const app=await playerApp(),{page}=app;
+      await page.evaluate(()=>openPlaybackSourceSetup(fixtureEpisode));await chooseUrl(page);
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>{fixtureSignal('can-play');fixtureSignal('ended',120);fixtureSignal('ended',120)});
+      await page.locator('#playerCompletionPrimary').waitFor();
+      assert.equal(await page.locator('.player-next-prompt').count(),1);
+      await page.locator('#playerCompletionPrimary').click();
+      assert.match(await page.locator('#playbackSetupTarget').innerText(),/S01E03/);
+      assert.equal(await page.locator('#playbackUrl').inputValue(),'');
+      await page.evaluate(()=>openPlaybackSourceSetup({...fixtureEpisode,seasonNumber:2,episodeTitle:'Final'}));await chooseUrl(page);
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>{fixtureSignal('can-play');fixtureSignal('ended',120)});
+      await page.locator('#playerCompletionClose').waitFor();
+      assert.match(await page.locator('.player-next-prompt').innerText(),/Последняя серия завершена/);
+      assert.equal(await page.locator('#playerCompletionPrimary').count(),0);
+      await page.locator('#playerCompletionClose').click();assert.equal(await page.locator('.player-next-prompt').count(),0);
+      await app.close();
+    });
+
+    await run('movie completion removes Continue Watching and keeps the watched flag independent', async () => {
+      const app=await playerApp(),{page}=app;
+      await page.evaluate(()=>{fixtureSeed(fixtureTarget,120,true);openPlaybackSourceSetup(fixtureTarget)});
+      await chooseUrl(page);await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      assert.equal(await page.locator('#playerResume:visible').count(),0);
+      await page.evaluate(()=>{fixtureSignal('can-play');fixtureSignal('pause',40)});
+      assert.equal(await page.locator('#continueCarousel .continue-open').count(),2);
+      await page.evaluate(()=>fixtureSignal('ended',120));
+      assert.match(await page.locator('.player-next-prompt').innerText(),/Просмотр завершён/);
+      assert.equal(await page.locator('#continueCarousel .continue-open').count(),0);
+      assert.deepEqual(await page.evaluate(()=>[playbackProgressForTarget(fixtureTarget).completed,state.watched]),[true,[]]);
+      await page.locator('#playerCompletionPrimary').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.deepEqual(await page.evaluate(()=>[activePlayerElement().currentTime,playbackProgressForTarget(fixtureTarget)]),[0,null]);
+      await app.close();
+    });
+
+    await run('confirmed reset clears only the selected episode and uses playback origin', async () => {
+      const app=await playerApp({viewport:{width:1920,height:1080}}),{page}=app;
+      await page.evaluate(()=>{
+        fixtureSeed(fixtureEpisode);fixtureSeed({...fixtureEpisode,episodeNumber:3});
+        window.fixtureOrigins=[];
+        const originalSave=saveState;
+        saveState=options=>{fixtureOrigins.push(options.origin);return originalSave(options)};
+        openPlaybackSourceSetup(fixtureEpisode);
+      });
+      page.once('dialog',dialog=>dialog.dismiss());
+      await page.locator('#playerResetProgress').click();
+      assert.equal(await page.evaluate(()=>playbackProgressForTarget(fixtureEpisode)?.currentTime),34);
+      page.once('dialog',dialog=>dialog.accept());
+      await page.locator('#playerResetProgress').click();
+      assert.deepEqual(await page.evaluate(()=>[playbackProgressForTarget(fixtureEpisode),playbackProgressForTarget({...fixtureEpisode,episodeNumber:3})?.currentTime,fixtureOrigins]),[null,34,['playback']]);
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+      await app.close();
+    });
+
+    await run('stale source creation, errors and next-episode responses cannot replace the current player', async () => {
+      const app=await playerApp(),{page}=app;
+      const result=await page.evaluate(async()=>{
+        const realCreate=playerBackend.create.bind(playerBackend);
+        let resumeOldCreate,oldError,resolveNext;
+        const blocked=new Promise(resolve=>{resumeOldCreate=resolve});
+        const oldNext=nextEpisodeTarget;
+        nextEpisodeTarget=()=>new Promise(resolve=>{resolveNext=resolve});
+        playerBackend.create=async(...args)=>{
+          if(!oldError){oldError=args[2].onError;await blocked;return false}
+          return realCreate(...args);
+        };
+        const source={kind:'user-url',url:'https://media.example.test/fixture.mp4'};
+        const old=startPlayer(fixtureEpisode,source);
+        while(!oldError)await Promise.resolve();
+        await startPlayer(fixtureEpisode,source);
+        fixtureSignal('can-play');fixtureSignal('ended',120);
+        const finishOld=resolveNext;
+        await startPlayer(fixtureTarget,source);
+        const latest=activePlayerElement();
+        resumeOldCreate();oldError(new Error('stale'));finishOld({...fixtureEpisode,episodeNumber:3});await old;
+        nextEpisodeTarget=oldNext;
+        return [latest===activePlayerElement(),!!document.querySelector('.player-next-prompt'),!!document.querySelector('#playerRetry')];
+      });
+      assert.deepEqual(result,[true,false,false]);await app.close();
+    });
+
+    await run('local file uses native media, keeps runtime-only data and revokes each object URL', async () => {
+      const app=await openApp({viewport:{width:844,height:390}}),{page}=app;
+      await page.evaluate(()=>{
+        const target={kind:'movie',identityKey:'tmdb:movie:9',tmdbId:'9',mediaType:'movie',title:'Local fixture'};
+        openPlaybackSourceSetup(target);
+        window.revoked=[];const revoke=URL.revokeObjectURL.bind(URL);
+        URL.revokeObjectURL=url=>{revoked.push(url);revoke(url)};
+      });
+      const samples=8000*15,wave=Buffer.alloc(44+samples,128);
+      wave.write('RIFF',0);wave.writeUInt32LE(wave.length-8,4);wave.write('WAVEfmt ',8);
+      wave.writeUInt32LE(16,16);wave.writeUInt16LE(1,20);wave.writeUInt16LE(1,22);
+      wave.writeUInt32LE(8000,24);wave.writeUInt32LE(8000,28);wave.writeUInt16LE(1,32);wave.writeUInt16LE(8,34);
+      wave.write('data',36);wave.writeUInt32LE(samples,40);
+      await page.locator('#playbackFile').setInputFiles({name:'private-fixture.wav',mimeType:'audio/wav',buffer:wave});
+      await page.locator('#playbackOpenFile').click();
+      await page.waitForFunction(()=>nativeLocalFileSession?.video.readyState>=3);
+      const src=await page.locator('video').getAttribute('src');assert.match(src,/^blob:/);
+      await page.locator('.native-local-play').focus();await page.keyboard.press('Space');
+      await page.waitForFunction(()=>!nativeLocalFileSession.video.paused);
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(()=>nativeLocalFileSession.video.paused);
+      await page.evaluate(()=>{nativeLocalFileSession.video.currentTime=0;nativeLocalFileSession.frame.requestFullscreen=undefined});
+      await page.locator('video').focus();await page.keyboard.press('ArrowRight');
+      assert.equal(await page.locator('video').evaluate(video=>video.currentTime),5);
+      await page.waitForFunction(()=>playbackProgressSession?.checkpoint?.currentTime===5);
+      await page.keyboard.press('ArrowLeft');assert.equal(await page.locator('video').evaluate(video=>video.currentTime),0);
+      assert.equal(await page.evaluate(()=>playbackProgressSession.checkpoint.currentTime),0);
+      await page.keyboard.press('f');await page.locator('.native-local-pseudo-fullscreen').waitFor();
+      await page.keyboard.press('Escape');await page.locator('.native-local-pseudo-fullscreen').waitFor({state:'detached'});
+      await page.locator('#playerChangeSource').focus();await page.keyboard.press('Enter');
+      await page.locator('#playbackUrl').waitFor();await page.keyboard.press('Escape');
+      await page.locator('#modalBg').waitFor({state:'hidden'});
+      await page.keyboard.press('Escape');await page.locator('#view-home.active').waitFor();
+      assert.deepEqual(await page.evaluate(()=>revoked),[src]);
+      assert.deepEqual(await page.evaluate(()=>[nativeLocalFileSession,playbackProgressSession,document.querySelector('#playerStage video')]),[null,null,null]);
+      const snapshots=await page.evaluate(()=>JSON.stringify([localStorage.getItem(STORAGE_KEY),cloudPayload(),makeFullBackup(false),state]));
+      assert.doesNotMatch(snapshots,/private-fixture|blob:/);
+      await app.close();
     });
 
     await run('compatibility redirect preserves query and hash', async () => {
