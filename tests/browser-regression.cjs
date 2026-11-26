@@ -657,21 +657,45 @@ async function main() {
       await app.close();
     });
 
-    await run('Retry after playback uses a valid checkpoint even if the failed media cleared its clock',async()=>{
+    for(const duration of [120,NaN])await run(`Retry preserves the checkpoint after a clock reset with duration ${duration}`,async()=>{
       const app=await playerApp(),{page}=app;
       await page.evaluate(()=>{fixtureSeed(fixtureTarget);openPlaybackSourceSetup(fixtureTarget)});
       await chooseUrl(page);await page.locator('#playerResume').click();
       await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
-      await page.evaluate(()=>{
+      await page.evaluate(duration=>{
         fixtureSignal('can-play');fixtureSignal('timeupdate',55);fixtureSignal('timeupdate',70);
-        const media=activePlayerElement();media.duration=NaN;media.currentTime=0;
+        const media=activePlayerElement();media.duration=duration;media.currentTime=0;
+        media.dispatchEvent(new Event('pause'));
         fixtureSignal('error');
-      });
+      },duration);
       assert.equal(await page.evaluate(()=>playbackProgressForTarget(fixtureTarget).currentTime),70);
       await page.locator('#playerRetry').click();
       await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
       await page.evaluate(()=>fixtureSignal('can-play'));
       assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),70);
+      await app.close();
+    });
+
+    await run('an intentional seek to zero is honored by source replacement and Retry',async()=>{
+      const app=await playerApp(),{page}=app;
+      await page.evaluate(()=>{fixtureSeed(fixtureTarget);openPlaybackSourceSetup(fixtureTarget)});
+      await chooseUrl(page);await page.locator('#playerResume').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>{
+        fixtureSignal('can-play');fixtureSignal('timeupdate',70);
+        fixtureSignal('seeking',0);fixtureSignal('seeked',0);
+      });
+      await page.locator('#playerChangeSource').click();await chooseUrl(page,'https://media.example.test/new.webm');
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource?.type==='video/webm');
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),0);
+      await page.evaluate(()=>{
+        fixtureSignal('timeupdate',51);fixtureSignal('seeking',0);fixtureSignal('seeked',0);fixtureSignal('error');
+      });
+      await page.locator('#playerRetry').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),0);
       await app.close();
     });
 
@@ -869,7 +893,9 @@ async function main() {
       await page.evaluate(()=>{nativeLocalFileSession.video.currentTime=0;nativeLocalFileSession.frame.requestFullscreen=undefined});
       await page.locator('video').focus();await page.keyboard.press('ArrowRight');
       assert.equal(await page.locator('video').evaluate(video=>video.currentTime),5);
+      await page.waitForFunction(()=>playbackProgressSession?.checkpoint?.currentTime===5);
       await page.keyboard.press('ArrowLeft');assert.equal(await page.locator('video').evaluate(video=>video.currentTime),0);
+      assert.equal(await page.evaluate(()=>playbackProgressSession.checkpoint.currentTime),0);
       await page.keyboard.press('f');await page.locator('.native-local-pseudo-fullscreen').waitFor();
       await page.keyboard.press('Escape');await page.locator('.native-local-pseudo-fullscreen').waitFor({state:'detached'});
       await page.locator('#playerChangeSource').focus();await page.keyboard.press('Enter');
@@ -877,6 +903,7 @@ async function main() {
       await page.locator('#modalBg').waitFor({state:'hidden'});
       await page.keyboard.press('Escape');await page.locator('#view-home.active').waitFor();
       assert.deepEqual(await page.evaluate(()=>revoked),[src]);
+      assert.deepEqual(await page.evaluate(()=>[nativeLocalFileSession,playbackProgressSession,document.querySelector('#playerStage video')]),[null,null,null]);
       const snapshots=await page.evaluate(()=>JSON.stringify([localStorage.getItem(STORAGE_KEY),cloudPayload(),makeFullBackup(false),state]));
       assert.doesNotMatch(snapshots,/private-fixture|blob:/);
       await app.close();

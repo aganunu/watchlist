@@ -1404,7 +1404,18 @@ function scheduleNativeLocalControls(session){if(!session?.active||session.video
 function updateNativeLocalControls(session){
   if(!session?.active)return;const {video,playButton,muteButton,progress,currentTime,duration,volume,fullscreenButton,frame}=session,total=Number.isFinite(video.duration)?video.duration:0,playLabel=video.paused?'Воспроизвести':'Пауза',muteLabel=video.muted?'Включить звук':'Выключить звук';playButton.classList.toggle('is-playing',!video.paused);playButton.setAttribute('aria-label',playLabel);playButton.title=playLabel;muteButton.textContent=video.muted?'🔇':'🔊';muteButton.setAttribute('aria-label',muteLabel);muteButton.title=muteLabel;progress.max=String(total||0);if(!progress.matches(':active'))progress.value=String(Math.min(total||0,video.currentTime||0));currentTime.textContent=playbackClock(video.currentTime);duration.textContent=playbackClock(total);volume.value=String(video.muted?0:video.volume);const expanded=document.fullscreenElement===frame||frame.classList.contains('native-local-pseudo-fullscreen'),fullscreenLabel=expanded?'Выйти из полноэкранного режима':'На весь экран';fullscreenButton.textContent='⛶';fullscreenButton.setAttribute('aria-label',fullscreenLabel);fullscreenButton.title=fullscreenLabel;
 }
-function seekNativeLocalFile(session,delta){if(!session?.active)return;const duration=Number.isFinite(session.video.duration)?session.video.duration:Infinity;session.video.currentTime=Math.max(0,Math.min(duration,(session.video.currentTime||0)+delta));updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true,{schedule:true})}
+function seekNativeLocalTo(session,position){
+  const video=session.video,duration=Number.isFinite(video.duration)?video.duration:Infinity;
+  video.currentTime=Math.max(0,Math.min(duration,position));
+  const progress=playbackProgressSession;
+  if(progress?.media===video&&progress.request===playerRequestToken)capturePlaybackCheckpoint(progress,{acceptZero:true});
+  updateNativeLocalControls(session);
+}
+function seekNativeLocalFile(session,delta){
+  if(!session?.active)return;
+  seekNativeLocalTo(session,(session.video.currentTime||0)+delta);
+  setNativeLocalControlsVisible(session,true,{schedule:true});
+}
 async function playNativeLocalFile(session){
   if(!session?.active)return;try{await session.video.play();setNativeLocalStatus(session,'');updateNativeLocalControls(session);scheduleNativeLocalControls(session)}catch(error){const rejection={name:String(error?.name||''),message:String(error?.message||'')};setNativeLocalControlsVisible(session,true);if(isAutoplayRestriction(rejection))setNativeLocalStatus(session,'Safari запретил автоматический запуск. Видео оставлено на паузе — нажмите «Воспроизвести» ещё раз.');else setNativeLocalStatus(session,'Не удалось начать воспроизведение. Проверьте выбранный файл и повторите попытку.')}
 }
@@ -1418,10 +1429,12 @@ function exitNativeLocalPseudoFullscreen(){const session=nativeLocalFileSession;
 function playbackMediaSnapshot(media){
   const currentTime=Number(media?.currentTime),duration=Number(media?.duration);return {currentTime:Number.isFinite(currentTime)&&currentTime>=0?currentTime:0,duration:Number.isFinite(duration)&&duration>0?duration:0};
 }
-function capturePlaybackCheckpoint(session){
+function capturePlaybackCheckpoint(session,{acceptZero=false}={}){
   if(!session?.ready||!session.resumeApplied||session.resetAt!=null)return null;
   const currentTime=session.media.currentTime,duration=session.media.duration;
   if(Number.isFinite(currentTime)&&currentTime>=0&&Number.isFinite(duration)&&duration>0){
+    // A failing provider can reset the clock before it dispatches the error.
+    if(currentTime===0&&session.checkpoint?.currentTime>0&&!acceptZero)return session.checkpoint;
     session.checkpoint={currentTime:Math.min(currentTime,duration),duration};
   }
   return session.checkpoint||null;
@@ -1491,6 +1504,9 @@ function startPlaybackProgressSession(target,media,request){
   };
   ['canplay','can-play'].forEach(type=>listen(type,ready));
   ['durationchange','duration-change'].forEach(type=>listen(type,()=>applyPlaybackResume(session)));
+  listen('seeked',()=>{
+    if(session===playbackProgressSession&&request===playerRequestToken)capturePlaybackCheckpoint(session,{acceptZero:true});
+  });
   ['timeupdate','time-update'].forEach(type=>listen(type,()=>{applyPlaybackResume(session);persistPlaybackProgress()}));
   listen('playing',()=>{
     ready();if(attempt)attempt.phase='playing';session.finished=false;session.completed=false;
@@ -1574,7 +1590,7 @@ function startNativeLocalFile(file,request){
   ['loadstart','loadedmetadata','loadeddata','canplay','canplaythrough','playing','pause','stalled','suspend','waiting','emptied'].forEach(type=>listen(video,type,()=>{if(session!==nativeLocalFileSession)return;updateNativeLocalControls(session);if(type==='loadedmetadata'||type==='canplay'||type==='playing')setNativeLocalStatus(session,'');if(type==='playing')scheduleNativeLocalControls(session);if(type==='pause')setNativeLocalControlsVisible(session,true)}));
   ['timeupdate','durationchange','volumechange','ended'].forEach(type=>listen(video,type,()=>{if(session===nativeLocalFileSession)updateNativeLocalControls(session)}));
   listen(video,'error',()=>{if(session!==nativeLocalFileSession)return;const code=video.error?.code;handlePlayerBackendError(request,new Error(code===3?'Браузер не смог декодировать видеофайл.':'Браузер не смог открыть видеофайл. Проверьте файл и поддержку формата.'))});
-  session.playButton.onclick=()=>toggleNativeLocalPlayback(session);controls.querySelector('.native-local-back').onclick=()=>seekNativeLocalFile(session,-PLAYER_SEEK_STEP);controls.querySelector('.native-local-forward').onclick=()=>seekNativeLocalFile(session,PLAYER_SEEK_STEP);session.muteButton.onclick=()=>{video.muted=!video.muted;updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true,{schedule:true})};session.progress.oninput=()=>{if(Number.isFinite(video.duration))video.currentTime=Math.max(0,Math.min(video.duration,Number(session.progress.value)||0));updateNativeLocalControls(session)};session.volume.oninput=()=>{try{video.muted=false;video.volume=Math.max(0,Math.min(1,Number(session.volume.value)));updateNativeLocalControls(session)}catch(_){session.volume.disabled=true;setNativeLocalStatus(session,'Громкость регулируется аппаратными кнопками устройства.')}};session.fullscreenButton.onclick=()=>toggleNativeLocalFullscreen(session);
+  session.playButton.onclick=()=>toggleNativeLocalPlayback(session);controls.querySelector('.native-local-back').onclick=()=>seekNativeLocalFile(session,-PLAYER_SEEK_STEP);controls.querySelector('.native-local-forward').onclick=()=>seekNativeLocalFile(session,PLAYER_SEEK_STEP);session.muteButton.onclick=()=>{video.muted=!video.muted;updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true,{schedule:true})};session.progress.oninput=()=>{if(Number.isFinite(video.duration))seekNativeLocalTo(session,Number(session.progress.value)||0)};session.volume.oninput=()=>{try{video.muted=false;video.volume=Math.max(0,Math.min(1,Number(session.volume.value)));updateNativeLocalControls(session)}catch(_){session.volume.disabled=true;setNativeLocalStatus(session,'Громкость регулируется аппаратными кнопками устройства.')}};session.fullscreenButton.onclick=()=>toggleNativeLocalFullscreen(session);
   listen(video,'click',()=>setNativeLocalControlsVisible(session,controls.classList.contains('controls-hidden'),{schedule:true}));listen(controls,'click',event=>{event.stopPropagation();if(event.detail>0&&event.target.closest('button'))requestAnimationFrame(()=>video.focus({preventScroll:true}))});listen(controls,'focusin',()=>setNativeLocalControlsVisible(session,true));listen(controls,'focusout',()=>scheduleNativeLocalControls(session));listen(document,'fullscreenchange',()=>{if(session===nativeLocalFileSession){updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true,{schedule:true})}});
   startPlaybackProgressSession(activePlaybackTarget,video,request);video.src=objectUrl;video.load();updateNativeLocalControls(session);requestAnimationFrame(()=>{if(request===playerRequestToken&&session===nativeLocalFileSession)session.playButton.focus({preventScroll:true})});
 }
