@@ -156,6 +156,15 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
 .batch-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .batch-summary{padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--panel);line-height:1.5}
 
+.playback-source-form fieldset{min-width:0;margin:0;display:grid;gap:9px;border:1px solid var(--line);border-radius:13px;padding:12px}
+.playback-source-form legend{padding:0 5px;font-weight:800}
+.player-episode-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.player-episode-actions button{font-size:12px}
+.player-panel-progress{color:var(--gold2);font-size:12px}
+.player-panel-progress:empty{display:none}
+.player-opening{position:absolute;inset:0;display:grid;place-items:center;padding:14px;text-align:center;background:#050607;color:var(--muted);pointer-events:none}
+.player-next-prompt{bottom:8%;max-height:92%;overflow:auto}
+@media(max-width:720px){.player-header:has(.player-episode-actions:not(.hidden)) .player-episode-actions{flex-wrap:nowrap;overflow:auto;padding:4px}.player-episode-actions button{white-space:nowrap}}
 </style>
 
 </head>
@@ -228,7 +237,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-v
   <div class="player-shell">
     <div class="player-header">
       <button type="button" class="small-btn" id="playerBack">← Назад</button>
-      <div class="player-header-main"><b class="player-title" id="playerTitle">Плеер</b><span class="player-subtitle" id="playerSubtitle"></span></div>
+      <div class="player-header-main"><b class="player-title" id="playerTitle">Плеер</b><span class="player-subtitle" id="playerSubtitle"></span><div id="playerEpisodeActions" class="player-episode-actions hidden"></div></div>
       <button type="button" class="small-btn" id="playerChangeSource">Источник</button>
     </div>
     <div class="player-stage" id="playerStage"><div class="player-state"><p>Выберите источник для просмотра.</p></div></div>
@@ -296,6 +305,8 @@ let tonightSelectorRequest=0;
 let playerNavState=null,pendingPlayerOrigin=null,playerRequestToken=0,playerEpisodeRequest=0,playerFullscreenExitedAt=0,activePlaybackTarget=null,activePlaybackSourceRef=null,nativeLocalFileSession=null,playbackProgressSession=null;
 let appRouteReady=false,appRouteApplying=false,activeProfileRouteSection='';
 const addDetailsCache=new Map(),seasonDetailsCache=new Map();
+const playbackSourceDrafts=new Map();
+let playerAttempt=null;
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function safeExternalUrl(value){try{const url=new URL(String(value||''));return url.protocol==='https:'||url.protocol==='http:'?url.href:''}catch(_){return ''}}
@@ -1068,7 +1079,7 @@ function openContinuePlayback(key,trigger){
   openPlaybackSourceSetup(target,{backFn:()=>{closeModal();requestAnimationFrame(()=>focusId&&$('#'+focusId)?.focus({preventScroll:true}))}});
 }
 function resetPlaybackProgress(key,focusIndex=0){
-  normalizePlaybackProgress(state);delete state.playbackProgress[key];saveState();renderContinueWatching();requestAnimationFrame(()=>{$(`#continueProgress${focusIndex}`)?.focus({preventScroll:true})||$('[data-carousel-nav="continueCarousel"][data-dir="1"]')?.focus({preventScroll:true})});
+  clearPlayerTargetProgress(key,'playback-reset');requestAnimationFrame(()=>($(`#continueProgress${focusIndex}`)||$('[data-carousel-nav="continueCarousel"][data-dir="1"]'))?.focus({preventScroll:true}));
 }
 function renderContinueWatching(){
   const section=$('#continueSection'),carousel=$('#continueCarousel');if(!section||!carousel)return;const entries=continuePlaybackEntries();section.classList.toggle('hidden',!entries.length);carousel.innerHTML=entries.map(([key,entry],index)=>continueProgressCard(key,entry,index)).join('');
@@ -1414,40 +1425,128 @@ function playbackProgressEntry(target,currentTime,duration,{completed=false}={})
   return entry;
 }
 function persistPlaybackProgress({force=false,ended=false}={}){
-  const session=playbackProgressSession;if(!session||!force&&session.request!==playerRequestToken)return false;const now=Date.now(),snapshot=playbackMediaSnapshot(session.media);
+  const session=playbackProgressSession;if(!session?.ready||!session.resumeApplied||!force&&session.request!==playerRequestToken)return false;const now=Date.now(),snapshot=playbackMediaSnapshot(session.media);
   if(!snapshot.duration)return false;if(!force&&now-session.lastStoredAt<PLAYBACK_SAVE_THROTTLE_MS)return false;
-  const completed=isPlaybackProgressComplete(snapshot.currentTime,snapshot.duration,{ended}),key=session.key;
+  if(session.resetAt!=null){
+    if(Math.abs(snapshot.currentTime-session.resetAt)<1||session.media.paused&&!ended)return false;
+    session.resetAt=null;
+  }
+  const completed=isPlaybackProgressComplete(snapshot.currentTime,snapshot.duration,{ended:ended||session.finished}),key=session.key;
   if(snapshot.currentTime<playbackResumeMinimum(snapshot.duration)&&!completed)return false;
   const previous=normalizePlaybackProgress(state)[key];if(force&&previous&&Math.abs(previous.currentTime-snapshot.currentTime)<.5&&Math.abs(previous.duration-snapshot.duration)<.5&&previous.completed===completed&&now-previous.updatedAt<1200)return false;
-  state.playbackProgress[key]=playbackProgressEntry(session.target,snapshot.currentTime,snapshot.duration,{completed});session.lastStoredAt=now;session.completed=completed;saveState({origin:SYNC_ORIGINS.PLAYBACK,reason:'playback-progress'});renderContinueWatching();return true;
+  state.playbackProgress[key]=playbackProgressEntry(session.target,snapshot.currentTime,snapshot.duration,{completed});session.lastStoredAt=now;session.completed=completed;saveState({origin:SYNC_ORIGINS.PLAYBACK,reason:'playback-progress'});renderContinueWatching();updatePlayerEpisodeProgress();return true;
+}
+function clearPlayerTargetProgress(key,reason){
+  const progress=normalizePlaybackProgress(state);
+  if(!Object.hasOwn(progress,key))return;
+  delete progress[key];
+  saveState({origin:SYNC_ORIGINS.PLAYBACK,reason});
+  renderContinueWatching();updatePlayerEpisodeProgress();
 }
 function applyPlaybackResume(session){
-  if(!session||session!==playbackProgressSession||session.resumeApplied||session.request!==playerRequestToken)return;const resume=session.resumeEntry;if(!resume){session.resumeApplied=true;return}const snapshot=playbackMediaSnapshot(session.media);if(!snapshot.duration)return;if(snapshot.currentTime>1){session.resumeApplied=true;return}
-  const position=Math.min(resume.currentTime,Math.max(0,snapshot.duration-1));try{session.media.currentTime=position;session.resumeApplied=true;setPlayerHeader(session.target)}catch(_){}
+  if(session!==playbackProgressSession||!session.ready||session.resumeApplied||session.request!==playerRequestToken)return;
+  const decision=session.decision;
+  if(decision.mode==='resume'){
+    const {duration}=playbackMediaSnapshot(session.media);
+    if(!duration)return;
+    try{session.media.currentTime=Math.min(decision.position,Math.max(0,duration-1))}catch(_){return}
+  }else if(decision.mode==='restart'&&!decision.applied){
+    clearPlayerTargetProgress(session.key,'playback-restart');
+    decision.applied=true;
+  }
+  session.resumeApplied=true;
+  if(decision.autoplay&&session.media.paused){
+    if(nativeLocalFileSession?.video===session.media)playNativeLocalFile(nativeLocalFileSession);
+    else try{Promise.resolve(session.media.play()).catch(()=>{})}catch(_){}
+  }
 }
 function startPlaybackProgressSession(target,media,request){
   finishPlaybackProgressSession({flush:true});const key=playbackProgressKey(target);if(!key||!media)return;
-  const session={target:Object.assign({},target),media,request,key,resumeEntry:resumablePlaybackProgress(target),resumeApplied:false,lastStoredAt:0,completed:false,listeners:[],timer:0};playbackProgressSession=session;
+  const attempt=playerAttempt;
+  const session={target:{...target},media,request,key,decision:attempt?.decision||{mode:'fresh'},ready:false,resumeApplied:false,lastStoredAt:0,completed:false,finished:false,listeners:[],timer:0};playbackProgressSession=session;
   const listen=(type,handler)=>{media.addEventListener(type,handler);session.listeners.push(()=>media.removeEventListener(type,handler))};
-  ['loadedmetadata','canplay','can-play','durationchange','duration-change'].forEach(type=>listen(type,()=>applyPlaybackResume(session)));
+  const ready=()=>{
+    if(request!==playerRequestToken)return;
+    session.ready=true;
+    if(attempt?.phase==='loading'){attempt.phase='ready';$('#playerStage .player-opening')?.remove()}
+    applyPlaybackResume(session);
+  };
+  ['canplay','can-play'].forEach(type=>listen(type,ready));
+  ['durationchange','duration-change'].forEach(type=>listen(type,()=>applyPlaybackResume(session)));
   ['timeupdate','time-update'].forEach(type=>listen(type,()=>{applyPlaybackResume(session);persistPlaybackProgress()}));
-  listen('pause',()=>persistPlaybackProgress({force:true}));listen('ended',()=>{persistPlaybackProgress({force:true,ended:true});offerNextEpisode(session.target,session.request)});
-  session.timer=setInterval(()=>{applyPlaybackResume(session);persistPlaybackProgress()},5000);setTimeout(()=>applyPlaybackResume(session),0);
+  listen('playing',()=>{
+    ready();if(attempt)attempt.phase='playing';session.finished=false;session.completed=false;
+    $('#playerStage .player-next-prompt')?.remove();
+  });
+  listen('pause',()=>{if(attempt?.phase==='playing')attempt.phase='paused';persistPlaybackProgress({force:true})});
+  listen('ended',()=>{
+    if(session.finished||request!==playerRequestToken)return;
+    session.finished=true;if(attempt)attempt.phase='ended';
+    persistPlaybackProgress({force:true,ended:true});offerPlayerCompletion(target,request);
+  });
+  session.timer=setInterval(()=>{applyPlaybackResume(session);persistPlaybackProgress()},5000);
+  if(media.readyState>=3||media.canPlay===true)ready();
 }
 function finishPlaybackProgressSession({flush=true}={}){
   const session=playbackProgressSession;if(!session)return;if(flush)persistPlaybackProgress({force:true});clearInterval(session.timer);session.listeners.splice(0).forEach(remove=>{try{remove()}catch(_){}});playbackProgressSession=null;
 }
-async function nextEpisodeTarget(target){
-  if(target?.kind!=='episode'||target.tmdbId==null)return null;const season=Number(target.seasonNumber),episode=Number(target.episodeNumber);if(!Number.isSafeInteger(season)||season<=0||!Number.isSafeInteger(episode)||episode<=0)return null;
-  const current=await getTmdbSeasonDetailsCached(target.tmdbId,season),episodes=(current.episodes||[]).filter(x=>Number.isSafeInteger(Number(x.episode_number))&&Number(x.episode_number)>episode).sort((a,b)=>Number(a.episode_number)-Number(b.episode_number));let next=episodes[0],nextSeason=season;
-  if(!next){const model=playerDetailModelForTarget(target),known=playbackSeasonsForDetail(model).map(x=>Number(x.season_number)).filter(x=>x>season),total=Number(activeDetailDetails?.number_of_seasons||model.libraryItem?.number_of_seasons)||0;nextSeason=known.sort((a,b)=>a-b)[0]||(total>season?season+1:0);if(!nextSeason)return null;const details=await getTmdbSeasonDetailsCached(target.tmdbId,nextSeason);next=(details.episodes||[]).filter(x=>Number.isSafeInteger(Number(x.episode_number))&&Number(x.episode_number)>0).sort((a,b)=>Number(a.episode_number)-Number(b.episode_number))[0]}
-  if(!next)return null;return Object.assign({},target,{kind:'episode',seasonNumber:nextSeason,episodeNumber:Number(next.episode_number),episodeTitle:typeof next.name==='string'?next.name.trim():'',identityKey:target.identityKey});
+async function adjacentEpisodeTarget(target,direction){
+  const season=Number(target?.seasonNumber),episode=Number(target?.episodeNumber);
+  if(target?.kind!=='episode'||!target.tmdbId||!Number.isSafeInteger(season)||season<1||!Number.isSafeInteger(episode)||episode<1)return null;
+  const seasonEpisodes=async number=>{
+    const details=await getTmdbSeasonDetailsCached(target.tmdbId,number);
+    return (details.episodes||[]).filter(x=>Number.isSafeInteger(Number(x.episode_number))&&Number(x.episode_number)>0)
+      .sort((a,b)=>direction*(a.episode_number-b.episode_number));
+  };
+  const toTarget=(row,number)=>({...target,seasonNumber:number,episodeNumber:Number(row.episode_number),episodeTitle:typeof row.name==='string'?row.name.trim():''});
+  const sameSeason=(await seasonEpisodes(season)).find(x=>direction*(x.episode_number-episode)>0);
+  if(sameSeason)return toTarget(sameSeason,season);
+  const model=playerDetailModelForTarget(target);
+  let seasons=playbackSeasonsForDetail(model);
+  if(!seasons.length){
+    const details=await getTmdbDetailsCached('tv',target.tmdbId);
+    if(details.seasons?.length)seasons=details.seasons;
+  }
+  const numbers=[...new Set(seasons.map(x=>Number(x.season_number)))].filter(n=>Number.isSafeInteger(n)&&n>0&&direction*(n-season)>0).sort((a,b)=>direction*(a-b));
+  for(const number of numbers){
+    const [row]=await seasonEpisodes(number);
+    if(row)return toTarget(row,number);
+  }
+  return null;
 }
-async function offerNextEpisode(target,request){
-  if(target?.kind!=='episode')return;try{const next=await nextEpisodeTarget(target);if(!next||request!==playerRequestToken||currentView!=='player')return;const stage=$('#playerStage');if(!stage)return;stage.querySelector('.player-next-prompt')?.remove();const prompt=document.createElement('div');prompt.className='player-next-prompt';prompt.innerHTML=`<b>Серия завершена</b><span>Следующая: ${esc(playbackTargetLabel(next))}</span><button type="button" class="small-btn gold">Выбрать источник и продолжить</button>`;prompt.querySelector('button').onclick=()=>openPlaybackSourceSetup(next,{backFn:closeModal});stage.append(prompt);prompt.querySelector('button').focus({preventScroll:true})}catch(_){}
+function previousEpisodeTarget(target){return adjacentEpisodeTarget(target,-1)}
+function nextEpisodeTarget(target){return adjacentEpisodeTarget(target,1)}
+function preparePlayerEpisodeNavigation(target,attempt){
+  const controls=$('#playerEpisodeActions');controls.replaceChildren();controls.classList.add('hidden');
+  if(target.kind!=='episode')return;
+  attempt.next=nextEpisodeTarget(target).catch(()=>undefined);
+  for(const [promise,label] of [[previousEpisodeTarget(target).catch(()=>undefined),'← Предыдущая серия'],[attempt.next,'Следующая серия →']]){
+    const button=document.createElement('button');button.type='button';button.className='small-btn hidden';button.textContent=label;
+    controls.append(button);
+    promise.then(episode=>{
+      if(!episode||playerAttempt!==attempt||attempt.request!==playerRequestToken)return;
+      button.onclick=()=>openPlaybackSourceSetup(episode);button.classList.remove('hidden');controls.classList.remove('hidden');
+    });
+  }
+}
+async function offerPlayerCompletion(target,request){
+  const attempt=playerAttempt;
+  if(attempt?.request!==request||attempt.completionPending)return;
+  attempt.completionPending=true;
+  const next=target.kind==='episode'?await attempt.next:null;
+  attempt.completionPending=false;
+  if(request!==playerRequestToken||currentView!=='player'||attempt.phase!=='ended'||$('#playerStage .player-next-prompt'))return;
+  const prompt=document.createElement('div');prompt.className='player-next-prompt';
+  const episode=target.kind==='episode';
+  prompt.innerHTML=`<b>${episode?'Серия завершена':'Просмотр завершён'}</b>${episode?`<span>${next?'Следующая: '+esc(playbackTargetLabel(next)):next===null?'Последняя серия завершена.':'Следующая серия пока недоступна.'}</span>`:''}${!episode||next?`<button type="button" class="small-btn gold" id="playerCompletionPrimary">${episode?'Следующая серия':'Смотреть сначала'}</button>`:''}<button type="button" class="small-btn" id="playerCompletionClose">${episode?'Закрыть':'Вернуться к фильму'}</button>`;
+  $('#playerStage').append(prompt);
+  const primary=prompt.querySelector('#playerCompletionPrimary');
+  if(primary)primary.onclick=()=>next?openPlaybackSourceSetup(next):startPlayer(target,activePlaybackSourceRef,{mode:'restart',autoplay:true});
+  prompt.querySelector('#playerCompletionClose').onclick=()=>{if(!episode){backFromPlayer();return}prompt.remove();activePlayerElement()?.focus({preventScroll:true})};
+  if($('#modalBg').classList.contains('hidden'))(primary||prompt.querySelector('button')).focus({preventScroll:true});
 }
 function destroyNativeLocalFileSession(){
-  const session=nativeLocalFileSession;if(!session||!session.active){nativeLocalFileSession=null;document.body.classList.remove('player-theater-active');return}clearTimeout(session.controlsTimer);session.active=false;session.listeners.splice(0).forEach(remove=>{try{remove()}catch(_){} });try{session.video.pause()}catch(_){}session.frame.classList.remove('native-local-pseudo-fullscreen');document.body.classList.remove('player-theater-active');session.frame.remove();URL.revokeObjectURL(session.objectUrl);nativeLocalFileSession=null;
+  const session=nativeLocalFileSession;if(!session||!session.active){nativeLocalFileSession=null;document.body.classList.remove('player-theater-active');return}clearTimeout(session.controlsTimer);session.active=false;session.listeners.splice(0).forEach(remove=>{try{remove()}catch(_){} });try{session.video.pause();session.video.removeAttribute('src');session.video.load()}catch(_){}session.frame.classList.remove('native-local-pseudo-fullscreen');document.body.classList.remove('player-theater-active');session.host.remove();URL.revokeObjectURL(session.objectUrl);nativeLocalFileSession=null;
 }
 function destroyActivePlayerMedia(){finishPlaybackProgressSession({flush:true});playerBackend.destroy();destroyNativeLocalFileSession()}
 function startNativeLocalFile(file,request){
@@ -1456,7 +1555,7 @@ function startNativeLocalFile(file,request){
   const session={active:true,request,host,frame,video,controls,objectUrl,status,listeners,controlsTimer:0,playButton:controls.querySelector('.native-local-play'),muteButton:controls.querySelector('.native-local-mute'),progress:controls.querySelector('.native-local-progress'),currentTime:controls.querySelector('.native-local-current'),duration:controls.querySelector('.native-local-duration'),volume:controls.querySelector('.native-local-volume'),fullscreenButton:controls.querySelector('.native-local-fullscreen')};nativeLocalFileSession=session;if(isIOSPlaybackDevice()){session.volume.hidden=true;session.volume.disabled=true;frame.classList.add('native-local-ios')}const listen=(target,type,handler)=>{target.addEventListener(type,handler);listeners.push(()=>target.removeEventListener(type,handler))};
   ['loadstart','loadedmetadata','loadeddata','canplay','canplaythrough','playing','pause','stalled','suspend','waiting','emptied'].forEach(type=>listen(video,type,()=>{if(session!==nativeLocalFileSession)return;updateNativeLocalControls(session);if(type==='loadedmetadata'||type==='canplay'||type==='playing')setNativeLocalStatus(session,'');if(type==='playing')scheduleNativeLocalControls(session);if(type==='pause')setNativeLocalControlsVisible(session,true)}));
   ['timeupdate','durationchange','volumechange','ended'].forEach(type=>listen(video,type,()=>{if(session===nativeLocalFileSession)updateNativeLocalControls(session)}));
-  listen(video,'error',()=>{if(session!==nativeLocalFileSession)return;const code=video.error?.code;setNativeLocalStatus(session,code===4?'Safari/браузер не смог открыть этот видеофайл. Попробуйте другой файл или формат.':code===3?'Safari/браузер не смог декодировать этот видеофайл. Попробуйте другой файл.':'Safari/браузер сообщил об ошибке локального видео. Попробуйте открыть файл снова.')});
+  listen(video,'error',()=>{if(session!==nativeLocalFileSession)return;const code=video.error?.code;handlePlayerBackendError(request,new Error(code===3?'Браузер не смог декодировать видеофайл.':'Браузер не смог открыть видеофайл. Проверьте файл и поддержку формата.'))});
   session.playButton.onclick=()=>toggleNativeLocalPlayback(session);controls.querySelector('.native-local-back').onclick=()=>seekNativeLocalFile(session,-PLAYER_SEEK_STEP);controls.querySelector('.native-local-forward').onclick=()=>seekNativeLocalFile(session,PLAYER_SEEK_STEP);session.muteButton.onclick=()=>{video.muted=!video.muted;updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true,{schedule:true})};session.progress.oninput=()=>{if(Number.isFinite(video.duration))video.currentTime=Math.max(0,Math.min(video.duration,Number(session.progress.value)||0));updateNativeLocalControls(session)};session.volume.oninput=()=>{try{video.muted=false;video.volume=Math.max(0,Math.min(1,Number(session.volume.value)));updateNativeLocalControls(session)}catch(_){session.volume.disabled=true;setNativeLocalStatus(session,'Громкость регулируется аппаратными кнопками устройства.')}};session.fullscreenButton.onclick=()=>toggleNativeLocalFullscreen(session);
   listen(video,'click',()=>setNativeLocalControlsVisible(session,controls.classList.contains('controls-hidden'),{schedule:true}));listen(controls,'click',event=>{event.stopPropagation();if(event.detail>0&&event.target.closest('button'))requestAnimationFrame(()=>video.focus({preventScroll:true}))});listen(controls,'focusin',()=>setNativeLocalControlsVisible(session,true));listen(controls,'focusout',()=>scheduleNativeLocalControls(session));listen(document,'fullscreenchange',()=>{if(session===nativeLocalFileSession){updateNativeLocalControls(session);setNativeLocalControlsVisible(session,true,{schedule:true})}});
   startPlaybackProgressSession(activePlaybackTarget,video,request);video.src=objectUrl;video.load();updateNativeLocalControls(session);requestAnimationFrame(()=>{if(request===playerRequestToken&&session===nativeLocalFileSession)session.playButton.focus({preventScroll:true})});
@@ -1489,13 +1588,13 @@ class VidstackMediaBackend{
     const updatePlayerLayout=()=>{layout.querySelectorAll('media-gesture[action^="seek:"]').forEach(gesture=>{const amount=Number(gesture.getAttribute('action').slice(5));if(amount&&Math.abs(amount)!==PLAYER_SEEK_STEP)gesture.setAttribute('action',`seek:${Math.sign(amount)*PLAYER_SEEK_STEP}`)});layout.querySelectorAll('[aria-label]').forEach(node=>{const label=node.getAttribute('aria-label')||'',remote=label.match(/^(AirPlay|Google Cast) (Connected|Connecting|Disconnected)$/),seek=label.match(/^(Назад на|Вперёд на) (\d+) sec$/);if(remote)node.setAttribute('aria-label',`${remote[1]} ${PLAYER_REMOTE_STATE_LABELS[remote[2]]}`);else if(seek)node.setAttribute('aria-label',`${seek[1]} ${seek[2]} секунд`)});layout.querySelectorAll('media-seek-button').forEach(button=>{const seconds=Number(button.getAttribute('seconds')),label=seconds?`${seconds<0?'Назад':'Вперёд'} на ${Math.abs(seconds)} секунд`:'';if(label&&button.getAttribute('aria-label')!==label)button.setAttribute('aria-label',label)})};
     this.layoutObserver=new MutationObserver(updatePlayerLayout);this.layoutObserver.observe(layout,{childList:true,subtree:true,attributes:true,attributeFilter:['action','aria-label']});updatePlayerLayout();
     this.listen(player,'provider-change',event=>{const mediaProvider=event.detail;if(mediaProvider?.type==='hls')mediaProvider.library=PINNED_HLS_LIBRARY});
-    const fail=event=>{if(this.player!==player)return;const detail=event.detail;if(event.type==='hls-error'&&detail&&!detail.fatal)return;const message=event.type==='hls-lib-load-error'?'HLS-модуль не загрузился.':'Источник видео недоступен или отклонён браузером.';this.onError?.(new Error(message))};
+    const fail=event=>{if(this.player!==player)return;const detail=event.detail;if(event.type==='hls-error'&&detail&&!detail.fatal||event.type==='play-fail'&&isAutoplayRestriction(detail))return;const message=event.type==='hls-lib-load-error'?'HLS-модуль не загрузился.':'Источник видео недоступен или отклонён браузером. Проверьте формат и CORS.';this.onError?.(new Error(message))};
     const ready=()=>{clearTimeout(this.loadTimer);this.loadTimer=0};
     this.listen(player,'error',fail);this.listen(player,'play-fail',fail);this.listen(player,'hls-lib-load-error',fail);this.listen(player,'hls-error',fail);
     this.listen(player,'can-play',ready);this.listen(player,'loaded-metadata',ready);this.listen(player,'playing',ready);
     host.replaceChildren(player);this.player=player;return true;
   }
-  attach(source){if(!this.player)throw new Error('Плеер не готов.');this.source=source;this.player.src=source.type?{src:source.src,type:source.type}:source.src;clearTimeout(this.loadTimer);this.loadTimer=setTimeout(()=>this.onError?.(new Error('Источник не ответил вовремя. Проверьте URL и CORS.')),15000)}
+  attach(source){if(!this.player)throw new Error('Плеер не готов.');this.source=source;clearTimeout(this.loadTimer);this.loadTimer=setTimeout(()=>this.onError?.(new Error('Источник не ответил вовремя. Проверьте URL и CORS.')),15000);this.player.src=source.type?{src:source.src,type:source.type}:source.src}
   destroy(){
     this.lifecycle++;clearTimeout(this.loadTimer);this.loadTimer=0;this.layoutObserver?.disconnect();this.layoutObserver=null;const player=this.player;this.player=null;this.listeners.splice(0).forEach(remove=>{try{remove()}catch(_){}});
     if(player){try{player.pause?.()}catch(_){}try{player.src=null}catch(_){}player.remove()}
@@ -1511,6 +1610,14 @@ function playerDetailModelForTarget(target){
   return {kind:'tmdb',libraryItem:null,mediaType:target.mediaType,tmdbId:target.tmdbId??null,title:target.title,original:'',year:target.year||'',rating:null,poster:target.poster||'',genres:[],overview:'Описание пока не добавлено.'};
 }
 function playerPanelEpisodeLabel(target){return target.kind==='episode'?playbackTargetLabel(target):''}
+function updatePlayerEpisodeProgress(){
+  if(currentView!=='player'||activePlaybackTarget?.kind!=='episode')return;
+  const season=Number($('#playerContentPanel').dataset.season),progress=normalizePlaybackProgress(state);
+  $$('#playerPanelEpisodes [data-episode]').forEach(button=>{
+    const key=playbackProgressKey({...activePlaybackTarget,seasonNumber:season,episodeNumber:Number(button.dataset.episode)}),entry=progress[key];
+    button.querySelector('.player-panel-progress').textContent=entry?.completed?'✓ Просмотрено':isPlaybackProgressResumable(entry)?'Продолжить · '+playbackClock(entry.currentTime):'';
+  });
+}
 function renderPlayerPanelSeason(model,target,request,seasonNumber){
   const panel=$('#playerContentPanel'),host=$('#playerPanelEpisodes'),season=Number(seasonNumber);if(!panel||!host||request!==playerRequestToken||currentView!=='player'||!Number.isSafeInteger(season)||season<=0)return;
   panel.dataset.season=String(season);panel.querySelectorAll('.player-panel-season').forEach(button=>{const selected=Number(button.dataset.season)===season;button.classList.toggle('selected',selected);button.setAttribute('aria-pressed',selected?'true':'false')});
@@ -1522,7 +1629,14 @@ function renderPlayerPanelSeason(model,target,request,seasonNumber){
     const episodes=(details.episodes||[]).filter(x=>Number.isSafeInteger(Number(x.episode_number))&&Number(x.episode_number)>0).sort((a,b)=>Number(a.episode_number)-Number(b.episode_number));
     host.innerHTML=episodes.map(x=>{const episodeNumber=Number(x.episode_number),title=typeof x.name==='string'?x.name.trim():'',current=target.kind==='episode'&&Number(target.seasonNumber)===season&&Number(target.episodeNumber)===episodeNumber;return `<button type="button" class="player-panel-episode${current?' current':''}" data-episode="${episodeNumber}" data-title="${esc(title)}" ${current?'aria-current="true"':''}><span class="player-panel-episode-code">${episodeCode(season,episodeNumber)}${title?' · '+esc(title):''}</span>${x.air_date?`<span class="player-panel-episode-meta">${esc(x.air_date)}</span>`:''}</button>`}).join('')||'<div class="player-panel-empty">TMDB не вернул список серий.</div>';
     const currentEpisode=episodes.find(x=>target.kind==='episode'&&Number(target.seasonNumber)===season&&Number(x.episode_number)===Number(target.episodeNumber)),overview=$('#playerPanelOverview');if(currentEpisode?.overview&&overview)overview.textContent=currentEpisode.overview;
-    host.querySelectorAll('.player-panel-episode').forEach(button=>button.onclick=()=>{const episodeNumber=Number(button.dataset.episode),episodeTitle=button.dataset.title||'',nextTarget=playbackTargetFromDetail(model,{seasonNumber:season,episodeNumber,episodeTitle});openPlaybackSourceSetup(nextTarget,{backFn:()=>{closeModal();requestAnimationFrame(()=>button.focus({preventScroll:true}))}})});
+    host.querySelectorAll('.player-panel-episode').forEach(button=>{
+      const badge=document.createElement('span');badge.className='player-panel-progress';button.append(badge);
+      button.onclick=()=>{
+        const nextTarget={...target,seasonNumber:season,episodeNumber:Number(button.dataset.episode),episodeTitle:button.dataset.title||''};
+        openPlaybackSourceSetup(nextTarget,{backFn:()=>{closeModal();requestAnimationFrame(()=>button.focus({preventScroll:true}))}});
+      };
+    });
+    updatePlayerEpisodeProgress();
     bindTonightSelectorNavigation(host);
   }).catch(err=>{if(request===playerRequestToken&&currentView==='player'&&host.dataset.key===key)host.innerHTML=`<div class="player-panel-empty">Серии пока недоступны: ${esc(err.message||String(err))}</div>`});
 }
@@ -1533,8 +1647,20 @@ function renderPlayerContentPanel(target,request){
     panel.innerHTML=`<div class="player-panel-inner"><div class="player-panel-movie"><div class="player-panel-poster" role="img" aria-label="Постер: ${esc(model.title)}" style="${model.poster?`background-image:url('${esc(model.poster)}')`:''}"></div><div><h2 class="player-panel-title">${esc(model.title)}</h2>${model.original&&norm(model.original)!==norm(model.title)?`<div class="player-panel-original">${esc(model.original)}</div>`:''}${facts?`<div class="player-panel-facts">${facts}</div>`:''}</div></div><p class="player-panel-overview">${esc(overview)}</p></div>`;return;
   }
   const seasons=playbackSeasonsForDetail(model),initialSeason=Number(target.seasonNumber)>0?Number(target.seasonNumber):Number(seasons[0]?.season_number)||0,episodeLabel=playerPanelEpisodeLabel(target);
-  panel.innerHTML=`<div class="player-panel-inner"><h2 class="player-panel-title">${esc(model.title)}</h2>${episodeLabel?`<div class="player-panel-episode-label">${esc(episodeLabel)}</div>`:''}<p class="player-panel-overview" id="playerPanelOverview">${esc(overview)}</p><h3 class="player-panel-section-title">Сезоны</h3><div class="player-panel-seasons" id="playerPanelSeasons">${seasons.map(x=>{const season=Number(x.season_number),current=Number(target.seasonNumber)===season;return `<button type="button" class="player-panel-season${current?' current':''}" data-season="${season}" aria-label="Сезон ${season}${x.episode_count!=null?`, ${x.episode_count} серий`:''}" aria-pressed="false">Сезон ${season}</button>`}).join('')||'<div class="player-panel-empty">Список сезонов пока недоступен.</div>'}</div><h3 class="player-panel-section-title">Серии</h3><div class="player-panel-episodes" id="playerPanelEpisodes"></div></div>`;
-  const seasonRoot=$('#playerPanelSeasons');seasonRoot?.querySelectorAll('.player-panel-season').forEach(button=>button.onclick=()=>renderPlayerPanelSeason(model,target,request,Number(button.dataset.season)));if(seasonRoot)bindTonightSelectorNavigation(seasonRoot);
+  panel.innerHTML=`<div class="player-panel-inner"><h2 class="player-panel-title">${esc(model.title)}</h2>${episodeLabel?`<div class="player-panel-episode-label">${esc(episodeLabel)}</div>`:''}<p class="player-panel-overview" id="playerPanelOverview">${esc(overview)}</p><h3 class="player-panel-section-title">Сезоны</h3><div class="player-panel-seasons" id="playerPanelSeasons"></div><h3 class="player-panel-section-title">Серии</h3><div class="player-panel-episodes" id="playerPanelEpisodes"></div></div>`;
+  const seasonRoot=$('#playerPanelSeasons');
+  const showSeasons=rows=>{
+    if(request!==playerRequestToken||currentView!=='player'||!seasonRoot.isConnected)return;
+    seasonRoot.innerHTML=rows.map(row=>{
+      const season=Number(row.season_number),current=Number(target.seasonNumber)===season,selected=Number(panel.dataset.season)===season;
+      return `<button type="button" class="player-panel-season${current?' current':''}${selected?' selected':''}" data-season="${season}" aria-pressed="${selected}">Сезон ${season}</button>`;
+    }).join('')||'<div class="player-panel-empty">Список сезонов пока недоступен.</div>';
+    seasonRoot.querySelectorAll('button').forEach(button=>button.onclick=()=>renderPlayerPanelSeason(model,target,request,Number(button.dataset.season)));
+    bindTonightSelectorNavigation(seasonRoot);
+  };
+  panel.dataset.season=String(initialSeason);
+  if(seasons.length||!model.tmdbId)showSeasons(seasons);
+  else getTmdbDetailsCached('tv',model.tmdbId).then(()=>showSeasons(playbackSeasonsForDetail(model))).catch(()=>showSeasons([]));
   if(initialSeason>0)renderPlayerPanelSeason(model,target,request,initialSeason);else $('#playerPanelEpisodes').innerHTML='<div class="player-panel-empty">Список серий пока недоступен.</div>';
 }
 function playbackTargetFromDetail(model,episode=null){
@@ -1542,17 +1668,47 @@ function playbackTargetFromDetail(model,episode=null){
   return {kind:episode?'episode':'movie',identityKey,mediaType:model.mediaType,title:model.title,year:model.year||'',poster:model.poster||'',libraryId:libraryId||undefined,tmdbId:tmdbId??undefined,seasonNumber:episode?.seasonNumber,episodeNumber:episode?.episodeNumber,episodeTitle:episode?.episodeTitle||''};
 }
 function playbackSeasonsForDetail(model){
-  const source=activeDetailDetails?.seasons||model.libraryItem?.seasons||[];
+  const matching=activeDetailDetails&&String(activeDetailDetails.id)===String(model.tmdbId)?activeDetailDetails:null;
+  const source=matching?.seasons||addDetailsCache.get(tmdbDetailsCacheKey('tv',model.tmdbId))?.seasons||model.libraryItem?.seasons||[];
   return source.filter(x=>Number.isSafeInteger(Number(x.season_number))&&Number(x.season_number)>0).sort((a,b)=>Number(a.season_number)-Number(b.season_number));
 }
 function openPlaybackSourceSetup(target,{backFn=closeModal}={}){
   const targetLine=target.kind==='episode'?`${target.title} · ${playbackTargetLabel(target)}`:target.title;
-  openSubModal('Встроенный плеер',`<p class="watch-query"><b>${esc(targetLine)}</b></p><div class="playback-source-form"><label>Ссылка на легальный или пользовательский поток<input type="url" id="playbackUrl" inputmode="url" autocomplete="off" placeholder="https://…/video.mp4"></label><label>Формат<select id="playbackFormat"><option value="auto">Определить автоматически</option><option value="hls">HLS (.m3u8)</option><option value="mp4">MP4</option><option value="webm">WebM</option></select></label><button type="button" class="small-btn gold" id="playbackOpenUrl">Открыть URL</button><div class="player-load-note">URL используется только в памяти этой вкладки и не попадает в список, backup или облачную синхронизацию.</div><label>Или локальный файл<input type="file" id="playbackFile" accept="video/*,.mov,.qt"></label><button type="button" class="small-btn" id="playbackOpenFile">Открыть файл</button><div class="warning-box hidden" id="playbackSetupError" role="alert"></div></div>`,backFn);
+  const key=playbackProgressKey(target),draft=playbackSourceDrafts.get(key);
+  openSubModal('Выберите источник',`<p class="watch-query" id="playbackSetupTarget"><b>${esc(targetLine)}</b></p><div class="playback-source-form"><fieldset><legend>Ссылка</legend><label>Адрес видео<input type="url" id="playbackUrl" inputmode="url" autocomplete="off" placeholder="https://…/video.mp4"></label><label>Формат<select id="playbackFormat"><option value="auto">Определить автоматически</option><option value="hls">HLS (.m3u8)</option><option value="mp4">MP4</option><option value="webm">WebM</option></select></label><button type="button" class="small-btn gold" id="playbackOpenUrl">Открыть</button></fieldset><fieldset><legend>Локальный файл</legend><label>Выберите видео<input type="file" id="playbackFile" accept="video/*,.mov,.qt"></label><button type="button" class="small-btn" id="playbackOpenFile">Открыть файл</button></fieldset>${playbackProgressForTarget(target)?'<button type="button" class="small-btn" id="playerResetProgress">Сбросить прогресс</button>':''}<div class="warning-box hidden" id="playbackSetupError" role="alert"></div></div>`,backFn);
+  const input=$('#playbackUrl'),format=$('#playbackFormat');
+  input.value=draft?.url||'';format.value=draft?.format||'auto';
+  const remember=()=>{if(key)playbackSourceDrafts.set(key,{url:input.value,format:format.value})};
+  input.oninput=remember;format.onchange=remember;
   const report=message=>{const box=$('#playbackSetupError');box.textContent=message;box.classList.remove('hidden')};
-  $('#playbackOpenUrl').onclick=()=>{const url=$('#playbackUrl').value,format=$('#playbackFormat').value;try{playbackSafeUrl(url);startPlayer(target,{kind:'user-url',url,format})}catch(err){report(err.message)}};
-  $('#playbackOpenFile').onclick=()=>{const file=$('#playbackFile').files?.[0];if(!file){report('Сначала выберите видеофайл.');return}startPlayer(target,{kind:'local-file',file})};
-  $('#playbackUrl').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#playbackOpenUrl').click()}};
-  requestAnimationFrame(()=>$('#playbackUrl')?.focus());
+  $('#playbackOpenUrl').onclick=()=>{remember();try{const url=playbackSafeUrl(input.value);choosePlaybackPosition(target,{kind:'user-url',url,format:format.value},backFn)}catch(err){report(err.message)}};
+  $('#playbackOpenFile').onclick=()=>{const file=$('#playbackFile').files?.[0];if(!file){report('Сначала выберите видеофайл.');return}choosePlaybackPosition(target,{kind:'local-file',file},backFn)};
+  const reset=$('#playerResetProgress');
+  if(reset)reset.onclick=()=>{
+    if(!confirm('Сбросить прогресс этой позиции?'))return;
+    if(playbackProgressSession?.key===key){
+      playbackProgressSession.lastStoredAt=Date.now();
+      playbackProgressSession.resetAt=playbackMediaSnapshot(playbackProgressSession.media).currentTime;
+    }
+    if(playbackProgressKey(activePlaybackTarget)===key&&playerAttempt)playerAttempt.decision={mode:'fresh'};
+    clearPlayerTargetProgress(key,'playback-reset');reset.hidden=true;input.focus();
+  };
+  input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#playbackOpenUrl').click()}};
+  requestAnimationFrame(()=>{if(input.isConnected&&!$('#modalBg').classList.contains('hidden'))input.focus()});
+}
+function choosePlaybackPosition(target,sourceRef,backFn){
+  const key=playbackProgressKey(target);
+  if(currentView==='player'&&playerAttempt&&playbackProgressKey(activePlaybackTarget)===key){
+    startPlayer(target,sourceRef,playerAttempt.decision);return;
+  }
+  const progress=resumablePlaybackProgress(target);
+  if(!progress){startPlayer(target,sourceRef);return}
+  const label=target.kind==='episode'?`${target.title} · ${playbackTargetLabel(target)}`:target.title;
+  openSubModal('Продолжить просмотр?',`<p class="watch-query">${esc(label)}</p><div class="playback-source-actions"><button type="button" class="small-btn gold" id="playerResume">Продолжить с ${playbackClock(progress.currentTime)}</button><button type="button" class="small-btn" id="playerRestart">Смотреть сначала</button></div>`,()=>openPlaybackSourceSetup(target,{backFn}));
+  const resume=$('#playerResume');
+  resume.onclick=()=>startPlayer(target,sourceRef,{mode:'resume',position:progress.currentTime,autoplay:true});
+  $('#playerRestart').onclick=()=>startPlayer(target,sourceRef,{mode:'restart',autoplay:true});
+  resume.focus();
 }
 function openPlayerEpisodeSelector(model,{initialFocusId=''}={}){
   const seasons=playbackSeasonsForDetail(model),buttons=seasons.map(x=>`<button type="button" class="small-btn player-season-choice" id="playerSeason${Number(x.season_number)}" data-season="${Number(x.season_number)}"><span class="episode-choice-main">Сезон ${Number(x.season_number)}</span><span class="episode-choice-meta">${esc(x.episode_count??'—')} серий</span></button>`).join('');
@@ -1577,28 +1733,74 @@ async function openPlayerSeasonEpisodes(model,seasonNumber,returnFocusId=''){
 }
 function openPlaybackForDetail(model){capturePlayerOrigin();if(model.mediaType==='tv')openPlayerEpisodeSelector(model);else openPlaybackSourceSetup(playbackTargetFromDetail(model))}
 function renderPlayerState(title,message,actions=''){$('#playerStage').innerHTML=`<div class="player-state"><h1>${esc(title)}</h1><p>${esc(message)}</p>${actions?`<div class="player-state-actions">${actions}</div>`:''}</div>`}
-function setPlayerHeader(target){const resume=resumablePlaybackProgress(target);$('#playerTitle').textContent=target.title;$('#playerSubtitle').textContent=`${playbackTargetLabel(target)}${resume?' · Продолжение с '+playbackClock(resume.currentTime):''}`}
+function playerSourceLabel(ref,source){
+  if(ref.kind==='local-file')return 'Локальный файл';
+  if(ref.kind==='hls'||ref.format==='hls'||source?.kind==='hls')return 'HLS';
+  const type=source?.type||'';
+  if(type==='video/webm'||ref.format==='webm')return 'WebM';
+  if(ref.format==='mp4'||type==='video/mp4'&&/\.mp4(?:$|[?#])/i.test(source?.src||''))return 'MP4';
+  return 'Авто / прямая ссылка';
+}
+function setPlayerHeader(target,label){
+  $('#playerTitle').textContent=target.title;
+  $('#playerSubtitle').textContent=`${playbackTargetLabel(target)} · ${label}`;
+}
 function capturePlayerOrigin(){if(currentView!=='detail')return;const focus=document.activeElement;pendingPlayerOrigin={sourceView:'detail',scrollY:window.scrollY,focusId:focus?.id||'detailPlay',descriptor:activeDetailDescriptor?Object.assign({},activeDetailDescriptor):null}}
 function capturePlayerNavigation(){if(playerNavState)return;if(pendingPlayerOrigin){playerNavState=Object.assign({},pendingPlayerOrigin);return}if(currentView==='detail')capturePlayerOrigin();playerNavState=pendingPlayerOrigin?Object.assign({},pendingPlayerOrigin):null}
-async function startPlayer(target,sourceRef){
-  capturePlayerNavigation();const request=++playerRequestToken;destroyActivePlayerMedia();activePlaybackTarget=target;activePlaybackSourceRef=sourceRef;closeModal({route:false});showView('player',{restore:true,scrollTop:false});setPlayerHeader(target);renderPlayerState('Подготовка плеера','Загружаю выбранный источник…');renderPlayerContentPanel(target,request);playerRemoteController.activate();
+async function startPlayer(target,sourceRef,decision={mode:'fresh'}){
+  capturePlayerNavigation();
+  const request=++playerRequestToken;
+  destroyActivePlayerMedia();
+  const attempt={request,decision,phase:'loading'};
+  playerAttempt=attempt;activePlaybackTarget=target;activePlaybackSourceRef=sourceRef;
+  closeModal({route:false});showView('player',{restore:true,scrollTop:false});playerRemoteController.activate();
+  const showLoading=source=>{
+    const label=playerSourceLabel(sourceRef,source);
+    setPlayerHeader(target,label);
+    renderPlayerState('Открываю видео',`${target.title} · ${playbackTargetLabel(target)} · ${label}`);
+  };
+  const addLoadingOverlay=()=>{
+    if(request!==playerRequestToken||attempt.phase!=='loading')return;
+    const status=document.createElement('div');
+    status.className='player-opening';status.setAttribute('role','status');
+    status.textContent=`Открываю ${target.title} · ${$('#playerSubtitle').textContent}`;
+    $('#playerStage').append(status);
+  };
+  showLoading();renderPlayerContentPanel(target,request);preparePlayerEpisodeNavigation(target,attempt);
   try{
-    if(sourceRef?.kind==='local-file'){startNativeLocalFile(sourceRef.file,request);return}
+    if(sourceRef?.kind==='local-file'){startNativeLocalFile(sourceRef.file,request);addLoadingOverlay();return}
     const source=await resolvePlaybackSource(sourceRef,target);if(request!==playerRequestToken){source.cleanup?.();return}
-    const host=document.createElement('div');host.className='player-media-host';$('#playerStage').replaceChildren(host);
-    const created=await playerBackend.create(host,target,{onError:error=>handlePlayerBackendError(request,error)});if(request!==playerRequestToken||!created){source.cleanup?.();playerBackend.destroy();return}
-    playerBackend.attach(source);startPlaybackProgressSession(target,playerBackend.player,request);requestAnimationFrame(()=>playerBackend.player?.focus({preventScroll:true}));
-  }catch(err){if(request!==playerRequestToken)return;destroyActivePlayerMedia();renderPlayerFailure(err)}
+    showLoading(source);
+    const host=document.createElement('div');host.className='player-media-host';
+    const created=await playerBackend.create(host,target,{onError:error=>handlePlayerBackendError(request,error)});
+    if(request!==playerRequestToken||!created){source.cleanup?.();return}
+    const player=playerBackend.player;
+    $('#playerStage').replaceChildren(host);
+    startPlaybackProgressSession(target,player,request);
+    playerBackend.attach(source);
+    addLoadingOverlay();
+    requestAnimationFrame(()=>{if(request===playerRequestToken&&playerBackend.player===player&&$('#modalBg').classList.contains('hidden'))player.focus({preventScroll:true})});
+  }catch(err){
+    const message=err?.message==='Компоненты плеера не загрузились. Проверьте соединение и повторите.'?err.message:'Источник недоступен. Проверьте адрес, CORS и поддержку формата.';
+    handlePlayerBackendError(request,new Error(message));
+  }
 }
-function handlePlayerBackendError(request,error){if(request!==playerRequestToken||currentView!=='player')return;destroyActivePlayerMedia();renderPlayerFailure(error||new Error('Видео не удалось воспроизвести. Проверьте URL, CORS и формат потока.'))}
+function handlePlayerBackendError(request,error){
+  if(request!==playerRequestToken||currentView!=='player'||playerAttempt?.phase==='error')return;
+  if(playerAttempt)playerAttempt.phase='error';
+  destroyActivePlayerMedia();renderPlayerFailure(error);
+}
 function renderPlayerFailure(error){
-  const message=error?.message&&!/https?:\/\//i.test(error.message)?error.message:'Источник недоступен. Проверьте адрес, CORS и поддержку формата.';
-  renderPlayerState('Не удалось открыть видео',message,'<button type="button" class="small-btn gold" id="playerRetry">Повторить</button><button type="button" class="small-btn" id="playerPickAgain">Другой источник</button>');
-  $('#playerRetry').onclick=()=>{if(activePlaybackTarget&&activePlaybackSourceRef)startPlayer(activePlaybackTarget,activePlaybackSourceRef)};$('#playerPickAgain').onclick=()=>openPlaybackSourceSetup(activePlaybackTarget,{backFn:closeModal});requestAnimationFrame(()=>$('#playerRetry')?.focus());
+  renderPlayerState('Не удалось открыть видео',error.message,'<button type="button" class="small-btn gold" id="playerRetry">Повторить</button><button type="button" class="small-btn" id="playerPickAgain">Другой источник</button><button type="button" class="small-btn" id="playerFailureBack">Назад</button>');
+  const retry=$('#playerRetry');
+  retry.onclick=()=>{if(activePlaybackTarget&&activePlaybackSourceRef)startPlayer(activePlaybackTarget,activePlaybackSourceRef,playerAttempt?.decision)};
+  $('#playerPickAgain').onclick=()=>openPlaybackSourceSetup(activePlaybackTarget);
+  $('#playerFailureBack').onclick=backFromPlayer;
+  requestAnimationFrame(()=>{if(retry.isConnected&&$('#modalBg').classList.contains('hidden'))retry.focus()});
 }
-function abandonPlayerView(){playerRequestToken++;playerEpisodeRequest++;destroyActivePlayerMedia();playerRemoteController.deactivate();playerNavState=null;pendingPlayerOrigin=null;activePlaybackTarget=null;activePlaybackSourceRef=null;document.body.classList.remove('player-active')}
+function abandonPlayerView(){playerRequestToken++;playerEpisodeRequest++;destroyActivePlayerMedia();playerRemoteController.deactivate();playerNavState=null;pendingPlayerOrigin=null;activePlaybackTarget=null;activePlaybackSourceRef=null;playerAttempt=null;document.body.classList.remove('player-active')}
 function backFromPlayer(){
-  if(currentView!=='player')return;const snapshot=playerNavState;playerRequestToken++;destroyActivePlayerMedia();playerRemoteController.deactivate();activePlaybackTarget=null;activePlaybackSourceRef=null;playerNavState=null;pendingPlayerOrigin=null;
+  if(currentView!=='player')return;const snapshot=playerNavState;playerRequestToken++;destroyActivePlayerMedia();playerRemoteController.deactivate();activePlaybackTarget=null;activePlaybackSourceRef=null;playerAttempt=null;playerNavState=null;pendingPlayerOrigin=null;
   if(!snapshot){showView('home',{restore:true,scrollTop:false,playerBack:true});return}
   if(snapshot.sourceView==='home'){showView('home',{restore:true,scrollTop:false,playerBack:true});requestAnimationFrame(()=>{window.scrollTo({top:snapshot.scrollY,behavior:'auto'});const focus=snapshot.focusId&&$('#'+snapshot.focusId)||$('#continueCarousel .continue-open');focus?.focus({preventScroll:true})});return}
   showView('detail',{restore:true,scrollTop:false,playerBack:true});requestAnimationFrame(()=>{window.scrollTo({top:snapshot.scrollY,behavior:'auto'});const focus=snapshot.focusId&&$('#'+snapshot.focusId)||$('#detailBack');focus?.focus({preventScroll:true})});
@@ -1632,7 +1834,8 @@ const playerRemoteController={
       if(e.key==='ArrowDown'){e.preventDefault();e.stopImmediatePropagation();const first=[...player.querySelectorAll('media-play-button,media-mute-button,media-time-slider,media-volume-slider,media-menu-button,media-pip-button,media-fullscreen-button')].find(x=>x.getClientRects().length&&getComputedStyle(x).visibility!=='hidden');(first||$('#playerChangeSource'))?.focus();return}
     }
     if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){
-      const controls=[$('#playerBack'),player,$('#playerChangeSource')].filter(Boolean),index=controls.indexOf(document.activeElement);if(index<0)return;e.preventDefault();const step=e.key==='ArrowRight'||e.key==='ArrowDown'?1:-1;controls[(index+step+controls.length)%controls.length].focus();
+      if(!$('#modalBg').classList.contains('hidden'))return;
+      const controls=[$('#playerBack'),...$$('#playerEpisodeActions button:not(.hidden)'),$('#playerChangeSource'),player,...$$('#playerStage .player-state-actions button,#playerStage .player-next-prompt button')].filter(Boolean),index=controls.indexOf(document.activeElement);if(index<0)return;e.preventDefault();const step=e.key==='ArrowRight'||e.key==='ArrowDown'?1:-1;controls[(index+step+controls.length)%controls.length].focus();
     }
   }
 };
