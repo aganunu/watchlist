@@ -614,9 +614,107 @@ async function main() {
       assert.deepEqual(await page.evaluate(()=>[activePlayerElement().currentTime,resumablePlaybackProgress(fixtureTarget)]),[0,null]);
       await page.locator('#playerChangeSource').click();await chooseUrl(page,'https://media.example.test/replacement.webm');
       await page.waitForFunction(()=>activePlayerElement()?.fixtureSource?.type==='video/webm');
-      assert.equal(await page.evaluate(()=>playerAttempt.decision.mode),'restart');
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),0);
       assert.match(await page.locator('#playerSubtitle').innerText(),/WebM/);
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+      await app.close();
+    });
+
+    for(const [mode,position] of [['resume',70],['fresh',45],['restart',50]]){
+      await run(`same-target source change restores the current position after ${mode}`,async()=>{
+        const app=await playerApp(),{page}=app;
+        await page.evaluate(mode=>{
+          if(mode!=='fresh')fixtureSeed(fixtureTarget);
+          openPlaybackSourceSetup(fixtureTarget);
+        },mode);
+        await chooseUrl(page);
+        if(mode!=='fresh')await page.locator(mode==='resume'?'#playerResume':'#playerRestart').click();
+        await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+        await page.evaluate(()=>fixtureSignal('can-play'));
+        assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),mode==='resume'?34:0);
+        await page.evaluate(position=>{activePlayerElement().currentTime=position},position);
+        await page.locator('#playerChangeSource').click();await chooseUrl(page,'https://media.example.test/replacement.webm');
+        await page.waitForFunction(()=>activePlayerElement()?.fixtureSource?.type==='video/webm');
+        assert.equal(await page.locator('#playerResume:visible').count(),0);
+        await page.evaluate(()=>fixtureSignal('can-play'));
+        assert.deepEqual(await page.evaluate(()=>[activePlayerElement().currentTime,playbackProgressForTarget(fixtureTarget)?.currentTime]),[position,position]);
+        await app.close();
+      });
+    }
+
+    await run('Retry before readiness restores the original resume and leaves the old progress intact',async()=>{
+      const app=await playerApp(),{page}=app;
+      await page.evaluate(()=>{fixtureSeed(fixtureTarget);openPlaybackSourceSetup(fixtureTarget)});
+      await chooseUrl(page);await page.locator('#playerResume').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>fixtureSignal('error'));
+      assert.equal(await page.evaluate(()=>playbackProgressForTarget(fixtureTarget).currentTime),34);
+      await page.locator('#playerRetry').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),34);
+      await app.close();
+    });
+
+    await run('Retry after playback uses a valid checkpoint even if the failed media cleared its clock',async()=>{
+      const app=await playerApp(),{page}=app;
+      await page.evaluate(()=>{fixtureSeed(fixtureTarget);openPlaybackSourceSetup(fixtureTarget)});
+      await chooseUrl(page);await page.locator('#playerResume').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>{
+        fixtureSignal('can-play');fixtureSignal('timeupdate',55);fixtureSignal('timeupdate',70);
+        const media=activePlayerElement();media.duration=NaN;media.currentTime=0;
+        fixtureSignal('error');
+      });
+      assert.equal(await page.evaluate(()=>playbackProgressForTarget(fixtureTarget).currentTime),70);
+      await page.locator('#playerRetry').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),70);
+      await app.close();
+    });
+
+    await run('episode replacement keeps targets separate and ignores late events from retired media',async()=>{
+      const app=await playerApp(),{page}=app;
+      await page.evaluate(()=>openPlaybackSourceSetup(fixtureEpisode));
+      await chooseUrl(page);await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>{fixtureSignal('can-play');activePlayerElement().currentTime=73;window.retiredMedia=activePlayerElement()});
+      await page.getByRole('button',{name:'Следующая серия →',exact:true}).click();
+      await chooseUrl(page,'https://media.example.test/next.webm');
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource?.type==='video/webm');
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),0);
+      await page.evaluate(()=>{
+        fixtureSignal('timeupdate',46);
+        retiredMedia.currentTime=110;
+        for(const type of ['can-play','timeupdate','pause','error','ended'])retiredMedia.dispatchEvent(new Event(type));
+        fixtureSignal('error');
+      });
+      await page.locator('#playerRetry').click();
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.deepEqual(await page.evaluate(()=>[activePlayerElement().currentTime,activePlaybackTarget.episodeNumber,playbackProgressForTarget(fixtureEpisode).currentTime]),[46,3,73]);
+      await app.close();
+    });
+
+    await run('replacement clamps recovery to the new duration and reset clears cached recovery',async()=>{
+      const app=await playerApp(),{page}=app;
+      await page.evaluate(()=>openPlaybackSourceSetup(fixtureTarget));
+      await chooseUrl(page);await page.waitForFunction(()=>activePlayerElement()?.fixtureSource);
+      await page.evaluate(()=>{fixtureSignal('can-play');fixtureSignal('timeupdate',70)});
+      await page.locator('#playerChangeSource').click();await chooseUrl(page,'https://media.example.test/short.webm');
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource?.type==='video/webm');
+      await page.evaluate(()=>{activePlayerElement().duration=40;fixtureSignal('can-play')});
+      assert.equal(await page.evaluate(()=>activePlayerElement().currentTime),39);
+      await page.locator('#playerChangeSource').click();
+      page.once('dialog',dialog=>dialog.accept());
+      await page.locator('#playerResetProgress').click();
+      await page.evaluate(()=>fixtureSignal('pause'));
+      await chooseUrl(page,'https://media.example.test/after-reset.mp4');
+      await page.waitForFunction(()=>activePlayerElement()?.fixtureSource?.type==='video/mp4');
+      await page.evaluate(()=>fixtureSignal('can-play'));
+      assert.deepEqual(await page.evaluate(()=>[activePlayerElement().currentTime,playbackProgressForTarget(fixtureTarget)]),[0,null]);
       await app.close();
     });
 

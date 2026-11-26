@@ -1418,6 +1418,19 @@ function exitNativeLocalPseudoFullscreen(){const session=nativeLocalFileSession;
 function playbackMediaSnapshot(media){
   const currentTime=Number(media?.currentTime),duration=Number(media?.duration);return {currentTime:Number.isFinite(currentTime)&&currentTime>=0?currentTime:0,duration:Number.isFinite(duration)&&duration>0?duration:0};
 }
+function capturePlaybackCheckpoint(session){
+  if(!session?.ready||!session.resumeApplied||session.resetAt!=null)return null;
+  const currentTime=session.media.currentTime,duration=session.media.duration;
+  if(Number.isFinite(currentTime)&&currentTime>=0&&Number.isFinite(duration)&&duration>0){
+    session.checkpoint={currentTime:Math.min(currentTime,duration),duration};
+  }
+  return session.checkpoint||null;
+}
+function playerRecoveryPosition(attempt){
+  const session=playbackProgressSession;
+  if(session?.attempt!==attempt||session.request!==playerRequestToken)return attempt.recoveryPosition;
+  return capturePlaybackCheckpoint(session)?.currentTime??attempt.recoveryPosition;
+}
 function playbackProgressEntry(target,currentTime,duration,{completed=false}={}){
   const entry={kind:target.kind,identityKey:target.identityKey,mediaType:target.mediaType,currentTime,duration,updatedAt:Date.now(),completed:!!completed,title:target.title||'',year:target.year||'',poster:target.poster||''};
   if(target.libraryId)entry.libraryId=target.libraryId;if(target.tmdbId!=null)entry.tmdbId=String(target.tmdbId);
@@ -1425,12 +1438,16 @@ function playbackProgressEntry(target,currentTime,duration,{completed=false}={})
   return entry;
 }
 function persistPlaybackProgress({force=false,ended=false}={}){
-  const session=playbackProgressSession;if(!session?.ready||!session.resumeApplied||!force&&session.request!==playerRequestToken)return false;const now=Date.now(),snapshot=playbackMediaSnapshot(session.media);
-  if(!snapshot.duration)return false;if(!force&&now-session.lastStoredAt<PLAYBACK_SAVE_THROTTLE_MS)return false;
+  const session=playbackProgressSession;
+  if(!session?.ready||!session.resumeApplied||!force&&session.request!==playerRequestToken)return false;
+  const now=Date.now();
   if(session.resetAt!=null){
-    if(Math.abs(snapshot.currentTime-session.resetAt)<1||session.media.paused&&!ended)return false;
+    const time=session.media.currentTime;
+    if(force||!Number.isFinite(time)||Math.abs(time-session.resetAt)<1||session.media.paused)return false;
     session.resetAt=null;
   }
+  const snapshot=capturePlaybackCheckpoint(session);
+  if(!snapshot||!force&&now-session.lastStoredAt<PLAYBACK_SAVE_THROTTLE_MS)return false;
   const completed=isPlaybackProgressComplete(snapshot.currentTime,snapshot.duration,{ended:ended||session.finished}),key=session.key;
   if(snapshot.currentTime<playbackResumeMinimum(snapshot.duration)&&!completed)return false;
   const previous=normalizePlaybackProgress(state)[key];if(force&&previous&&Math.abs(previous.currentTime-snapshot.currentTime)<.5&&Math.abs(previous.duration-snapshot.duration)<.5&&previous.completed===completed&&now-previous.updatedAt<1200)return false;
@@ -1445,12 +1462,13 @@ function clearPlayerTargetProgress(key,reason){
 }
 function applyPlaybackResume(session){
   if(session!==playbackProgressSession||!session.ready||session.resumeApplied||session.request!==playerRequestToken)return;
-  const decision=session.decision;
-  if(decision.mode==='resume'){
+  const {decision,recoveryPosition}=session.attempt;
+  const position=recoveryPosition??(decision.mode==='resume'?decision.position:null);
+  if(position!=null&&position>0){
     const {duration}=playbackMediaSnapshot(session.media);
     if(!duration)return;
-    try{session.media.currentTime=Math.min(decision.position,Math.max(0,duration-1))}catch(_){return}
-  }else if(decision.mode==='restart'&&!decision.applied){
+    try{session.media.currentTime=Math.min(position,Math.max(0,duration-1))}catch(_){return}
+  }else if(recoveryPosition==null&&decision.mode==='restart'&&!decision.applied){
     clearPlayerTargetProgress(session.key,'playback-restart');
     decision.applied=true;
   }
@@ -1463,7 +1481,7 @@ function applyPlaybackResume(session){
 function startPlaybackProgressSession(target,media,request){
   finishPlaybackProgressSession({flush:true});const key=playbackProgressKey(target);if(!key||!media)return;
   const attempt=playerAttempt;
-  const session={target:{...target},media,request,key,decision:attempt?.decision||{mode:'fresh'},ready:false,resumeApplied:false,lastStoredAt:0,completed:false,finished:false,listeners:[],timer:0};playbackProgressSession=session;
+  const session={target:{...target},media,request,key,attempt,ready:false,resumeApplied:false,lastStoredAt:0,completed:false,finished:false,listeners:[],timer:0};playbackProgressSession=session;
   const listen=(type,handler)=>{media.addEventListener(type,handler);session.listeners.push(()=>media.removeEventListener(type,handler))};
   const ready=()=>{
     if(request!==playerRequestToken)return;
@@ -1689,8 +1707,12 @@ function openPlaybackSourceSetup(target,{backFn=closeModal}={}){
     if(playbackProgressSession?.key===key){
       playbackProgressSession.lastStoredAt=Date.now();
       playbackProgressSession.resetAt=playbackMediaSnapshot(playbackProgressSession.media).currentTime;
+      playbackProgressSession.checkpoint=null;
     }
-    if(playbackProgressKey(activePlaybackTarget)===key&&playerAttempt)playerAttempt.decision={mode:'fresh'};
+    if(playbackProgressKey(activePlaybackTarget)===key&&playerAttempt){
+      playerAttempt.decision={mode:'fresh'};
+      playerAttempt.recoveryPosition=null;
+    }
     clearPlayerTargetProgress(key,'playback-reset');reset.hidden=true;input.focus();
   };
   input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#playbackOpenUrl').click()}};
@@ -1699,7 +1721,7 @@ function openPlaybackSourceSetup(target,{backFn=closeModal}={}){
 function choosePlaybackPosition(target,sourceRef,backFn){
   const key=playbackProgressKey(target);
   if(currentView==='player'&&playerAttempt&&playbackProgressKey(activePlaybackTarget)===key){
-    startPlayer(target,sourceRef,playerAttempt.decision);return;
+    startPlayer(target,sourceRef,playerAttempt.decision,playerRecoveryPosition(playerAttempt));return;
   }
   const progress=resumablePlaybackProgress(target);
   if(!progress){startPlayer(target,sourceRef);return}
@@ -1747,11 +1769,11 @@ function setPlayerHeader(target,label){
 }
 function capturePlayerOrigin(){if(currentView!=='detail')return;const focus=document.activeElement;pendingPlayerOrigin={sourceView:'detail',scrollY:window.scrollY,focusId:focus?.id||'detailPlay',descriptor:activeDetailDescriptor?Object.assign({},activeDetailDescriptor):null}}
 function capturePlayerNavigation(){if(playerNavState)return;if(pendingPlayerOrigin){playerNavState=Object.assign({},pendingPlayerOrigin);return}if(currentView==='detail')capturePlayerOrigin();playerNavState=pendingPlayerOrigin?Object.assign({},pendingPlayerOrigin):null}
-async function startPlayer(target,sourceRef,decision={mode:'fresh'}){
+async function startPlayer(target,sourceRef,decision={mode:'fresh'},recoveryPosition=null){
   capturePlayerNavigation();
   const request=++playerRequestToken;
   destroyActivePlayerMedia();
-  const attempt={request,decision,phase:'loading'};
+  const attempt={request,decision,recoveryPosition,phase:'loading'};
   playerAttempt=attempt;activePlaybackTarget=target;activePlaybackSourceRef=sourceRef;
   closeModal({route:false});showView('player',{restore:true,scrollTop:false});playerRemoteController.activate();
   const showLoading=source=>{
@@ -1787,13 +1809,16 @@ async function startPlayer(target,sourceRef,decision={mode:'fresh'}){
 }
 function handlePlayerBackendError(request,error){
   if(request!==playerRequestToken||currentView!=='player'||playerAttempt?.phase==='error')return;
-  if(playerAttempt)playerAttempt.phase='error';
+  if(playerAttempt){
+    playerAttempt.recoveryPosition=playerRecoveryPosition(playerAttempt);
+    playerAttempt.phase='error';
+  }
   destroyActivePlayerMedia();renderPlayerFailure(error);
 }
 function renderPlayerFailure(error){
   renderPlayerState('Не удалось открыть видео',error.message,'<button type="button" class="small-btn gold" id="playerRetry">Повторить</button><button type="button" class="small-btn" id="playerPickAgain">Другой источник</button><button type="button" class="small-btn" id="playerFailureBack">Назад</button>');
   const retry=$('#playerRetry');
-  retry.onclick=()=>{if(activePlaybackTarget&&activePlaybackSourceRef)startPlayer(activePlaybackTarget,activePlaybackSourceRef,playerAttempt?.decision)};
+  retry.onclick=()=>{if(activePlaybackTarget&&activePlaybackSourceRef)startPlayer(activePlaybackTarget,activePlaybackSourceRef,playerAttempt?.decision,playerAttempt?.recoveryPosition)};
   $('#playerPickAgain').onclick=()=>openPlaybackSourceSetup(activePlaybackTarget);
   $('#playerFailureBack').onclick=backFromPlayer;
   requestAnimationFrame(()=>{if(retry.isConnected&&$('#modalBg').classList.contains('hidden'))retry.focus()});
@@ -3014,7 +3039,11 @@ $('#detailBack').onclick=backFromDetailPage;
 $('#playerBack').onclick=backFromPlayer;
 $('#playerChangeSource').onclick=()=>{if(activePlaybackTarget)openPlaybackSourceSetup(activePlaybackTarget,{backFn:closeModal})};
 document.addEventListener('fullscreenchange',()=>{if(currentView==='player'&&!document.fullscreenElement)playerFullscreenExitedAt=performance.now()});
-window.addEventListener('pagehide',()=>{if(currentView==='player'){playerRequestToken++;destroyActivePlayerMedia();playerRemoteController.deactivate()}});
+window.addEventListener('pagehide',()=>{
+  if(currentView!=='player')return;
+  if(playerAttempt)playerAttempt.recoveryPosition=playerRecoveryPosition(playerAttempt);
+  playerRequestToken++;destroyActivePlayerMedia();playerRemoteController.deactivate();
+});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&currentView==='player')persistPlaybackProgress({force:true})});
 window.addEventListener('pageshow',()=>{if(currentView==='player'&&!activePlayerElement()){playerRemoteController.activate();renderPlayerFailure(new Error('Воспроизведение остановлено после выхода со страницы.'))}});
 document.addEventListener('keydown',e=>{

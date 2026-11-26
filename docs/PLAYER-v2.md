@@ -2,7 +2,9 @@
 
 Playback uses the existing target identity. A movie uses `movie|identityKey`, and an episode uses `episode|identityKey|seasonNumber|episodeNumber`. The identity comes from the library item or confirmed TMDB reference. Episode titles are display metadata. The existing progress entries retain their time, duration, completion flag and update timestamp. Continue Watching shows resumable entries, newest first.
 
-After source selection, resumable entries offer **Продолжить с …** or **Смотреть сначала**. A restart keeps the previous position until the new media can play. Retry and same-target source replacement reuse the launch decision. A completed entry opens without a resume question.
+After source selection, resumable entries offer **Продолжить с …** or **Смотреть сначала**. The initial launch decision stays separate from the current media position. A restart clears old progress once, when media can play. Before readiness, Retry keeps the launch decision and any recovery position already carried over from an earlier source. After readiness, same-target replacement and Retry capture the current position before teardown and use it when the new media is ready. If the failed media no longer exposes a valid clock, Retry uses its last valid checkpoint. The seek is bounded by the new duration.
+
+A different episode or movie uses its own progress. Explicit reset clears the selected target and the current attempt's recovery position, and the outgoing media must advance again before it can write fresh progress. A completed entry opens without a resume question.
 
 Each media attempt uses the existing request token. Its runtime state tracks loading, ready, playing, paused, ended and error. The source and resume dialogs precede media creation. Leaving the player or replacing media invalidates pending work and removes media listeners. The native local-file path revokes the object URL during teardown. Vidstack and pinned hls.js continue to handle remote streams and available HLS quality levels.
 
